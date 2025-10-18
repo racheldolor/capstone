@@ -45,6 +45,57 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $certification = isset($_POST["certification"]) ? 1 : 0;
         $signature_date = $_POST["signature_date"] ?? '';
 
+        // Handle file uploads
+        $profile_photo_path = null;
+        $signature_image_path = null;
+        
+        // Create uploads directory if it doesn't exist
+        $upload_dir = __DIR__ . '/../uploads/';
+        if (!file_exists($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+        
+        // Handle profile photo upload
+        if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+            $photo_file = $_FILES['photo'];
+            $photo_ext = strtolower(pathinfo($photo_file['name'], PATHINFO_EXTENSION));
+            $allowed_photo_types = ['jpg', 'jpeg', 'png', 'gif'];
+            
+            if (in_array($photo_ext, $allowed_photo_types)) {
+                $photo_filename = 'profile_' . uniqid() . '.' . $photo_ext;
+                $photo_path = $upload_dir . $photo_filename;
+                
+                if (move_uploaded_file($photo_file['tmp_name'], $photo_path)) {
+                    $profile_photo_path = 'uploads/' . $photo_filename;
+                    error_log("Profile photo uploaded: " . $profile_photo_path);
+                } else {
+                    error_log("Failed to move uploaded photo file");
+                }
+            }
+        }
+        
+        // Handle signature image from canvas
+        if (isset($_POST['signature_data']) && !empty($_POST['signature_data'])) {
+            $signature_data = $_POST['signature_data'];
+            // Remove data:image/png;base64, prefix if present
+            $signature_data = preg_replace('#^data:image/[^;]+;base64,#', '', $signature_data);
+            $signature_binary = base64_decode($signature_data);
+            
+            if ($signature_binary !== false && strlen($signature_binary) > 0) {
+                $signature_filename = 'signature_' . uniqid() . '.png';
+                $signature_path = $upload_dir . $signature_filename;
+                
+                if (file_put_contents($signature_path, $signature_binary)) {
+                    $signature_image_path = 'uploads/' . $signature_filename;
+                    error_log("Signature image saved: " . $signature_image_path);
+                } else {
+                    error_log("Failed to save signature image");
+                }
+            } else {
+                error_log("Invalid signature data received");
+            }
+        }
+
         // Log the collected data
         error_log("Performance type captured: " . $performance_type);
         error_log("First semester units: " . $first_semester_units);
@@ -56,20 +107,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             performance_type, consent, first_name, middle_name, last_name, full_name, address, present_address, 
             date_of_birth, age, gender, place_of_birth, email, contact_number, father_name, mother_name, 
             guardian, guardian_contact, campus, college, sr_code, year_level, program, first_semester_units, 
-            second_semester_units, certification, signature_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            second_semester_units, profile_photo, signature_image, certification, signature_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
-    // Use proper data types for parameters
-    // Most fields are strings, certification is integer, and units are already integers
-    $types = str_repeat('s', 23) . 'ii' . 'is';
+    // Parameter types: 23 strings, 2 integers, 2 strings, 1 integer, 1 string = 29 total
+    // s(23) + i + i + s + s + i + s
+    $types = 'sssssssssssssssssssssss' . 'ii' . 'ss' . 'i' . 's';
 
     $stmt->bind_param(
         $types,
         $performance_type, $consent, $first_name, $middle_name, $last_name, $full_name, $address, $present_address, 
         $date_of_birth, $age, $gender, $place_of_birth, $email, $contact_number, $father_name, $mother_name, 
         $guardian, $guardian_contact, $campus, $college, $sr_code, $year_level, $program, 
-        $first_semester_units, $second_semester_units,
+        $first_semester_units, $second_semester_units, $profile_photo_path, $signature_image_path,
         $certification, $signature_date
     );
 
@@ -144,6 +195,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
     $acceptsJson = isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false;
 
+    // Modern fetch API doesn't always set X-Requested-With, so also check for JSON accept header
     if ($isAjax || $acceptsJson) {
         header('Content-Type: application/json');
         echo json_encode($response);
@@ -1553,18 +1605,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 console.log('Canvas initialized:', this.canvas.width, 'x', this.canvas.height);
                 
-                // Test if canvas is working by drawing a small test line
-                this.ctx.beginPath();
-                this.ctx.moveTo(10, 10);
-                this.ctx.lineTo(50, 10);
-                this.ctx.strokeStyle = '#cccccc';
-                this.ctx.lineWidth = 1;
-                this.ctx.stroke();
-                
-                // Reset to drawing properties
-                this.ctx.strokeStyle = '#000000';
-                this.ctx.lineWidth = 3;
-                
                 // Mouse events
                 this.canvas.addEventListener('mousedown', (e) => {
                     console.log('Mouse down event triggered');
@@ -1975,10 +2015,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 // Append signature image if present
                 const sigDataUrl = this.getSignatureData();
                 if (sigDataUrl) {
-                    // Convert dataURL to blob
-                    const res = fetch(sigDataUrl).then(res => res.blob());
-                    // We'll append the blob synchronously in handleSubmit where we await this function
-                    formData._signaturePromise = res;
+                    // Pass the base64 data directly to PHP
+                    formData.append('signature_data', sigDataUrl);
                 }
 
                 return formData;
@@ -2013,13 +2051,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 try {
                     let formData = this.collectFormData();
 
-                    // If signature blob promise exists, await and append blob
-                    if (formData._signaturePromise) {
-                        const blob = await formData._signaturePromise;
-                        formData.append('signature_image', blob, 'signature.png');
-                        delete formData._signaturePromise;
-                    }
-
                     // POST to backend
                     // Post to the same PHP handler in the current directory
                     const resp = await fetch('performer-profile-form.php', {
@@ -2027,13 +2058,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         body: formData,
                         headers: {
                             // Let browser set Content-Type for FormData
-                            'Accept': 'application/json'
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
                         }
                     });
 
-                    const result = await resp.json().catch(() => null);
+                    console.log('Response status:', resp.status);
+                    console.log('Response headers:', resp.headers);
                     
-                    console.log('Server response:', resp.status, result); // Debug log
+                    // Get the raw response text first
+                    const responseText = await resp.text();
+                    console.log('Raw response:', responseText);
+                    
+                    // Try to parse as JSON
+                    let result = null;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        console.error('Response was not valid JSON:', responseText.substring(0, 500));
+                        this.showAlert('Server returned invalid response format. Please check the console for details.', 'error');
+                        return;
+                    }
+                    
+                    console.log('Parsed result:', result); // Debug log
 
                     if (resp.ok && result && result.success) {
                         this.showSuccessMessage();
