@@ -63,50 +63,59 @@ try {
         $approvedAt = ($status === 'approved') ? date('Y-m-d H:i:s') : null;
         $stmt->execute([$status, $reviewedBy, $approvedAt, $applicationId]);
 
-        // NOTE: User account creation is now handled by admin through notifications
-        // This allows admin to have control over when user accounts are created
-        /*
-        // If approved, create user account
+        // If approved, add to student_artists table
         if ($status === 'approved') {
-            // Check if user already exists
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-            $stmt->execute([$application['email']]);
-            $existingUser = $stmt->fetch();
+            // Check if student already exists in student_artists table
+            $stmt = $pdo->prepare("SELECT id FROM student_artists WHERE sr_code = ? OR email = ?");
+            $stmt->execute([$application['sr_code'], $application['email']]);
+            $existingStudent = $stmt->fetch();
             
-            if (!$existingUser) {
-                // Create user account
+            if (!$existingStudent) {
+                // Add to student_artists table
                 $stmt = $pdo->prepare("
-                    INSERT INTO users (
-                        email, 
-                        password, 
-                        first_name, 
-                        last_name, 
-                        role, 
-                        status,
+                    INSERT INTO student_artists (
                         sr_code,
+                        first_name,
+                        middle_name,
+                        last_name,
+                        email,
+                        password,
                         campus,
                         college,
                         program,
                         year_level,
                         contact_number,
+                        status,
                         created_at
-                    ) VALUES (?, ?, ?, ?, 'student', 'active', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
                 ");
                 
                 // Generate default password (student can change later)
                 $defaultPassword = password_hash('student123', PASSWORD_DEFAULT);
                 
-                // Split full name into first and last name
-                $nameParts = explode(' ', $application['full_name'], 2);
-                $firstName = $nameParts[0];
-                $lastName = isset($nameParts[1]) ? $nameParts[1] : '';
+                // Split full name into first, middle, and last name
+                $nameParts = explode(' ', trim($application['full_name']));
+                $firstName = $application['first_name'] ?? $nameParts[0];
+                $lastName = $application['last_name'] ?? end($nameParts);
+                $middleName = null;
+                
+                if (count($nameParts) > 2) {
+                    // Extract middle name(s)
+                    $middleParts = array_slice($nameParts, 1, -1);
+                    $middleName = implode(' ', $middleParts);
+                } elseif (count($nameParts) === 2 && !$application['middle_name']) {
+                    // If only 2 parts and no middle name field, leave middleName as null
+                } else {
+                    $middleName = $application['middle_name'];
+                }
                 
                 $stmt->execute([
+                    $application['sr_code'],
+                    $firstName,
+                    $middleName,
+                    $lastName,
                     $application['email'],
                     $defaultPassword,
-                    $firstName,
-                    $lastName,
-                    $application['sr_code'],
                     $application['campus'],
                     $application['college'],
                     $application['program'],
@@ -114,10 +123,9 @@ try {
                     $application['contact_number']
                 ]);
                 
-                $userId = $pdo->lastInsertId();
+                $studentId = $pdo->lastInsertId();
             }
         }
-        */
         
         // Log the action
         $stmt = $pdo->prepare("

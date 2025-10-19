@@ -485,6 +485,133 @@ try {
             color: #aaa;
         }
 
+        /* Campus Distribution Styles */
+        .campus-distribution {
+            display: flex;
+            gap: 2rem;
+            height: 300px;
+        }
+
+        .chart-section {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .pie-chart-container {
+            width: 200px;
+            height: 200px;
+            position: relative;
+        }
+
+        .pie-chart {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .chart-legend {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .legend-text {
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .bar-chart-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .bar-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .bar-label {
+            width: 80px;
+            font-size: 0.85rem;
+            color: #666;
+            text-align: right;
+        }
+
+        .bar-track {
+            flex: 1;
+            height: 24px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 12px;
+            transition: width 0.8s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+        }
+
+        .bar-value {
+            font-size: 0.75rem;
+            color: white;
+            font-weight: 600;
+        }
+
+        .record-count-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .record-number {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #dc2626;
+            margin-bottom: 0.5rem;
+        }
+
+        .record-label {
+            font-size: 1rem;
+            color: #666;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .record-sublabel {
+            font-size: 0.875rem;
+            color: #888;
+        }
+
         .overview-right {
             background: white;
             border-radius: 8px;
@@ -1039,9 +1166,18 @@ try {
                 <!-- Dashboard Overview -->
                 <div class="student-overview">
                     <div class="overview-left">
-                        <div class="chart-placeholder">
-                            <div class="chart-content">
-                                <p>No campus distribution data available</p>
+                        <h3 style="margin-bottom: 1rem; color: #666;">Campus Distribution</h3>
+                        <div id="campusDistributionChart" class="campus-distribution">
+                            <div class="chart-section">
+                                <div class="pie-chart-container">
+                                    <canvas id="pieChart" width="200" height="200"></canvas>
+                                </div>
+                                <div class="chart-legend" id="chartLegend">
+                                    <!-- Legend will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            <div class="bar-chart-container" id="barChart">
+                                <!-- Bar chart will be populated by JavaScript -->
                             </div>
                         </div>
                     </div>
@@ -1049,12 +1185,13 @@ try {
                     <div class="overview-right">
                         <div class="record-count-card">
                             <h3>Record Count</h3>
-                            <div class="record-content">
-                                <p><strong><?= $total_students ?></strong> student artists</p>
+                            <div class="record-count-section">
+                                <div class="record-number" id="totalStudents"><?= $total_students ?></div>
+                                <div class="record-label">student artists</div>
                                 <?php if (!empty($search)): ?>
-                                    <small>Filtered results</small>
+                                    <div class="record-sublabel">Filtered results</div>
                                 <?php else: ?>
-                                    <small>Total records</small>
+                                    <div class="record-sublabel">Total records</div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1360,29 +1497,17 @@ try {
             const currentCulturalGroup = student.cultural_group || '';
             
             const html = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div style="margin-bottom: 2rem;">
                     <div>
                         <h3 style="color: #dc2626; margin-bottom: 1rem; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem;">Personal Information</h3>
                         <div style="space-y: 0.75rem;">
                             <p><strong>SR Code:</strong> ${student.sr_code}</p>
                             <p><strong>Full Name:</strong> ${student.first_name} ${student.middle_name || ''} ${student.last_name}</p>
                             <p><strong>Email:</strong> ${student.email}</p>
-                            <p><strong>Phone:</strong> ${student.phone_number || 'Not provided'}</p>
                             <p><strong>Campus:</strong> ${student.campus}</p>
                             <p><strong>Program:</strong> ${student.program}</p>
                             <p><strong>Year Level:</strong> ${student.year_level}</p>
                             <p><strong>Date Registered:</strong> ${new Date(student.created_at).toLocaleDateString()}</p>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 style="color: #dc2626; margin-bottom: 1rem; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem;">Performance Information</h3>
-                        <div style="space-y: 0.75rem;">
-                            <p><strong>Performance Type:</strong> ${student.performance_type}</p>
-                            <p><strong>Specify:</strong> ${student.specify || 'Not specified'}</p>
-                            <p><strong>Experience Level:</strong> ${student.experience_level}</p>
-                            <p><strong>Previous Experience:</strong> ${student.previous_experience || 'None'}</p>
-                            <p><strong>Skills:</strong> ${student.skills || 'Not specified'}</p>
-                            <p><strong>Achievements:</strong> ${student.achievements || 'None'}</p>
                         </div>
                     </div>
                 </div>
@@ -1604,7 +1729,155 @@ try {
         // Initialize search when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             initializeStudentSearch();
+            loadCampusDistribution();
         });
+
+        // Campus Distribution Functions
+        function loadCampusDistribution() {
+            fetch('get_campus_distribution.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayCampusDistribution(data.campusDistribution, data.totalStudents);
+                    } else {
+                        console.error('Failed to load campus distribution:', data.error);
+                        showEmptyCampusChart();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading campus distribution:', error);
+                    showEmptyCampusChart();
+                });
+        }
+
+        function displayCampusDistribution(campusData, totalStudents) {
+            console.log('Campus data received:', campusData);
+            
+            if (!campusData || campusData.length === 0) {
+                showEmptyCampusChart();
+                return;
+            }
+
+            // Colors for different campuses
+            const colors = [
+                '#4285F4', // Blue
+                '#FF6B35', // Orange  
+                '#9C27B0', // Purple
+                '#4CAF50', // Green
+                '#FF9800', // Amber
+                '#607D8B'  // Blue Grey
+            ];
+
+            // Draw pie chart
+            drawPieChart(campusData, colors);
+            
+            // Draw legend
+            drawLegend(campusData, colors);
+            
+            // Draw bar chart
+            drawBarChart(campusData, colors);
+            
+            // Update total count
+            document.getElementById('totalStudents').textContent = totalStudents;
+        }
+
+        function drawPieChart(campusData, colors) {
+            const canvas = document.getElementById('pieChart');
+            const ctx = canvas.getContext('2d');
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 80;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // If only one campus, draw full circle
+            if (campusData.length === 1) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = colors[0];
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                return;
+            }
+
+            let currentAngle = -Math.PI / 2; // Start from top
+            
+            campusData.forEach((campus, index) => {
+                const sliceAngle = (campus.percentage / 100) * 2 * Math.PI;
+                
+                // Draw slice
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[index % colors.length];
+                ctx.fill();
+                
+                // Draw border
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                currentAngle += sliceAngle;
+            });
+        }
+
+        function drawLegend(campusData, colors) {
+            const legendContainer = document.getElementById('chartLegend');
+            legendContainer.innerHTML = '';
+            
+            campusData.forEach((campus, index) => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background: ${colors[index % colors.length]}"></div>
+                    <div class="legend-text">${campus.campus} (${campus.percentage}%)</div>
+                `;
+                
+                legendContainer.appendChild(legendItem);
+            });
+        }
+
+        function drawBarChart(campusData, colors) {
+            const barContainer = document.getElementById('barChart');
+            barContainer.innerHTML = '';
+            
+            const maxCount = Math.max(...campusData.map(c => c.count));
+            
+            campusData.forEach((campus, index) => {
+                const barItem = document.createElement('div');
+                barItem.className = 'bar-item';
+                
+                const percentage = (campus.count / maxCount) * 100;
+                
+                barItem.innerHTML = `
+                    <div class="bar-label">${campus.campus}</div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: ${percentage}%; background: ${colors[index % colors.length]}">
+                            <span class="bar-value">${campus.count}</span>
+                        </div>
+                    </div>
+                `;
+                
+                barContainer.appendChild(barItem);
+            });
+        }
+
+        function showEmptyCampusChart() {
+            const chartContainer = document.getElementById('campusDistributionChart');
+            chartContainer.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 300px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #ddd;">
+                    <div style="text-align: center; color: #888;">
+                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No campus distribution data available</p>
+                        <small style="font-size: 0.875rem; color: #aaa;">Chart will appear when student data is available</small>
+                    </div>
+                </div>
+            `;
+        }
     </script>
 </body>
 </html>
