@@ -1549,7 +1549,7 @@ try {
             <!-- Events & Trainings Section -->
             <section class="content-section" id="events-trainings">
                 <div class="page-header">
-                    <h1 class="page-title">Events Management</h1>
+                    <h1 class="page-title">Events & Trainings</h1>
                     <button class="add-btn" onclick="openAddEventModal()">
                         <span>+</span>
                         Add New Event
@@ -1562,7 +1562,7 @@ try {
                     <div class="events-left">
                         <div class="input-panel">
                             <div class="panel-header-event">
-                                <h3 class="panel-title-event">📅 Input New Event</h3>
+                                <h3 class="panel-title-event">Input New Event</h3>
                             </div>
                             <form id="eventForm" class="event-form">
                                 <div class="form-group">
@@ -1621,7 +1621,7 @@ try {
                                 </div>
 
                                 <button type="submit" class="save-event-btn">
-                                    💾 Save Event
+                                    Save Event
                                 </button>
                             </form>
                         </div>
@@ -1631,7 +1631,7 @@ try {
                     <div class="events-right">
                         <div class="upcoming-panel">
                             <div class="panel-header-upcoming">
-                                <h3 class="panel-title-upcoming">📋 Upcoming Events</h3>
+                                <h3 class="panel-title-upcoming">Upcoming Events</h3>
                             </div>
                             <div class="events-list" id="eventsList">
                                 <!-- Events will be loaded here -->
