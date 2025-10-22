@@ -26,9 +26,10 @@ try {
     
     $applications = [];
     
-    // Filter out applications that already have accounts
+    // Filter out applications that already have accounts or were deleted
     foreach ($allApproved as $app) {
         $email = $app['email'];
+        $sr_code = $app['sr_code'];
         
         // Check if user exists in users table
         $userCheck = $conn->prepare("SELECT id FROM users WHERE email = ?");
@@ -38,14 +39,21 @@ try {
         $userCheck->close();
         
         // Check if user exists in student_artists table
-        $artistCheck = $conn->prepare("SELECT id FROM student_artists WHERE email = ?");
-        $artistCheck->bind_param("s", $email);
+        $artistCheck = $conn->prepare("SELECT id FROM student_artists WHERE email = ? OR sr_code = ?");
+        $artistCheck->bind_param("ss", $email, $sr_code);
         $artistCheck->execute();
         $artistExists = $artistCheck->get_result()->num_rows > 0;
         $artistCheck->close();
         
-        // If no account exists in either table, add to results
-        if (!$userExists && !$artistExists) {
+        // Check if user was deleted by admin
+        $deletedCheck = $conn->prepare("SELECT id FROM deleted_students WHERE email = ? OR sr_code = ?");
+        $deletedCheck->bind_param("ss", $email, $sr_code);
+        $deletedCheck->execute();
+        $wasDeleted = $deletedCheck->get_result()->num_rows > 0;
+        $deletedCheck->close();
+        
+        // If no account exists in any table and was not deleted, add to results
+        if (!$userExists && !$artistExists && !$wasDeleted) {
             $applications[] = $app;
         }
     }

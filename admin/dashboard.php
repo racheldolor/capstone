@@ -7,6 +7,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // Prevent any output before JSON response
     ob_start();
     ob_clean();
+    
+    // Disable error display to prevent HTML in JSON response
+    ini_set('display_errors', 0);
+    error_reporting(E_ALL);
+    
     header('Content-Type: application/json');
     
     // Log the request for debugging
@@ -17,6 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     switch ($_POST['action']) {
         case 'add_user':
             try {
+                // Ensure clean output buffer
+                while (ob_get_level()) {
+                    ob_end_clean();
+                }
+                
                 $first_name = trim($_POST['first_name']);
                 $middle_name = !empty($_POST['middle_name']) ? trim($_POST['middle_name']) : null;
                 $last_name = trim($_POST['last_name']);
@@ -41,10 +51,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 // Insert into appropriate table based on role
                 if ($role === 'student') {
-                    // For students, insert into student_artists table
-                    $stmt = $pdo->prepare("INSERT INTO student_artists (first_name, middle_name, last_name, email, password, sr_code) VALUES (?, ?, ?, ?, ?, ?)");
-                    if (!$stmt->execute([$first_name, $middle_name, $last_name, $email, $password, $sr_code])) {
-                        throw new Exception("Failed to insert into student_artists table: " . implode(", ", $stmt->errorInfo()));
+                    // Debug: Log the attempt
+                    error_log("Attempting to insert student: SR=$sr_code, Email=$email");
+                    
+                    // For students, insert into student_artists table - start with minimal required fields
+                    $stmt = $pdo->prepare("INSERT INTO student_artists (sr_code, first_name, middle_name, last_name, email, password, status) VALUES (?, ?, ?, ?, ?, ?, 'active')");
+                    $result = $stmt->execute([$sr_code, $first_name, $middle_name, $last_name, $email, $password]);
+                    
+                    if (!$result) {
+                        $errorInfo = $stmt->errorInfo();
+                        error_log("SQL Error: " . print_r($errorInfo, true));
+                        throw new Exception("Failed to insert into student_artists table. SQL Error: " . $errorInfo[2]);
                     }
                 } else {
                     // For other roles, insert into users table (without sr_code)
@@ -67,6 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 echo json_encode(['success' => true, 'message' => 'User added successfully']);
                 exit();
             } catch (Exception $e) {
+                // Ensure clean output
+                while (ob_get_level()) {
+                    ob_end_clean();
+                }
+                
+                error_log("Add user error: " . $e->getMessage());
+                
                 if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
                     if (strpos($e->getMessage(), 'sr_code') !== false) {
                         echo json_encode(['success' => false, 'message' => 'SR Code already exists']);
@@ -81,20 +105,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
         case 'delete_user':
             try {
+                // Ensure clean output
+                while (ob_get_level()) {
+                    ob_end_clean();
+                }
+                
                 $user_id = intval($_POST['user_id']);
                 $source_table = $_POST['source_table'] ?? 'users';
                 
                 if ($source_table === 'student_artists') {
-                    $stmt = $pdo->prepare("DELETE FROM student_artists WHERE id = ?");
+                    // First, get the student's details before deletion
+                    $stmt = $pdo->prepare("SELECT sr_code, email, first_name, last_name FROM student_artists WHERE id = ?");
+                    $stmt->execute([$user_id]);
+                    $student = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($student) {
+                        // Add to deleted_students tracking table
+                        $stmt = $pdo->prepare("INSERT INTO deleted_students (sr_code, email, deleted_by, reason) VALUES (?, ?, ?, ?)");
+                        $reason = "Student account deleted by admin";
+                        $stmt->execute([$student['sr_code'], $student['email'], $_SESSION['admin_id'] ?? 1, $reason]);
+                        
+                        // Now delete from student_artists
+                        $stmt = $pdo->prepare("DELETE FROM student_artists WHERE id = ?");
+                        $stmt->execute([$user_id]);
+                        
+                        // Log the action (suppress any output from logging)
+                        try {
+                            logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_DELETE', $user_id, "Student artist deleted: {$student['first_name']} {$student['last_name']} ({$student['sr_code']})");
+                        } catch (Exception $logError) {
+                            // Ignore logging errors to prevent JSON corruption
+                        }
+                    }
                 } else {
                     $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+                    $stmt->execute([$user_id]);
+                    try {
+                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_DELETE', $user_id, "User deleted from $source_table");
+                    } catch (Exception $logError) {
+                        // Ignore logging errors
+                    }
                 }
-                $stmt->execute([$user_id]);
                 
-                logAdminAction($pdo, $_SESSION['admin_id'], 'USER_DELETE', $user_id, "User deleted from $source_table");
+                header('Content-Type: application/json');
                 echo json_encode(['success' => true, 'message' => 'User deleted successfully']);
             } catch (Exception $e) {
-                echo json_encode(['success' => false, 'message' => 'Error deleting user']);
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Error deleting user: ' . $e->getMessage()]);
             }
             exit();
             
@@ -201,6 +257,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'message' => 'Error fetching user: ' . $e->getMessage()]);
+            }
+            exit();
+            
+        case 'allow_readd_student':
+            try {
+                $sr_code = $_POST['sr_code'] ?? '';
+                $email = $_POST['email'] ?? '';
+                
+                if (empty($sr_code) && empty($email)) {
+                    throw new Exception('SR code or email is required');
+                }
+                
+                // Remove from deleted_students table to allow re-adding
+                if (!empty($sr_code)) {
+                    $stmt = $pdo->prepare("DELETE FROM deleted_students WHERE sr_code = ?");
+                    $stmt->execute([$sr_code]);
+                } else {
+                    $stmt = $pdo->prepare("DELETE FROM deleted_students WHERE email = ?");
+                    $stmt->execute([$email]);
+                }
+                
+                logAdminAction($pdo, $_SESSION['admin_id'], 'STUDENT_UNDELETE', 0, "Allowed re-addition of student: $sr_code $email");
+                echo json_encode(['success' => true, 'message' => 'Student can now be re-added from approved applications']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Error allowing student re-addition: ' . $e->getMessage()]);
+            }
+            exit();
+            
+        case 'sync_deleted_students':
+            try {
+                // Find approved applications that don't have corresponding student accounts
+                // and aren't already in the deleted_students table - these were likely deleted before tracking
+                $stmt = $pdo->prepare("
+                    SELECT DISTINCT a.sr_code, a.email 
+                    FROM applications a 
+                    WHERE a.application_status = 'approved' 
+                    AND a.sr_code NOT IN (SELECT sr_code FROM student_artists WHERE sr_code IS NOT NULL)
+                    AND a.email NOT IN (SELECT email FROM student_artists WHERE email IS NOT NULL)
+                    AND a.sr_code NOT IN (SELECT sr_code FROM deleted_students WHERE sr_code IS NOT NULL)
+                    AND a.email NOT IN (SELECT email FROM deleted_students WHERE email IS NOT NULL)
+                ");
+                $stmt->execute();
+                $missingStudents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                $addedCount = 0;
+                foreach ($missingStudents as $student) {
+                    $stmt = $pdo->prepare("INSERT INTO deleted_students (sr_code, email, deleted_by, reason) VALUES (?, ?, ?, ?)");
+                    $stmt->execute([$student['sr_code'], $student['email'], $_SESSION['admin_id'], 'Previously deleted by admin - added during sync']);
+                    $addedCount++;
+                }
+                
+                logAdminAction($pdo, $_SESSION['admin_id'], 'SYNC_DELETED', 0, "Synced $addedCount previously deleted students to tracking table");
+                echo json_encode(['success' => true, 'message' => "Synced $addedCount previously deleted students to tracking table"]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Error syncing deleted students: ' . $e->getMessage()]);
             }
             exit();
             

@@ -1252,7 +1252,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>Campus:</label>
-                                <input type="text" name="campus">
+                                <select name="campus" required>
+                                    <option value="">Select Campus</option>
+                                    <option value="Pablo Borbon">Pablo Borbon</option>
+                                    <option value="Alangilan">Alangilan</option>
+                                    <option value="Lipa">Lipa</option>
+                                    <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
+                                    <option value="JPLPC Malvar">JPLPC Malvar</option>
+                                </select>
                             </div>
                             <div class="form-row">
                                 <div class="form-group half">

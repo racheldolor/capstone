@@ -53,6 +53,7 @@ try {
         $stmt = $pdo->prepare("
             UPDATE applications 
             SET application_status = ?, 
+                status = ?,
                 updated_at = CURRENT_TIMESTAMP,
                 reviewed_by = ?,
                 approved_at = ?
@@ -61,7 +62,7 @@ try {
         
         $reviewedBy = $_SESSION['user_id'] ?? null;
         $approvedAt = ($status === 'approved') ? date('Y-m-d H:i:s') : null;
-        $stmt->execute([$status, $reviewedBy, $approvedAt, $applicationId]);
+        $stmt->execute([$status, $status, $reviewedBy, $approvedAt, $applicationId]);
 
         // If approved, add to student_artists table
         if ($status === 'approved') {
@@ -70,7 +71,12 @@ try {
             $stmt->execute([$application['sr_code'], $application['email']]);
             $existingStudent = $stmt->fetch();
             
-            if (!$existingStudent) {
+            // Check if student was previously deleted by admin
+            $stmt = $pdo->prepare("SELECT id FROM deleted_students WHERE sr_code = ? OR email = ?");
+            $stmt->execute([$application['sr_code'], $application['email']]);
+            $deletedStudent = $stmt->fetch();
+            
+            if (!$existingStudent && !$deletedStudent) {
                 // Add to student_artists table
                 $stmt = $pdo->prepare("
                     INSERT INTO student_artists (
@@ -93,20 +99,22 @@ try {
                 // Generate default password (student can change later)
                 $defaultPassword = password_hash('student123', PASSWORD_DEFAULT);
                 
-                // Split full name into first, middle, and last name
-                $nameParts = explode(' ', trim($application['full_name']));
-                $firstName = $application['first_name'] ?? $nameParts[0];
-                $lastName = $application['last_name'] ?? end($nameParts);
-                $middleName = null;
+                // Use existing name fields if available, otherwise split full_name
+                $firstName = $application['first_name'];
+                $middleName = $application['middle_name'];
+                $lastName = $application['last_name'];
                 
-                if (count($nameParts) > 2) {
-                    // Extract middle name(s)
-                    $middleParts = array_slice($nameParts, 1, -1);
-                    $middleName = implode(' ', $middleParts);
-                } elseif (count($nameParts) === 2 && !$application['middle_name']) {
-                    // If only 2 parts and no middle name field, leave middleName as null
-                } else {
-                    $middleName = $application['middle_name'];
+                // If name fields are empty, try to split full_name
+                if (empty($firstName) && !empty($application['full_name'])) {
+                    $nameParts = explode(' ', trim($application['full_name']));
+                    $firstName = $nameParts[0];
+                    $lastName = count($nameParts) > 1 ? end($nameParts) : '';
+                    
+                    if (count($nameParts) > 2) {
+                        // Extract middle name(s)
+                        $middleParts = array_slice($nameParts, 1, -1);
+                        $middleName = implode(' ', $middleParts);
+                    }
                 }
                 
                 $stmt->execute([
@@ -134,7 +142,11 @@ try {
         ");
         
         $action = $status === 'approved' ? 'Application Approved' : 'Application Rejected';
-        $details = "Application for " . $application['full_name'] . " has been " . $status;
+        $fullName = trim(($application['first_name'] ?? '') . ' ' . ($application['middle_name'] ?? '') . ' ' . ($application['last_name'] ?? ''));
+        if (empty($fullName)) {
+            $fullName = $application['full_name'] ?? 'Unknown Student';
+        }
+        $details = "Application for " . $fullName . " has been " . $status;
         
         $stmt->execute([
             $_SESSION['user_id'] ?? null,
