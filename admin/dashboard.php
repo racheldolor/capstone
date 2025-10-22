@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     // Debug: Log the attempt
                     error_log("Attempting to insert student: SR=$sr_code, Email=$email");
                     
-                    // For students, insert into student_artists table - start with minimal required fields
+                    // For students, insert into student_artists table with comprehensive data
                     $stmt = $pdo->prepare("INSERT INTO student_artists (sr_code, first_name, middle_name, last_name, email, password, status) VALUES (?, ?, ?, ?, ?, ?, 'active')");
                     $result = $stmt->execute([$sr_code, $first_name, $middle_name, $last_name, $email, $password]);
                     

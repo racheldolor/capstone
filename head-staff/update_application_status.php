@@ -77,7 +77,7 @@ try {
             $deletedStudent = $stmt->fetch();
             
             if (!$existingStudent && !$deletedStudent) {
-                // Add to student_artists table
+                // Add to student_artists table with all available data from application
                 $stmt = $pdo->prepare("
                     INSERT INTO student_artists (
                         sr_code,
@@ -91,9 +91,22 @@ try {
                         program,
                         year_level,
                         contact_number,
+                        address,
+                        present_address,
+                        date_of_birth,
+                        age,
+                        gender,
+                        place_of_birth,
+                        father_name,
+                        mother_name,
+                        guardian,
+                        guardian_contact,
+                        performance_type,
+                        first_semester_units,
+                        second_semester_units,
                         status,
                         created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
                 ");
                 
                 // Generate default password (student can change later)
@@ -128,7 +141,20 @@ try {
                     $application['college'],
                     $application['program'],
                     $application['year_level'],
-                    $application['contact_number']
+                    $application['contact_number'],
+                    $application['address'],
+                    $application['present_address'],
+                    $application['date_of_birth'],
+                    $application['age'],
+                    $application['gender'],
+                    $application['place_of_birth'],
+                    $application['father_name'],
+                    $application['mother_name'],
+                    $application['guardian'],
+                    $application['guardian_contact'],
+                    $application['performance_type'],
+                    $application['first_semester_units'],
+                    $application['second_semester_units']
                 ]);
                 
                 $studentId = $pdo->lastInsertId();

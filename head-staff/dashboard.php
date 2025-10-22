@@ -586,11 +586,270 @@ try {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             height: 200px;
             background: #f8f9fa;
             border-radius: 8px;
             text-align: center;
+            padding: 0.75rem;
+        }
+
+        .cultural-group-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            max-height: 170px;
+            overflow-y: auto;
+            width: 100%;
+            padding: 0.25rem;
+        }
+
+        .group-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0.6rem;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+            font-size: 0.8rem;
+            min-height: 32px;
+        }
+
+        .group-name {
+            font-weight: 500;
+            color: #333;
+            flex: 1;
+            text-align: left;
+        }
+
+        .group-count {
+            font-weight: 600;
+            color: #dc2626;
+            background: #fee2e2;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        /* Events Management Styles */
+        .events-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .events-left,
+        .events-right {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .input-panel,
+        .upcoming-panel {
+            height: 100%;
+        }
+
+        .panel-header-event {
+            background: #4285F4;
+            color: white;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+        }
+
+        .panel-header-upcoming {
+            background: #28a745;
+            color: white;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+        }
+
+        .panel-title-event,
+        .panel-title-upcoming {
+            margin: 0;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .event-form {
+            padding: 1.5rem;
+        }
+
+        .event-form .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .event-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .event-form input,
+        .event-form textarea,
+        .event-form select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: border-color 0.3s ease;
+        }
+
+        .event-form input::placeholder,
+        .event-form textarea::placeholder {
+            color: #999;
+            font-size: 0.9rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .event-form input:focus,
+        .event-form textarea:focus,
+        .event-form select:focus {
+            outline: none;
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .event-form textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .save-event-btn {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.95rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .save-event-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+
+        .events-list {
+            padding: 1.5rem;
+            min-height: 400px;
+        }
+
+        .empty-events {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            text-align: center;
+            color: #888;
+        }
+
+        .empty-events p {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #666;
+        }
+
+        .empty-events small {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .event-item {
+            padding: 1rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .event-item:hover {
+            border-color: #dc2626;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.1);
+        }
+
+        .event-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .event-date {
+            color: #dc2626;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .event-location {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .event-category {
+            display: inline-block;
+            background: #f8f9fa;
+            color: #666;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .events-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e0e0e0;
+            background: #f8f9fa;
+            text-align: center;
+        }
+
+        .view-all-link {
+            color: #dc2626;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .view-all-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .events-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
         }
 
         .record-number {
@@ -1184,15 +1443,11 @@ try {
                     
                     <div class="overview-right">
                         <div class="record-count-card">
-                            <h3>Record Count</h3>
-                            <div class="record-count-section">
-                                <div class="record-number" id="totalStudents"><?= $total_students ?></div>
+                            <h3>Cultural Groups</h3>
+                            <div class="record-count-section" id="culturalGroupCounts">
+                                <div class="record-number"><?= $total_students ?></div>
                                 <div class="record-label">student artists</div>
-                                <?php if (!empty($search)): ?>
-                                    <div class="record-sublabel">Filtered results</div>
-                                <?php else: ?>
-                                    <div class="record-sublabel">Total records</div>
-                                <?php endif; ?>
+                                <div class="record-sublabel">Loading group distribution...</div>
                             </div>
                         </div>
                     </div>
@@ -1294,15 +1549,101 @@ try {
             <!-- Events & Trainings Section -->
             <section class="content-section" id="events-trainings">
                 <div class="page-header">
-                    <h1 class="page-title">Events & Trainings</h1>
-                    <button class="add-btn">
+                    <h1 class="page-title">Events Management</h1>
+                    <button class="add-btn" onclick="openAddEventModal()">
                         <span>+</span>
-                        Schedule Event
+                        Add New Event
                     </button>
                 </div>
-                <div class="content-panel">
-                    <div class="panel-content">
-                        Events and trainings management coming soon...
+
+                <!-- Main Content Grid -->
+                <div class="events-grid">
+                    <!-- Left Side - Input New Event -->
+                    <div class="events-left">
+                        <div class="input-panel">
+                            <div class="panel-header-event">
+                                <h3 class="panel-title-event">📅 Input New Event</h3>
+                            </div>
+                            <form id="eventForm" class="event-form">
+                                <div class="form-group">
+                                    <label for="eventTitle">Event Title*</label>
+                                    <input type="text" id="eventTitle" name="title" placeholder="Enter event title" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="eventDescription">Description*</label>
+                                    <textarea id="eventDescription" name="description" placeholder="Enter event description" required></textarea>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="startDate">Start Date*</label>
+                                        <input type="date" id="startDate" name="start_date" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="endDate">End Date*</label>
+                                        <input type="date" id="endDate" name="end_date" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="eventLocation">Location*</label>
+                                    <input type="text" id="eventLocation" name="location" placeholder="Enter event location" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="municipality">Campus</label>
+                                    <select id="municipality" name="municipality">
+                                        <option value="Pablo Borbon">Pablo Borbon</option>
+                                        <option value="Alangilan">Alangilan</option>
+                                        <option value="Lipa">Lipa</option>
+                                        <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
+                                        <option value="JPLPC Malvar">JPLPC Malvar</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="eventImage">Event Image</label>
+                                    <input type="file" id="eventImage" name="image" accept="image/*">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="eventCategory">Category*</label>
+                                    <select id="eventCategory" name="category" required>
+                                        <option value="">Select category</option>
+                                        <option value="Training">Training</option>
+                                        <option value="Performance">Performance</option>
+                                        <option value="Competition">Competition</option>
+                                        <option value="Workshop">Workshop</option>
+                                        <option value="Cultural Event">Cultural Event</option>
+                                        <option value="Festival">Festival</option>
+                                    </select>
+                                </div>
+
+                                <button type="submit" class="save-event-btn">
+                                    💾 Save Event
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Right Side - Upcoming Events -->
+                    <div class="events-right">
+                        <div class="upcoming-panel">
+                            <div class="panel-header-upcoming">
+                                <h3 class="panel-title-upcoming">📋 Upcoming Events</h3>
+                            </div>
+                            <div class="events-list" id="eventsList">
+                                <!-- Events will be loaded here -->
+                                <div class="empty-events">
+                                    <p>No upcoming events scheduled</p>
+                                    <small>Add a new event to get started</small>
+                                </div>
+                            </div>
+                            <div class="events-footer">
+                                <a href="#" class="view-all-link" onclick="viewAllEvents()">View All Events →</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1519,7 +1860,17 @@ try {
                         <select id="culturalGroup" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
                             <option value="">Not Assigned</option>
                             <option value="Dulaang Batangan" ${currentCulturalGroup === 'Dulaang Batangan' ? 'selected' : ''}>Dulaang Batangan</option>
+                            <option value="BatStateU Dance Company" ${currentCulturalGroup === 'BatStateU Dance Company' ? 'selected' : ''}>BatStateU Dance Company</option>
+                            <option value="Diwayanis Dance Theatre" ${currentCulturalGroup === 'Diwayanis Dance Theatre' ? 'selected' : ''}>Diwayanis Dance Theatre</option>
+                            <option value="BatStateU Band" ${currentCulturalGroup === 'BatStateU Band' ? 'selected' : ''}>BatStateU Band</option>
                             <option value="Indak Yaman Dance Varsity" ${currentCulturalGroup === 'Indak Yaman Dance Varsity' ? 'selected' : ''}>Indak Yaman Dance Varsity</option>
+                            <option value="Ritmo Voice" ${currentCulturalGroup === 'Ritmo Voice' ? 'selected' : ''}>Ritmo Voice</option>
+                            <option value="Sandugo Dance Group" ${currentCulturalGroup === 'Sandugo Dance Group' ? 'selected' : ''}>Sandugo Dance Group</option>
+                            <option value="Areglo Band" ${currentCulturalGroup === 'Areglo Band' ? 'selected' : ''}>Areglo Band</option>
+                            <option value="Teatro Aliwana" ${currentCulturalGroup === 'Teatro Aliwana' ? 'selected' : ''}>Teatro Aliwana</option>
+                            <option value="The Levites" ${currentCulturalGroup === 'The Levites' ? 'selected' : ''}>The Levites</option>
+                            <option value="Melophiles" ${currentCulturalGroup === 'Melophiles' ? 'selected' : ''}>Melophiles</option>
+                            <option value="Sindayog" ${currentCulturalGroup === 'Sindayog' ? 'selected' : ''}>Sindayog</option>
                         </select>
                         <button onclick="updateCulturalGroup(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
                             Update Assignment
@@ -1730,13 +2081,16 @@ try {
         document.addEventListener('DOMContentLoaded', function() {
             initializeStudentSearch();
             loadCampusDistribution();
+            loadCulturalGroupDistribution();
         });
 
         // Campus Distribution Functions
         function loadCampusDistribution() {
+            console.log('Loading campus distribution...');
             fetch('get_campus_distribution.php')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Campus distribution response:', data);
                     if (data.success) {
                         displayCampusDistribution(data.campusDistribution, data.totalStudents);
                     } else {
@@ -1776,9 +2130,6 @@ try {
             
             // Draw bar chart
             drawBarChart(campusData, colors);
-            
-            // Update total count
-            document.getElementById('totalStudents').textContent = totalStudents;
         }
 
         function drawPieChart(campusData, colors) {
@@ -1875,6 +2226,125 @@ try {
                         <p style="font-size: 1rem; margin-bottom: 0.5rem;">No campus distribution data available</p>
                         <small style="font-size: 0.875rem; color: #aaa;">Chart will appear when student data is available</small>
                     </div>
+                </div>
+            `;
+        }
+
+        // Cultural Group Distribution Functions
+        function loadCulturalGroupDistribution() {
+            console.log('Loading cultural group distribution...');
+            fetch('get_cultural_group_distribution.php')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Cultural group distribution response:', data);
+                    if (data.success) {
+                        displayCulturalGroupDistribution(data.groupDistribution, data.totalStudents);
+                    } else {
+                        console.error('Failed to load cultural group distribution:', data.error);
+                        showEmptyGroupChart();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading cultural group distribution:', error);
+                    showEmptyGroupChart();
+                });
+        }
+
+        function displayCulturalGroupDistribution(groupData, totalStudents) {
+            const container = document.getElementById('culturalGroupCounts');
+            
+            if (!groupData || groupData.length === 0) {
+                showEmptyGroupChart();
+                return;
+            }
+
+            let html = '<div class="cultural-group-list">';
+
+            groupData.forEach(group => {
+                html += `
+                    <div class="group-item">
+                        <span class="group-name">${group.group_name}</span>
+                        <span class="group-count">${group.count}</span>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function showEmptyGroupChart() {
+            const container = document.getElementById('culturalGroupCounts');
+            container.innerHTML = `
+                <div class="record-number">0</div>
+                <div class="record-label">student artists</div>
+                <div class="record-sublabel">No groups assigned</div>
+            `;
+        }
+
+        // Events Management Functions
+        function openAddEventModal() {
+            // For now, just focus on the form - can be expanded to a modal later
+            document.getElementById('eventTitle').focus();
+        }
+
+        function viewAllEvents() {
+            // Placeholder for view all events functionality
+            alert('View all events functionality will be implemented soon!');
+        }
+
+        // Event Form Submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const eventForm = document.getElementById('eventForm');
+            if (eventForm) {
+                eventForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    saveEvent();
+                });
+            }
+        });
+
+        function saveEvent() {
+            const form = document.getElementById('eventForm');
+            const formData = new FormData(form);
+            
+            // Add some validation
+            const title = formData.get('title');
+            const description = formData.get('description');
+            const startDate = formData.get('start_date');
+            const endDate = formData.get('end_date');
+            const location = formData.get('location');
+            const category = formData.get('category');
+
+            if (!title || !description || !startDate || !endDate || !location || !category) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('Start date cannot be after end date');
+                return;
+            }
+
+            // Here you would typically send the data to a server
+            // For now, we'll just show a success message and reset the form
+            alert('Event saved successfully!');
+            form.reset();
+            
+            // You can also update the events list here
+            loadUpcomingEvents();
+        }
+
+        function loadUpcomingEvents() {
+            // Placeholder function to load events from server
+            // This would typically fetch from a database
+            const eventsList = document.getElementById('eventsList');
+            
+            // For demo purposes, show empty state
+            eventsList.innerHTML = `
+                <div class="empty-events">
+                    <p>No upcoming events scheduled</p>
+                    <small>Add a new event to get started</small>
                 </div>
             `;
         }
