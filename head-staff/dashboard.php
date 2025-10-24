@@ -652,6 +652,13 @@ try {
         .input-panel,
         .upcoming-panel {
             height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .events-list {
+            flex: 1;
+            overflow-y: auto;
         }
 
         .panel-header-event {
@@ -723,6 +730,101 @@ try {
         .event-form textarea {
             min-height: 80px;
             resize: vertical;
+        }
+
+        /* Multi-select styles */
+        .multi-select-container {
+            position: relative;
+        }
+
+        .multi-select-display {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 0.75rem;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 20px;
+        }
+
+        .multi-select-display:hover {
+            border-color: #ccc;
+        }
+
+        .multi-select-display .placeholder {
+            color: #888;
+        }
+
+        .multi-select-display .selected-groups {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+
+        .selected-group-tag {
+            background: #dc2626;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .remove-tag {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .dropdown-arrow {
+            transition: transform 0.3s ease;
+        }
+
+        .dropdown-arrow.open {
+            transform: rotate(180deg);
+        }
+
+        .multi-select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .checkbox-item:hover {
+            background: #f8f9fa;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            margin: 0 0.5rem 0 0;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .checkbox-item span {
+            line-height: 1.4;
+            font-size: 0.9rem;
         }
 
         .form-row {
@@ -827,6 +929,8 @@ try {
             border-top: 1px solid #e0e0e0;
             background: #f8f9fa;
             text-align: center;
+            margin-top: auto;
+            flex-shrink: 0;
         }
 
         .view-all-link {
@@ -1550,10 +1654,6 @@ try {
             <section class="content-section" id="events-trainings">
                 <div class="page-header">
                     <h1 class="page-title">Events & Trainings</h1>
-                    <button class="add-btn" onclick="openAddEventModal()">
-                        <span>+</span>
-                        Add New Event
-                    </button>
                 </div>
 
                 <!-- Main Content Grid -->
@@ -1603,6 +1703,66 @@ try {
                                 </div>
 
                                 <div class="form-group">
+                                    <label for="culturalGroups">Cultural Group(s) Concerned</label>
+                                    <div class="multi-select-container">
+                                        <div class="multi-select-display" id="culturalGroupsDisplay" onclick="toggleCulturalGroupsDropdown()">
+                                            <span class="placeholder">Select cultural groups...</span>
+                                            <span class="dropdown-arrow">▼</span>
+                                        </div>
+                                        <div class="multi-select-dropdown" id="culturalGroupsDropdown" style="display: none;">
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Dulaang Batangan">
+                                                <span>Dulaang Batangan</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="BatStateU Dance Company">
+                                                <span>BatStateU Dance Company</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Diwayanis Dance Theatre">
+                                                <span>Diwayanis Dance Theatre</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="BatStateU Band">
+                                                <span>BatStateU Band</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Indak Yaman Dance Varsity">
+                                                <span>Indak Yaman Dance Varsity</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Ritmo Voice">
+                                                <span>Ritmo Voice</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Sandugo Dance Group">
+                                                <span>Sandugo Dance Group</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Areglo Band">
+                                                <span>Areglo Band</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Teatro Aliwana">
+                                                <span>Teatro Aliwana</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="The Levites">
+                                                <span>The Levites</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Melophiles">
+                                                <span>Melophiles</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Sindayog">
+                                                <span>Sindayog</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
                                     <label for="eventImage">Event Image</label>
                                     <input type="file" id="eventImage" name="image" accept="image/*">
                                 </div>
@@ -1620,9 +1780,14 @@ try {
                                     </select>
                                 </div>
 
-                                <button type="submit" class="save-event-btn">
-                                    Save Event
-                                </button>
+                                <div class="form-buttons" style="display: flex; gap: 0.5rem;">
+                                    <button type="submit" class="save-event-btn">
+                                        Save Event
+                                    </button>
+                                    <button type="button" class="cancel-event-btn" onclick="cancelEdit()" style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: none;">
+                                        Cancel
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -1718,6 +1883,64 @@ try {
         </div>
     </div>
 
+    <!-- All Events Modal -->
+    <div id="allEventsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%;">
+            <div class="modal-header">
+                <h2>All Events</h2>
+                <span class="close" onclick="closeAllEventsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="eventsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+                    <div>
+                        <label for="statusFilter">Status:</label>
+                        <select id="statusFilter" onchange="loadAllEvents()">
+                            <option value="active">Active</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="categoryFilter">Category:</label>
+                        <select id="categoryFilter" onchange="loadAllEvents()">
+                            <option value="">All Categories</option>
+                            <option value="Training">Training</option>
+                            <option value="Performance">Performance</option>
+                            <option value="Competition">Competition</option>
+                            <option value="Workshop">Workshop</option>
+                            <option value="Cultural Event">Cultural Event</option>
+                            <option value="Festival">Festival</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="campusFilter">Campus:</label>
+                        <select id="campusFilter" onchange="loadAllEvents()">
+                            <option value="">All Campuses</option>
+                            <option value="Pablo Borbon">Pablo Borbon</option>
+                            <option value="Alangilan">Alangilan</option>
+                            <option value="Lipa">Lipa</option>
+                            <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
+                            <option value="JPLPC Malvar">JPLPC Malvar</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="monthFilter">Month:</label>
+                        <input type="month" id="monthFilter" onchange="loadAllEvents()">
+                    </div>
+                </div>
+                <div id="allEventsLoading" style="display: none;">
+                    <div class="loading-spinner">Loading events...</div>
+                </div>
+                <div id="allEventsContent">
+                    <!-- Events will be loaded here -->
+                </div>
+                <div id="eventsPagination" style="margin-top: 1rem; text-align: center;">
+                    <!-- Pagination will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Navigation functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -1738,6 +1961,11 @@ try {
             if (activeLink && activeContentSection) {
                 activeLink.classList.add('active');
                 activeContentSection.classList.add('active');
+                
+                // Load upcoming events if Events & Trainings section is initially active
+                if (activeSection === 'events-trainings') {
+                    loadUpcomingEvents();
+                }
             } else {
                 // Default to dashboard if section not found
                 document.querySelector('[data-section="dashboard"]').classList.add('active');
@@ -1760,6 +1988,11 @@ try {
                     const targetSection = document.getElementById(sectionId);
                     if (targetSection) {
                         targetSection.classList.add('active');
+                        
+                        // Load upcoming events when Events & Trainings section is activated
+                        if (sectionId === 'events-trainings') {
+                            loadUpcomingEvents();
+                        }
                     }
 
                     // Update URL without page reload
@@ -2289,8 +2522,246 @@ try {
         }
 
         function viewAllEvents() {
-            // Placeholder for view all events functionality
-            alert('View all events functionality will be implemented soon!');
+            const modal = document.getElementById('allEventsModal');
+            modal.style.display = 'flex';
+            loadAllEvents();
+        }
+
+        function closeAllEventsModal() {
+            const modal = document.getElementById('allEventsModal');
+            modal.style.display = 'none';
+        }
+
+        function loadAllEvents(page = 1) {
+            const loadingDiv = document.getElementById('allEventsLoading');
+            const contentDiv = document.getElementById('allEventsContent');
+            
+            loadingDiv.style.display = 'block';
+            contentDiv.style.display = 'none';
+            
+            // Get filter values
+            const status = document.getElementById('statusFilter').value;
+            const category = document.getElementById('categoryFilter').value;
+            const campus = document.getElementById('campusFilter').value;
+            const month = document.getElementById('monthFilter').value;
+            
+            // Build query parameters
+            const params = new URLSearchParams({
+                page: page,
+                limit: 10,
+                status: status
+            });
+            
+            if (category) params.append('category', category);
+            if (campus) params.append('campus', campus);
+            if (month) params.append('month', month);
+            
+            fetch(`get_all_events.php?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    
+                    if (data.success) {
+                        displayAllEvents(data.events);
+                        displayEventsPagination(data.pagination);
+                    } else {
+                        contentDiv.innerHTML = '<p class="error">Error loading events: ' + data.message + '</p>';
+                    }
+                })
+                .catch(error => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    contentDiv.innerHTML = '<p class="error">Error loading events: ' + error.message + '</p>';
+                });
+        }
+
+        function displayAllEvents(events) {
+            const contentDiv = document.getElementById('allEventsContent');
+            
+            if (events.length === 0) {
+                contentDiv.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No events found with the selected filters.</p>';
+                return;
+            }
+
+            let html = '<div style="display: grid; gap: 1rem;">';
+            events.forEach(event => {
+                const culturalGroups = event.cultural_groups.length > 0 
+                    ? event.cultural_groups.join(', ') 
+                    : 'All groups';
+
+                const statusColor = event.event_status === 'upcoming' ? '#28a745' : 
+                                  event.event_status === 'ongoing' ? '#ffc107' : '#6c757d';
+
+                html += `
+                    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; background: white;">
+                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;">
+                            <div>
+                                <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.2rem;">${event.title}</h4>
+                                <p style="margin: 0 0 0.75rem 0; color: #666; line-height: 1.4;">${event.description}</p>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.9rem;">
+                                    <div><strong>Date:</strong> ${event.start_date_formatted} - ${event.end_date_formatted}</div>
+                                    <div><strong>Location:</strong> ${event.location}</div>
+                                    <div><strong>Category:</strong> ${event.category}</div>
+                                    ${event.campus ? `<div><strong>Campus:</strong> ${event.campus}</div>` : ''}
+                                    <div><strong>Cultural Groups:</strong> ${culturalGroups}</div>
+                                    <div><strong>Created:</strong> ${event.created_at_formatted}</div>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="display: inline-block; background: ${statusColor}; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize; margin-bottom: 0.5rem;">
+                                    ${event.event_status}
+                                </div>
+                                ${event.days_difference >= 0 ? 
+                                    `<div style="font-size: 0.8rem; color: #666;">In ${event.days_difference} day(s)</div>` :
+                                    `<div style="font-size: 0.8rem; color: #666;">${Math.abs(event.days_difference)} day(s) ago</div>`
+                                }
+                                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                    <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                                        Edit
+                                    </button>
+                                    <button onclick="deleteEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}'); " style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            contentDiv.innerHTML = html;
+        }
+
+        function displayEventsPagination(pagination) {
+            const paginationDiv = document.getElementById('eventsPagination');
+            
+            if (pagination.total_pages <= 1) {
+                paginationDiv.innerHTML = '';
+                return;
+            }
+
+            let html = '<div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem;">';
+            
+            // Previous button
+            if (pagination.current_page > 1) {
+                html += `<button onclick="loadAllEvents(${pagination.current_page - 1})" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Previous</button>`;
+            }
+            
+            // Page numbers
+            const startPage = Math.max(1, pagination.current_page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const isActive = i === pagination.current_page;
+                html += `<button onclick="loadAllEvents(${i})" style="padding: 0.5rem 0.75rem; border: 1px solid ${isActive ? '#dc2626' : '#ddd'}; background: ${isActive ? '#dc2626' : 'white'}; color: ${isActive ? 'white' : '#333'}; border-radius: 4px; cursor: pointer;">${i}</button>`;
+            }
+            
+            // Next button
+            if (pagination.current_page < pagination.total_pages) {
+                html += `<button onclick="loadAllEvents(${pagination.current_page + 1})" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Next</button>`;
+            }
+            
+            html += '</div>';
+            html += `<div style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
+                Showing ${pagination.total_events} total events
+            </div>`;
+            
+            paginationDiv.innerHTML = html;
+        }
+
+        // Event Management Functions
+        let isEditMode = false;
+        let currentEditingEventId = null;
+
+        function editEvent(eventId) {
+            isEditMode = true;
+            currentEditingEventId = eventId;
+            
+            // Load event data
+            fetch(`get_event.php?id=${eventId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        populateEventForm(data.event);
+                        // Scroll to form
+                        document.getElementById('eventTitle').scrollIntoView({ behavior: 'smooth' });
+                        // Update form title and button
+                        document.querySelector('.panel-title-event').textContent = 'Edit Event';
+                        document.querySelector('.save-event-btn').textContent = 'Update Event';
+                        document.querySelector('.cancel-event-btn').style.display = 'inline-block';
+                        // Close modal if open
+                        closeAllEventsModal();
+                    } else {
+                        alert('Error loading event: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading event details');
+                });
+        }
+
+        function populateEventForm(event) {
+            // Populate form fields
+            document.getElementById('eventTitle').value = event.title;
+            document.getElementById('eventDescription').value = event.description;
+            document.getElementById('startDate').value = event.start_date_formatted;
+            document.getElementById('endDate').value = event.end_date_formatted;
+            document.getElementById('eventLocation').value = event.location;
+            document.getElementById('municipality').value = event.campus || '';
+            document.getElementById('eventCategory').value = event.category;
+            
+            // Handle cultural groups
+            const checkboxes = document.querySelectorAll('input[name="cultural_groups[]"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = event.cultural_groups.includes(checkbox.value);
+            });
+            updateCulturalGroupsDisplay();
+        }
+
+        function cancelEdit() {
+            isEditMode = false;
+            currentEditingEventId = null;
+            // Reset form
+            document.getElementById('eventForm').reset();
+            updateCulturalGroupsDisplay();
+            // Update form title and button
+            document.querySelector('.panel-title-event').textContent = 'Input New Event';
+            document.querySelector('.save-event-btn').textContent = 'Save Event';
+            document.querySelector('.cancel-event-btn').style.display = 'none';
+        }
+
+        function deleteEvent(eventId, eventTitle) {
+            if (!confirm(`Are you sure you want to delete the event "${eventTitle}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            fetch('delete_event.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ event_id: eventId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    // Refresh events lists
+                    loadUpcomingEvents();
+                    if (document.getElementById('allEventsModal').style.display === 'flex') {
+                        loadAllEvents();
+                    }
+                } else {
+                    alert('Error deleting event: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting event');
+            });
         }
 
         // Event Form Submission
@@ -2302,6 +2773,82 @@ try {
                     saveEvent();
                 });
             }
+        });
+
+        // Cultural Groups Multi-select Functions
+        function toggleCulturalGroupsDropdown() {
+            const dropdown = document.getElementById('culturalGroupsDropdown');
+            const arrow = document.querySelector('.dropdown-arrow');
+            
+            if (dropdown.style.display === 'none') {
+                dropdown.style.display = 'block';
+                arrow.classList.add('open');
+            } else {
+                dropdown.style.display = 'none';
+                arrow.classList.remove('open');
+            }
+        }
+
+        function updateCulturalGroupsDisplay() {
+            const checkboxes = document.querySelectorAll('input[name="cultural_groups[]"]:checked');
+            const display = document.getElementById('culturalGroupsDisplay');
+            const placeholder = display.querySelector('.placeholder');
+            const arrow = display.querySelector('.dropdown-arrow');
+            
+            // Remove existing tags
+            const existingTags = display.querySelector('.selected-groups');
+            if (existingTags) {
+                existingTags.remove();
+            }
+            
+            if (checkboxes.length === 0) {
+                placeholder.style.display = 'inline';
+                placeholder.textContent = 'Select cultural groups...';
+            } else {
+                placeholder.style.display = 'none';
+                
+                const selectedGroupsContainer = document.createElement('div');
+                selectedGroupsContainer.className = 'selected-groups';
+                
+                checkboxes.forEach(checkbox => {
+                    const tag = document.createElement('span');
+                    tag.className = 'selected-group-tag';
+                    tag.innerHTML = `
+                        ${checkbox.value}
+                        <span class="remove-tag" onclick="removeCulturalGroup('${checkbox.value}')">&times;</span>
+                    `;
+                    selectedGroupsContainer.appendChild(tag);
+                });
+                
+                display.insertBefore(selectedGroupsContainer, arrow);
+            }
+        }
+
+        function removeCulturalGroup(groupName) {
+            const checkbox = document.querySelector(`input[name="cultural_groups[]"][value="${groupName}"]`);
+            if (checkbox) {
+                checkbox.checked = false;
+                updateCulturalGroupsDisplay();
+            }
+        }
+
+        // Add event listeners for cultural groups checkboxes
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('input[name="cultural_groups[]"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateCulturalGroupsDisplay);
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(event) {
+                const container = document.querySelector('.multi-select-container');
+                if (container && !container.contains(event.target)) {
+                    const dropdown = document.getElementById('culturalGroupsDropdown');
+                    const arrow = document.querySelector('.dropdown-arrow');
+                    dropdown.style.display = 'none';
+                    arrow.classList.remove('open');
+                }
+            });
         });
 
         function saveEvent() {
@@ -2326,27 +2873,131 @@ try {
                 return;
             }
 
-            // Here you would typically send the data to a server
-            // For now, we'll just show a success message and reset the form
-            alert('Event saved successfully!');
-            form.reset();
-            
-            // You can also update the events list here
-            loadUpcomingEvents();
+            // Show loading state
+            const saveBtn = document.querySelector('.save-event-btn');
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = isEditMode ? 'Updating...' : 'Saving...';
+            saveBtn.disabled = true;
+
+            // Add event ID for edit mode
+            if (isEditMode && currentEditingEventId) {
+                formData.append('event_id', currentEditingEventId);
+            }
+
+            // Determine endpoint
+            const endpoint = isEditMode ? 'update_event.php' : 'save_event.php';
+
+            // Send data to server
+            fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(isEditMode ? 'Event updated successfully!' : 'Event saved successfully!');
+                    form.reset();
+                    updateCulturalGroupsDisplay(); // Reset multi-select display
+                    
+                    // Reset edit mode
+                    if (isEditMode) {
+                        cancelEdit();
+                    }
+                    
+                    loadUpcomingEvents(); // Refresh events list
+                } else {
+                    alert('Error saving event: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the event');
+            })
+            .finally(() => {
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+            });
         }
 
         function loadUpcomingEvents() {
-            // Placeholder function to load events from server
-            // This would typically fetch from a database
             const eventsList = document.getElementById('eventsList');
             
-            // For demo purposes, show empty state
+            // Show loading state
             eventsList.innerHTML = `
-                <div class="empty-events">
-                    <p>No upcoming events scheduled</p>
-                    <small>Add a new event to get started</small>
+                <div style="text-align: center; padding: 2rem; color: #666;">
+                    <p>Loading upcoming events...</p>
                 </div>
             `;
+            
+            fetch('get_upcoming_events.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayUpcomingEvents(data.events);
+                    } else {
+                        eventsList.innerHTML = `
+                            <div class="empty-events">
+                                <p>Error loading events</p>
+                                <small>${data.message}</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading events:', error);
+                    eventsList.innerHTML = `
+                        <div class="empty-events">
+                            <p>Error loading upcoming events</p>
+                            <small>Please try again later</small>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayUpcomingEvents(events) {
+            const eventsList = document.getElementById('eventsList');
+            
+            if (events.length === 0) {
+                eventsList.innerHTML = `
+                    <div class="empty-events">
+                        <p>No upcoming events scheduled</p>
+                        <small>Add a new event to get started</small>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            events.forEach(event => {
+                const culturalGroups = event.cultural_groups.length > 0 
+                    ? event.cultural_groups.slice(0, 2).join(', ') + 
+                      (event.cultural_groups.length > 2 ? ` +${event.cultural_groups.length - 2} more` : '')
+                    : 'All groups';
+
+                html += `
+                    <div class="event-item">
+                        <div class="event-title">${event.title}</div>
+                        <div class="event-date">${event.start_date_formatted}</div>
+                        <div class="event-location">${event.location}</div>
+                        <div class="event-category">${event.category}</div>
+                        ${event.campus ? `<div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">${event.campus}</div>` : ''}
+                        <div style="font-size: 0.8rem; color: #666; margin-top: 0.25rem;">${culturalGroups}</div>
+                        ${event.days_until === 0 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Today!</div>' : 
+                          event.days_until === 1 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Tomorrow</div>' :
+                          `<div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">In ${event.days_until} day(s)</div>`}
+                        <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                            <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+                                Edit
+                            </button>
+                            <button onclick="deleteEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}'); " style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            eventsList.innerHTML = html;
         }
     </script>
 </body>
