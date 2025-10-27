@@ -14,10 +14,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
         try {
             $pdo = getDBConnection();
             
-            // Check if user exists and get their data
+            // First, check if user exists in the users table
             $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, role, status FROM users WHERE email = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // If not found in users table, check student_artists table
+            if (!$user) {
+                $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status FROM student_artists WHERE email = ?");
+                $stmt->execute([$email]);
+                $student = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($student) {
+                    // Set role as 'student' for student_artists table users
+                    $user = $student;
+                    $user['role'] = 'student';
+                }
+            }
             
             if ($user) {
                 // Check if account is active
@@ -26,8 +39,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
                 }
                 // Verify password
                 else if (password_verify($password, $user['password'])) {
-                    // Update last login
-                    $stmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+                    // Update last login - determine which table to update
+                    if (isset($student)) {
+                        // For student_artists table, check if last_login column exists and add if needed
+                        try {
+                            $stmt = $pdo->prepare("SELECT last_login FROM student_artists LIMIT 1");
+                            $stmt->execute();
+                        } catch (PDOException $e) {
+                            // Column doesn't exist, add it
+                            $pdo->exec("ALTER TABLE student_artists ADD COLUMN last_login DATETIME DEFAULT NULL");
+                        }
+                        
+                        // Update student_artists table
+                        $stmt = $pdo->prepare("UPDATE student_artists SET last_login = NOW() WHERE id = ?");
+                    } else {
+                        // Update users table
+                        $stmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+                    }
                     $stmt->execute([$user['id']]);
                     
                     // Set session variables
@@ -36,6 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
                     $_SESSION['user_name'] = trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'] . ' ' : '') . $user['last_name']);
                     $_SESSION['user_role'] = $user['role'];
                     $_SESSION['logged_in'] = true;
+                    
+                    // Add table source for reference
+                    $_SESSION['user_table'] = isset($student) ? 'student_artists' : 'users';
                     
                     // Redirect based on role
                     switch ($user['role']) {
