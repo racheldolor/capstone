@@ -72,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Get form data
         $campus = trim($_POST['campus'] ?? '');
         $requester_name = trim($_POST['requester_name'] ?? '');
+        $college_office = trim($_POST['college_office'] ?? '');
         $contact_number = trim($_POST['contact_number'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $address = trim($_POST['address'] ?? '');
@@ -102,10 +103,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Insert borrowing request
         $stmt = $pdo->prepare("
             INSERT INTO borrowing_requests (
-                student_id, reference_no, campus, requester_name, 
+                student_id, reference_no, campus, requester_name, college_office, 
                 contact_number, email, address, equipment_categories, 
                 date_of_request, dates_of_use, times_of_use, estimated_return_date, purpose
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $result = $stmt->execute([
@@ -113,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $reference_no,
             $campus,
             $requester_name,
+            $college_office,
             $contact_number,
             $email,
             $address,
@@ -281,7 +283,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .form-group textarea {
             resize: vertical;
-            min-height: 80px;
+            min-height: 40px;
+            height: 40px;
         }
 
         .form-group input:focus,
@@ -313,15 +316,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .checkbox-grid {
             display: grid;
-            grid-template-columns: 200px 1fr;
-            gap: 2rem;
+            grid-template-columns: 150px 1fr;
+            gap: 1rem;
             align-items: start;
         }
 
         .checkbox-list {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.6rem;
         }
 
         .checkbox-item {
@@ -330,7 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 0.5rem;
             cursor: pointer;
             font-size: 0.9rem;
-            height: 2.5rem;
+            height: 42px;
         }
 
         .checkbox-item input[type="checkbox"] {
@@ -360,7 +363,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .specification-inputs {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.6rem;
         }
 
         .specification-inputs input {
@@ -368,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 1px solid #333;
             border-radius: 4px;
             font-size: 0.9rem;
-            height: 2.5rem;
+            height: 42px;
         }
 
         .specification-inputs input:disabled {
@@ -398,6 +401,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .agreement-item .checkmark {
             margin-top: 2px;
+        }
+
+        .agreement-item input[type="checkbox"]:checked + .checkmark::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
         }
 
         .agreement-text {
@@ -569,40 +583,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <form method="POST" action="">
                     <!-- Basic Information Section -->
                     <div class="form-section">
-                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem;">
-                            <tr>
-                                <td style="border: 1px solid #333; padding: 0.5rem; width: 15%; background: #f8f9fa; font-weight: 500; font-size: 0.9rem;">Campus:</td>
-                                <td style="border: 1px solid #333; padding: 0.5rem; width: 35%;">
-                                    <input type="text" name="campus" value="<?= htmlspecialchars($student_info['campus'] ?? '') ?>" 
-                                           style="width: 100%; border: none; padding: 0; background: transparent; font-size: 0.9rem;">
-                                </td>
-                                <td style="border: 1px solid #333; padding: 0.5rem; width: 20%; background: #f8f9fa; font-weight: 500; font-size: 0.9rem;">Email Address:</td>
-                                <td style="border: 1px solid #333; padding: 0.5rem; width: 30%;">
-                                    <input type="email" name="email" required value="<?= htmlspecialchars($student_info['email'] ?? '') ?>" 
-                                           style="width: 100%; border: none; padding: 0; background: transparent; font-size: 0.9rem;">
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #333; padding: 0.5rem; background: #f8f9fa; font-weight: 500; font-size: 0.9rem;">Name of Requester/College/Office/Organization:</td>
-                                <td style="border: 1px solid #333; padding: 0.5rem;" colspan="3">
-                                    <input type="text" name="requester_name" required 
-                                           value="<?= htmlspecialchars(($student_info['first_name'] ?? '') . ' ' . ($student_info['middle_name'] ?? '') . ' ' . ($student_info['last_name'] ?? '')) ?>" 
-                                           style="width: 100%; border: none; padding: 0; background: transparent; font-size: 0.9rem;">
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #333; padding: 0.5rem; background: #f8f9fa; font-weight: 500; font-size: 0.9rem;">Contact Number:</td>
-                                <td style="border: 1px solid #333; padding: 0.5rem;">
-                                    <input type="tel" name="contact_number" value="<?= htmlspecialchars($student_info['contact_number'] ?? '') ?>" 
-                                           style="width: 100%; border: none; padding: 0; background: transparent; font-size: 0.9rem;">
-                                </td>
-                                <td style="border: 1px solid #333; padding: 0.5rem; background: #f8f9fa; font-weight: 500; font-size: 0.9rem;">Address:</td>
-                                <td style="border: 1px solid #333; padding: 0.5rem;">
-                                    <input type="text" name="address" value="<?= htmlspecialchars($student_info['address'] ?? '') ?>" 
-                                           style="width: 100%; border: none; padding: 0; background: transparent; font-size: 0.9rem;">
-                                </td>
-                            </tr>
-                        </table>
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="campus">Campus:</label>
+                                <input type="text" id="campus" name="campus" value="<?= htmlspecialchars($student_info['campus'] ?? '') ?>">
+                            </div>
+                            <div class="form-group half">
+                                <label for="requester_name">Name of Requester: <span class="required">*</span></label>
+                                <input type="text" id="requester_name" name="requester_name" required 
+                                       value="<?= htmlspecialchars(($student_info['first_name'] ?? '') . ' ' . ($student_info['middle_name'] ?? '') . ' ' . ($student_info['last_name'] ?? '')) ?>">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="college_office">College/Office/Organization:</label>
+                                <input type="text" id="college_office" name="college_office" value="<?= htmlspecialchars($student_info['college'] ?? '') ?>">
+                            </div>
+                            <div class="form-group half">
+                                <label for="contact_number">Contact Number:</label>
+                                <input type="tel" id="contact_number" name="contact_number" value="<?= htmlspecialchars($student_info['contact_number'] ?? '') ?>">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="email">Email Address: <span class="required">*</span></label>
+                                <input type="email" id="email" name="email" required value="<?= htmlspecialchars($student_info['email'] ?? '') ?>">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="address">Address:</label>
+                            <textarea id="address" name="address"><?= htmlspecialchars($student_info['address'] ?? '') ?></textarea>
+                        </div>
                     </div>
 
                     <!-- Equipment Categories Section -->
@@ -658,7 +672,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <div class="form-group quarter">
                                 <label for="dates_of_use">Dates of Use:</label>
-                                <input type="text" id="dates_of_use" name="dates_of_use" placeholder="e.g., Oct 25-27, 2025">
+                                <input type="text" id="dates_of_use" name="dates_of_use" placeholder="e.g., Oct xx-xx, 2025">
                             </div>
                         </div>
 
@@ -752,6 +766,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!this.checked) {
                             input.value = '';
                         }
+                    }
+                });
+            });
+
+            // Handle agreement checkbox clicks
+            const agreementItems = document.querySelectorAll('.agreement-item');
+            agreementItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    // Don't trigger if clicking on the actual checkbox input
+                    if (e.target.type === 'checkbox') return;
+                    
+                    const checkbox = this.querySelector('input[type="checkbox"]');
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
                     }
                 });
             });
