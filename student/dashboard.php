@@ -410,7 +410,7 @@ try {
         }
 
         .profile-header {
-            background: linear-gradient(135deg, #4285F4, #357ae8);
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
             color: white;
             padding: 2rem 1.5rem;
             text-align: center;
@@ -827,10 +827,6 @@ try {
                                 <small>Please contact the administrator</small>
                             </div>
                         <?php endif; ?>
-                        
-                        <div style="margin-top: 2rem; text-align: center;">
-                            <button class="action-btn secondary" onclick="editProfile()">Edit Profile</button>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -881,7 +877,9 @@ try {
                         targetSection.classList.add('active');
                         
                         // Load data specific to section
-                        if (sectionId === 'upcoming-events') {
+                        if (sectionId === 'announcements') {
+                            loadAnnouncements();
+                        } else if (sectionId === 'upcoming-events') {
                             loadUpcomingEvents();
                         }
                     }
@@ -893,7 +891,9 @@ try {
             });
 
             // Load initial data if needed
-            if (activeSection === 'upcoming-events') {
+            if (activeSection === 'announcements') {
+                loadAnnouncements();
+            } else if (activeSection === 'upcoming-events') {
                 loadUpcomingEvents();
             }
         });
@@ -903,6 +903,76 @@ try {
             if (confirm('Are you sure you want to logout?')) {
                 window.location.href = '../index.php';
             }
+        }
+
+        // Load announcements
+        function loadAnnouncements() {
+            const announcementsContent = document.querySelector('#announcements .panel-content');
+            
+            // Show loading state
+            announcementsContent.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: #666;">
+                    <p>Loading announcements...</p>
+                </div>
+            `;
+            
+            fetch('get_announcements.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayAnnouncements(data.announcements);
+                    } else {
+                        announcementsContent.innerHTML = `
+                            <div class="empty-state">
+                                <p>Error loading announcements</p>
+                                <small>${data.message}</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    announcementsContent.innerHTML = `
+                        <div class="empty-state">
+                            <p>Error loading announcements</p>
+                            <small>Please try again later</small>
+                        </div>
+                    `;
+                });
+        }
+
+        // Display announcements
+        function displayAnnouncements(announcements) {
+            const announcementsContent = document.querySelector('#announcements .panel-content');
+            
+            if (announcements.length === 0) {
+                announcementsContent.innerHTML = `
+                    <div class="empty-state">
+                        <p>No announcements available</p>
+                        <small>Announcements will appear here when posted</small>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="announcements-list">';
+            announcements.forEach(announcement => {
+                const createdDate = new Date(announcement.created_at).toLocaleDateString();
+                html += `
+                    <div class="announcement-item" style="border-bottom: 1px solid #e0e0e0; padding: 1rem 0;">
+                        <div class="announcement-header" style="margin-bottom: 0.5rem;">
+                            <h4 style="color: #dc2626; margin: 0; font-size: 1.1rem;">${announcement.title}</h4>
+                            <small style="color: #666;">${createdDate}</small>
+                        </div>
+                        <div class="announcement-content" style="white-space: pre-line; line-height: 1.5;">
+                            ${announcement.message}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            announcementsContent.innerHTML = html;
         }
 
         // Load upcoming events
@@ -916,21 +986,73 @@ try {
                 </div>
             `;
             
-            // This would typically fetch from a backend endpoint
-            // For now, we'll show placeholder content
-            setTimeout(() => {
+            fetch('get_events.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayEvents(data.events);
+                    } else {
+                        eventsList.innerHTML = `
+                            <div class="empty-state">
+                                <p>Error loading events</p>
+                                <small>${data.message}</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    eventsList.innerHTML = `
+                        <div class="empty-state">
+                            <p>Error loading events</p>
+                            <small>Please try again later</small>
+                        </div>
+                    `;
+                });
+        }
+
+        // Display events
+        function displayEvents(events) {
+            const eventsList = document.getElementById('eventsList');
+            
+            if (events.length === 0) {
                 eventsList.innerHTML = `
                     <div class="empty-state">
                         <p>No upcoming events</p>
                         <small>Events you're participating in will appear here</small>
                     </div>
                 `;
-            }, 1000);
-        }
+                return;
+            }
 
-        // Edit profile function
-        function editProfile() {
-            alert('Edit profile functionality will be implemented soon!');
+            let html = '<div class="events-grid" style="display: grid; gap: 1rem;">';
+            events.forEach(event => {
+                const dateRange = event.is_multi_day 
+                    ? `${event.formatted_start_date} - ${event.formatted_end_date}`
+                    : event.formatted_start_date;
+                
+                html += `
+                    <div class="event-card" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; background: white;">
+                        <div class="event-header" style="margin-bottom: 1rem;">
+                            <h3 style="color: #dc2626; margin: 0 0 0.5rem 0;">${event.title}</h3>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; color: #666;">
+                                <span><strong>Date:</strong> ${dateRange}</span>
+                                <span><strong>Location:</strong> ${event.location}</span>
+                                <span><strong>Category:</strong> ${event.category}</span>
+                            </div>
+                        </div>
+                        <div class="event-description" style="margin-bottom: 1rem; line-height: 1.5;">
+                            ${event.description}
+                        </div>
+                        <div class="event-groups" style="font-size: 0.9rem; color: #666;">
+                            <strong>Cultural Groups:</strong> ${event.cultural_groups_array.join(', ')}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            eventsList.innerHTML = html;
         }
 
         // Open costume borrowing form

@@ -410,6 +410,114 @@ try {
             box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
         }
 
+        .add-btn.secondary {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+        }
+
+        .add-btn.secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin: 0 0.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn.small {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .action-btn.approve {
+            background: #10b981;
+            color: white;
+        }
+
+        .action-btn.approve:hover {
+            background: #059669;
+        }
+
+        .action-btn.reject {
+            background: #ef4444;
+            color: white;
+        }
+
+        .action-btn.reject:hover {
+            background: #dc2626;
+        }
+
+        .action-btn.view {
+            background: #6b7280;
+            color: white;
+        }
+
+        .action-btn.view:hover {
+            background: #4b5563;
+        }
+
+        /* Table Styles for Borrow Requests */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .table-container table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .table-container th,
+        .table-container td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .table-container th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .table-container tr:hover {
+            background: #f9fafb;
+        }
+
         /* Student Profiles Specific Styles */
         .search-section {
             background: white;
@@ -1519,9 +1627,9 @@ try {
                             <input type="text" id="studentSearch" name="search" placeholder="Name, Email, or SR Code" 
                                    class="search-input" value="<?= htmlspecialchars($search) ?>">
                         </div>
-                        <button type="submit" style="background: #dc2626; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer;">Search</button>
+                        <button type="submit" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; height: 36px; box-sizing: border-box; font-size: 14px;">Search</button>
                         <?php if (!empty($search)): ?>
-                            <a href="?section=student-profiles" style="background: #6c757d; color: white; padding: 0.75rem 1rem; border-radius: 4px; text-decoration: none;">Clear</a>
+                            <a href="?section=student-profiles" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 36px; font-size: 14px;">Clear</a>
                         <?php endif; ?>
                     </form>
                 </div>
@@ -1763,11 +1871,6 @@ try {
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="eventImage">Event Image</label>
-                                    <input type="file" id="eventImage" name="image" accept="image/*">
-                                </div>
-
-                                <div class="form-group">
                                     <label for="eventCategory">Category*</label>
                                     <select id="eventCategory" name="category" required>
                                         <option value="">Select category</option>
@@ -1833,10 +1936,15 @@ try {
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
                     <h1 class="page-title">Costume Inventory</h1>
-                    <button class="add-btn">
-                        <span>+</span>
-                        Add Costume
-                    </button>
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="add-btn">
+                            <span>+</span>
+                            Add Costume
+                        </button>
+                        <button class="add-btn secondary" onclick="openBorrowRequests()">
+                            Borrow Requests
+                        </button>
+                    </div>
                 </div>
                 <div class="content-panel">
                     <div class="panel-content">
@@ -1935,6 +2043,54 @@ try {
                     <!-- Events will be loaded here -->
                 </div>
                 <div id="eventsPagination" style="margin-top: 1rem; text-align: center;">
+                    <!-- Pagination will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Borrow Requests Modal -->
+    <div id="borrowRequestsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1000px; width: 95%;">
+            <div class="modal-header">
+                <h2>Student Borrow Requests</h2>
+                <span class="close" onclick="closeBorrowRequestsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="borrowRequestsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+                    <div>
+                        <label for="statusRequestFilter">Status:</label>
+                        <select id="statusRequestFilter" onchange="loadBorrowRequests()">
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="">All Status</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="borrowRequestsLoading" style="text-align: center; padding: 2rem;">
+                    <p>Loading borrow requests...</p>
+                </div>
+                <div id="borrowRequestsContent" style="display: none;">
+                    <div class="table-container">
+                        <table id="borrowRequestsTable">
+                            <thead>
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Student ID</th>
+                                    <th>Items Requested</th>
+                                    <th>Request Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="borrowRequestsTableBody">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="borrowRequestsPagination" style="margin-top: 1rem; text-align: center;">
                     <!-- Pagination will be loaded here -->
                 </div>
             </div>
@@ -2530,6 +2686,87 @@ try {
         function closeAllEventsModal() {
             const modal = document.getElementById('allEventsModal');
             modal.style.display = 'none';
+        }
+
+        // Costume Inventory Functions
+        function openBorrowRequests() {
+            // Show the borrow requests modal
+            const modal = document.getElementById('borrowRequestsModal');
+            modal.style.display = 'flex';
+            loadBorrowRequests();
+        }
+
+        function closeBorrowRequestsModal() {
+            const modal = document.getElementById('borrowRequestsModal');
+            modal.style.display = 'none';
+        }
+
+        function loadBorrowRequests(page = 1) {
+            const loadingDiv = document.getElementById('borrowRequestsLoading');
+            const contentDiv = document.getElementById('borrowRequestsContent');
+            const tableBody = document.getElementById('borrowRequestsTableBody');
+            
+            loadingDiv.style.display = 'block';
+            contentDiv.style.display = 'none';
+            
+            // Get filter value
+            const status = document.getElementById('statusRequestFilter').value;
+            
+            // Here you would make an actual API call to fetch borrow requests
+            // For now, show empty table
+            setTimeout(() => {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                            No borrow requests found
+                        </td>
+                    </tr>
+                `;
+                
+                loadingDiv.style.display = 'none';
+                contentDiv.style.display = 'block';
+            }, 500);
+        }
+        
+        function getStatusBadge(status) {
+            const badges = {
+                'pending': '<span class="status-badge pending">Pending</span>',
+                'approved': '<span class="status-badge approved">Approved</span>',
+                'rejected': '<span class="status-badge rejected">Rejected</span>'
+            };
+            return badges[status] || status;
+        }
+        
+        function getRequestActions(requestId, status) {
+            if (status === 'pending') {
+                return `
+                    <button class="action-btn small approve" onclick="approveRequest(${requestId})">Approve</button>
+                    <button class="action-btn small reject" onclick="rejectRequest(${requestId})">Reject</button>
+                `;
+            } else {
+                return `<button class="action-btn small view" onclick="viewRequest(${requestId})">View</button>`;
+            }
+        }
+        
+        function approveRequest(requestId) {
+            if (confirm('Are you sure you want to approve this borrow request?')) {
+                // Here you would make an API call to approve the request
+                alert('Request approved successfully!');
+                loadBorrowRequests(); // Reload the list
+            }
+        }
+        
+        function rejectRequest(requestId) {
+            if (confirm('Are you sure you want to reject this borrow request?')) {
+                // Here you would make an API call to reject the request
+                alert('Request rejected successfully!');
+                loadBorrowRequests(); // Reload the list
+            }
+        }
+        
+        function viewRequest(requestId) {
+            // Here you would show detailed view of the request
+            alert('Viewing request details for ID: ' + requestId);
         }
 
         function loadAllEvents(page = 1) {

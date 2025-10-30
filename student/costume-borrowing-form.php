@@ -713,32 +713,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
 
-                    <!-- Signature Section -->
-                    <div class="signature-section">
-                        <div class="signature-box">
-                            <div class="signature-label">Requested by:</div>
-                            <div class="signature-line"></div>
-                            <div class="signature-details">
-                                <div>Signature over Printed Name of Requestor</div>
-                                <div>Position: Student</div>
-                                <div>Date: <?= date('M d, Y') ?></div>
-                            </div>
-                        </div>
-                        <div class="signature-box">
-                            <div class="signature-label">Noted by:</div>
-                            <div class="signature-line"></div>
-                            <div class="signature-details">
-                                <div>Signature over Printed Name of the Immediate Supervisor</div>
-                                <div>Position:</div>
-                                <div>Date:</div>
-                                <div>Remarks:</div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="btn-group">
                         <button type="submit" class="btn btn-primary">Submit Borrowing Request</button>
                         <a href="dashboard.php?section=costume-borrowing" class="btn btn-secondary">Cancel</a>
+                        <a href="return-form.php" class="btn btn-info">Return Form</a>
                     </div>
                 </form>
             </div>

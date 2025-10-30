@@ -52,7 +52,6 @@ try {
             campus VARCHAR(100),
             category VARCHAR(100) NOT NULL,
             cultural_groups TEXT,
-            image_path VARCHAR(255),
             created_by INT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -61,30 +60,27 @@ try {
     ";
     $pdo->exec($createTableSQL);
     
-    // Handle file upload if present
-    $image_path = null;
-    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../assets/events/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0755, true);
-        }
-        
-        $file_extension = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-        $new_filename = 'event_' . time() . '_' . uniqid() . '.' . $file_extension;
-        $upload_path = $upload_dir . $new_filename;
-        
-        if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_path)) {
-            $image_path = 'assets/events/' . $new_filename;
-        }
-    }
+    // Create announcements table if it doesn't exist
+    $createAnnouncementsTableSQL = "
+        CREATE TABLE IF NOT EXISTS announcements (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            event_id INT,
+            target_groups TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL
+        )
+    ";
+    $pdo->exec($createAnnouncementsTableSQL);
     
     // Convert cultural groups array to JSON
     $cultural_groups_json = json_encode($cultural_groups);
     
     // Insert event into database
     $stmt = $pdo->prepare("
-        INSERT INTO events (title, description, start_date, end_date, location, campus, category, cultural_groups, image_path, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO events (title, description, start_date, end_date, location, campus, category, cultural_groups, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $result = $stmt->execute([
@@ -96,15 +92,42 @@ try {
         $campus,
         $category,
         $cultural_groups_json,
-        $image_path,
         $_SESSION['user_id'] ?? null
     ]);
     
     if ($result) {
+        $event_id = $pdo->lastInsertId();
+        
+        // Create announcement for students in concerned cultural groups
+        if (!empty($cultural_groups)) {
+            $announcement_title = "New Event: " . $title;
+            $announcement_message = "A new event has been scheduled for your cultural group.\n\n";
+            $announcement_message .= "Event: " . $title . "\n";
+            $announcement_message .= "Date: " . date('F j, Y', strtotime($start_date));
+            if ($start_date !== $end_date) {
+                $announcement_message .= " - " . date('F j, Y', strtotime($end_date));
+            }
+            $announcement_message .= "\nLocation: " . $location . "\n";
+            $announcement_message .= "Category: " . $category . "\n\n";
+            $announcement_message .= "Please check the Events & Trainings section for full details.";
+            
+            $announcementStmt = $pdo->prepare("
+                INSERT INTO announcements (title, message, event_id, target_groups) 
+                VALUES (?, ?, ?, ?)
+            ");
+            
+            $announcementStmt->execute([
+                $announcement_title,
+                $announcement_message,
+                $event_id,
+                $cultural_groups_json
+            ]);
+        }
+        
         echo json_encode([
             'success' => true, 
-            'message' => 'Event saved successfully!',
-            'event_id' => $pdo->lastInsertId()
+            'message' => 'Event saved successfully and notifications sent to concerned students!',
+            'event_id' => $event_id
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Failed to save event']);
