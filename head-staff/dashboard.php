@@ -444,6 +444,46 @@ try {
             color: #991b1b;
         }
 
+        /* Condition Badges */
+        .condition-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .condition-badge.condition-good {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .condition-badge.condition-worn-out {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .condition-badge.condition-bad {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Status badges for inventory */
+        .status-badge.status-available {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.status-borrowed {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.status-maintenance {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
         /* Action Buttons */
         .action-btn {
             padding: 0.5rem 1rem;
@@ -1937,18 +1977,75 @@ try {
                 <div class="page-header">
                     <h1 class="page-title">Costume Inventory</h1>
                     <div style="display: flex; gap: 1rem;">
-                        <button class="add-btn">
+                        <button class="add-btn" onclick="openAddItemModal()">
                             <span>+</span>
                             Add Costume
                         </button>
-                        <button class="add-btn secondary" onclick="openBorrowRequests()">
+                        <button class="add-btn" onclick="openBorrowRequests()">
                             Borrow Requests
+                        </button>
+                        <button class="add-btn" onclick="openReturns()">
+                            Returns
                         </button>
                     </div>
                 </div>
-                <div class="content-panel">
-                    <div class="panel-content">
-                        Costume inventory management coming soon...
+
+                <!-- Inventory Grid -->
+                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                    <!-- Costumes Table -->
+                    <div class="inventory-left">
+                        <div class="inventory-panel">
+                            <div style="padding: 1rem; border-bottom: 1px solid #e0e0e0;">
+                                <h3 style="margin: 0; color: #333; font-size: 1.25rem; font-weight: 600;">Costumes</h3>
+                            </div>
+                            <div class="inventory-table-container">
+                                <div class="table-section">
+                                    <div class="table-header">
+                                        <div class="table-header-row" style="grid-template-columns: 1fr 120px 120px;">
+                                            <div class="header-col">NAME</div>
+                                            <div class="header-col">CONDITION</div>
+                                            <div class="header-col">STATUS</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="table-body" id="costumesTableBody">
+                                        <!-- Costumes will be loaded dynamically -->
+                                        <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                                            <p>No costumes found.</p>
+                                            <small>Click "Add Costume" to get started.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Equipment Table -->
+                    <div class="inventory-right">
+                        <div class="inventory-panel">
+                            <div style="padding: 1rem; border-bottom: 1px solid #e0e0e0;">
+                                <h3 style="margin: 0; color: #333; font-size: 1.25rem; font-weight: 600;">Equipment</h3>
+                            </div>
+                            <div class="inventory-table-container">
+                                <div class="table-section">
+                                    <div class="table-header">
+                                        <div class="table-header-row" style="grid-template-columns: 1fr 120px 120px;">
+                                            <div class="header-col">NAME</div>
+                                            <div class="header-col">CONDITION</div>
+                                            <div class="header-col">STATUS</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="table-body" id="equipmentTableBody">
+                                        <!-- Equipment will be loaded dynamically -->
+                                        <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                                            <p>No equipment found.</p>
+                                            <small>Click "Add Costume" to get started.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -2067,6 +2164,12 @@ try {
                             <option value="">All Status</option>
                         </select>
                     </div>
+                    <div>
+                        <label for="requestSearchInput">Search:</label>
+                        <input type="text" id="requestSearchInput" placeholder="Search by name or email..." 
+                               style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; width: 250px;"
+                               onkeyup="debounceSearch(loadBorrowRequests, 500)">
+                    </div>
                 </div>
                 <div id="borrowRequestsLoading" style="text-align: center; padding: 2rem;">
                     <p>Loading borrow requests...</p>
@@ -2076,10 +2179,9 @@ try {
                         <table id="borrowRequestsTable">
                             <thead>
                                 <tr>
-                                    <th>Student Name</th>
-                                    <th>Student ID</th>
+                                    <th>Student Info</th>
                                     <th>Items Requested</th>
-                                    <th>Request Date</th>
+                                    <th>Dates</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -2092,6 +2194,219 @@ try {
                 </div>
                 <div id="borrowRequestsPagination" style="margin-top: 1rem; text-align: center;">
                     <!-- Pagination will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Returns Modal -->
+    <div id="returnsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1000px; width: 95%;">
+            <div class="modal-header">
+                <h2>Student Returns</h2>
+                <span class="close" onclick="closeReturnsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="returnsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+                    <div>
+                        <label for="statusReturnFilter">Status:</label>
+                        <select id="statusReturnFilter" onchange="loadReturns()">
+                            <option value="pending">Pending Return</option>
+                            <option value="returned">Returned</option>
+                            <option value="overdue">Overdue</option>
+                            <option value="">All Status</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="returnsLoading" style="text-align: center; padding: 2rem;">
+                    <p>Loading returns...</p>
+                </div>
+                <div id="returnsContent" style="display: none;">
+                    <div class="table-container">
+                        <table id="returnsTable">
+                            <thead>
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Student ID</th>
+                                    <th>Items Borrowed</th>
+                                    <th>Borrow Date</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="returnsTableBody">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="returnsPagination" style="margin-top: 1rem; text-align: center;">
+                    <!-- Pagination will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div id="addItemModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px; width: 90%;">
+            <div class="modal-header">
+                <h2>Add Costume/Equipment</h2>
+                <span class="close" onclick="closeAddItemModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addItemForm" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="itemName">Name*</label>
+                        <input type="text" id="itemName" name="name" placeholder="Enter item name" required 
+                               style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="itemCategory">Category*</label>
+                        <select id="itemCategory" name="category" required 
+                                style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                            <option value="">Select category</option>
+                            <option value="costume">Costume</option>
+                            <option value="equipment">Equipment</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="itemCondition">Condition*</label>
+                        <select id="itemCondition" name="condition" required 
+                                style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                            <option value="">Select condition</option>
+                            <option value="good">Good</option>
+                            <option value="worn-out">Worn-out</option>
+                            <option value="bad">Bad</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="itemDescription">Description (Optional)</label>
+                        <textarea id="itemDescription" name="description" placeholder="Enter item description" 
+                                  style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit; min-height: 80px; resize: vertical;"></textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" onclick="closeAddItemModal()" 
+                                style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                style="background: #dc2626; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+                            Save Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Item Selection Modal -->
+    <div id="itemSelectionModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%;">
+            <div class="modal-header">
+                <h2>Select Items to Approve</h2>
+            </div>
+            <div class="modal-body">
+                <!-- Search bar -->
+                <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end;">
+                    <div>
+                        <label for="itemSearchInput">Search Items:</label>
+                        <input type="text" id="itemSearchInput" placeholder="Search by name..." 
+                               style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; width: 300px;"
+                               onkeyup="searchAvailableItems()">
+                    </div>
+                    <div>
+                        <label for="categoryFilterSelect">Category:</label>
+                        <select id="categoryFilterSelect" onchange="filterItemsByCategory()" 
+                                style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="">All Items</option>
+                            <option value="costume">Costumes</option>
+                            <option value="equipment">Equipment</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Item selection grid -->
+                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- Costumes Table -->
+                    <div class="inventory-left">
+                        <div class="inventory-panel">
+                            <div style="padding: 1rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="margin: 0; color: #333; font-size: 1.25rem; font-weight: 600;">Available Costumes</h3>
+                                <span id="selectedCostumesCount" style="color: #dc2626; font-weight: 600;">0 selected</span>
+                            </div>
+                            <div class="inventory-table-container" style="max-height: 400px; overflow-y: auto;">
+                                <div class="table-section">
+                                    <div class="table-header">
+                                        <div class="table-header-row" style="grid-template-columns: 40px 1fr 120px 120px;">
+                                            <div class="header-col">
+                                                <input type="checkbox" id="selectAllCostumes" onchange="toggleSelectAllCostumes()">
+                                            </div>
+                                            <div class="header-col">NAME</div>
+                                            <div class="header-col">CONDITION</div>
+                                            <div class="header-col">STATUS</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="table-body" id="availableCostumesBody">
+                                        <!-- Available costumes will be loaded here -->
+                                        <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                                            <p>Loading available costumes...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Equipment Table -->
+                    <div class="inventory-right">
+                        <div class="inventory-panel">
+                            <div style="padding: 1rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="margin: 0; color: #333; font-size: 1.25rem; font-weight: 600;">Available Equipment</h3>
+                                <span id="selectedEquipmentCount" style="color: #dc2626; font-weight: 600;">0 selected</span>
+                            </div>
+                            <div class="inventory-table-container" style="max-height: 400px; overflow-y: auto;">
+                                <div class="table-section">
+                                    <div class="table-header">
+                                        <div class="table-header-row" style="grid-template-columns: 40px 1fr 120px 120px;">
+                                            <div class="header-col">
+                                                <input type="checkbox" id="selectAllEquipment" onchange="toggleSelectAllEquipment()">
+                                            </div>
+                                            <div class="header-col">NAME</div>
+                                            <div class="header-col">CONDITION</div>
+                                            <div class="header-col">STATUS</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="table-body" id="availableEquipmentBody">
+                                        <!-- Available equipment will be loaded here -->
+                                        <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                                            <p>Loading available equipment...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
+                    <button type="button" onclick="closeItemSelectionModal()" 
+                            style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="approveWithSelectedItems()" 
+                            style="background: #28a745; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem;" 
+                            id="approveButton" disabled>
+                        Approve Request (0 items)
+                    </button>
                 </div>
             </div>
         </div>
@@ -2122,6 +2437,11 @@ try {
                 if (activeSection === 'events-trainings') {
                     loadUpcomingEvents();
                 }
+                
+                // Load inventory items if Costume Inventory section is initially active
+                if (activeSection === 'costume-inventory') {
+                    loadInventoryItems();
+                }
             } else {
                 // Default to dashboard if section not found
                 document.querySelector('[data-section="dashboard"]').classList.add('active');
@@ -2149,6 +2469,11 @@ try {
                         if (sectionId === 'events-trainings') {
                             loadUpcomingEvents();
                         }
+                        
+                        // Load inventory items when Costume Inventory section is activated
+                        if (sectionId === 'costume-inventory') {
+                            loadInventoryItems();
+                        }
                     }
 
                     // Update URL without page reload
@@ -2165,6 +2490,13 @@ try {
                 });
             });
         });
+
+        // Utility function for debounced search
+        let searchTimeout;
+        function debounceSearch(func, delay) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => func(1), delay); // Reset to page 1 for new search
+        }
 
         // Logout function
         function logout() {
@@ -2709,23 +3041,150 @@ try {
             loadingDiv.style.display = 'block';
             contentDiv.style.display = 'none';
             
-            // Get filter value
+            // Get filter values
             const status = document.getElementById('statusRequestFilter').value;
+            const search = document.getElementById('requestSearchInput') ? document.getElementById('requestSearchInput').value : '';
             
-            // Here you would make an actual API call to fetch borrow requests
-            // For now, show empty table
-            setTimeout(() => {
+            // Build query parameters
+            const params = new URLSearchParams({
+                page: page,
+                limit: 10
+            });
+            
+            if (status) params.append('status', status);
+            if (search) params.append('search', search);
+            
+            fetch(`get_borrowing_requests.php?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    
+                    if (data.success) {
+                        displayBorrowRequests(data.data);
+                        displayRequestsPagination(data.pagination);
+                    } else {
+                        tableBody.innerHTML = `
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: #dc3545;">
+                                    Error loading requests: ${data.error}
+                                </td>
+                            </tr>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading borrow requests:', error);
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 2rem; color: #dc3545;">
+                                Error loading borrow requests. Please try again.
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+        
+        function displayBorrowRequests(requests) {
+            const tableBody = document.getElementById('borrowRequestsTableBody');
+            
+            if (!requests || requests.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                        <td colspan="5" style="text-align: center; padding: 2rem; color: #666;">
                             No borrow requests found
                         </td>
                     </tr>
                 `;
+                return;
+            }
+            
+            let html = '';
+            requests.forEach(request => {
+                // Format equipment categories
+                let equipmentList = '';
+                if (request.equipment_categories) {
+                    const categories = [];
+                    for (const [category, items] of Object.entries(request.equipment_categories)) {
+                        if (items) {
+                            // Handle both string and array formats
+                            if (Array.isArray(items) && items.length > 0) {
+                                categories.push(`${category.charAt(0).toUpperCase() + category.slice(1)}: ${items.join(', ')}`);
+                            } else if (typeof items === 'string' && items.trim().length > 0) {
+                                categories.push(`${category.charAt(0).toUpperCase() + category.slice(1)}: ${items.trim()}`);
+                            }
+                        }
+                    }
+                    equipmentList = categories.join('<br>');
+                }
                 
-                loadingDiv.style.display = 'none';
-                contentDiv.style.display = 'block';
-            }, 500);
+                html += `
+                    <tr>
+                        <td style="padding: 0.75rem;">
+                            <div style="font-weight: 600;">${request.student_name || request.requester_name}</div>
+                            <div style="font-size: 0.8rem; color: #666;">${request.email}</div>
+                            <div style="font-size: 0.8rem; color: #666;">${request.student_campus || request.campus || ''}</div>
+                            <div style="font-size: 0.8rem; color: #666;">${request.created_at_formatted || ''}</div>
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            <div style="font-size: 0.85rem; max-width: 200px;">${equipmentList}</div>
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            <div style="font-size: 0.85rem;">${request.dates_of_use || 'Not specified'}</div>
+                            <div style="font-size: 0.8rem; color: #666;">Return: ${request.estimated_return_date_formatted || 'Not specified'}</div>
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            ${getStatusBadge(request.status)}
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            ${getRequestActions(request.id, request.status)}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = html;
+        }
+        
+        function displayRequestsPagination(pagination) {
+            const paginationDiv = document.getElementById('borrowRequestsPagination');
+            if (!paginationDiv) return;
+            
+            if (pagination.total_pages <= 1) {
+                paginationDiv.innerHTML = '';
+                return;
+            }
+            
+            let html = '<div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 1rem;">';
+            
+            // Previous button
+            if (pagination.current_page > 1) {
+                html += `<button class="pagination-btn" onclick="loadBorrowRequests(${pagination.current_page - 1})">Previous</button>`;
+            }
+            
+            // Page numbers
+            const startPage = Math.max(1, pagination.current_page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === pagination.current_page ? 'active' : '';
+                html += `<button class="pagination-number ${activeClass}" onclick="loadBorrowRequests(${i})">${i}</button>`;
+            }
+            
+            // Next button
+            if (pagination.current_page < pagination.total_pages) {
+                html += `<button class="pagination-btn" onclick="loadBorrowRequests(${pagination.current_page + 1})">Next</button>`;
+            }
+            
+            html += '</div>';
+            html += `<div style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
+                Showing ${((pagination.current_page - 1) * pagination.limit) + 1} to ${Math.min(pagination.current_page * pagination.limit, pagination.total_requests)} of ${pagination.total_requests} requests
+            </div>`;
+            
+            paginationDiv.innerHTML = html;
         }
         
         function getStatusBadge(status) {
@@ -2740,7 +3199,7 @@ try {
         function getRequestActions(requestId, status) {
             if (status === 'pending') {
                 return `
-                    <button class="action-btn small approve" onclick="approveRequest(${requestId})">Approve</button>
+                    <button class="action-btn small approve" onclick="openApprovalModal(${requestId})">Approve</button>
                     <button class="action-btn small reject" onclick="rejectRequest(${requestId})">Reject</button>
                 `;
             } else {
@@ -2748,26 +3207,312 @@ try {
             }
         }
         
+        function openApprovalModal(requestId) {
+            openItemSelectionModal(requestId);
+        }
+        
         function approveRequest(requestId) {
             if (confirm('Are you sure you want to approve this borrow request?')) {
-                // Here you would make an API call to approve the request
-                alert('Request approved successfully!');
-                loadBorrowRequests(); // Reload the list
+                updateRequestStatus(requestId, 'approved');
             }
         }
         
         function rejectRequest(requestId) {
             if (confirm('Are you sure you want to reject this borrow request?')) {
-                // Here you would make an API call to reject the request
-                alert('Request rejected successfully!');
-                loadBorrowRequests(); // Reload the list
+                updateRequestStatus(requestId, 'rejected');
             }
+        }
+        
+        function updateRequestStatus(requestId, status) {
+            fetch('update_borrowing_request.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    request_id: requestId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    loadBorrowRequests(); // Reload the list
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating request:', error);
+                alert('Error updating request. Please try again.');
+            });
         }
         
         function viewRequest(requestId) {
             // Here you would show detailed view of the request
             alert('Viewing request details for ID: ' + requestId);
         }
+
+        // Returns Functions
+        function openReturns() {
+            // Show the returns modal
+            const modal = document.getElementById('returnsModal');
+            modal.style.display = 'flex';
+            loadReturns();
+        }
+
+        function closeReturnsModal() {
+            const modal = document.getElementById('returnsModal');
+            modal.style.display = 'none';
+        }
+
+        function loadReturns(page = 1) {
+            const loadingDiv = document.getElementById('returnsLoading');
+            const contentDiv = document.getElementById('returnsContent');
+            const tableBody = document.getElementById('returnsTableBody');
+            
+            loadingDiv.style.display = 'block';
+            contentDiv.style.display = 'none';
+            
+            // Get filter value
+            const status = document.getElementById('statusReturnFilter').value;
+            
+            // Here you would make an actual API call to fetch returns
+            // For now, show empty table
+            setTimeout(() => {
+                tableBody.innerHTML = `
+                `;
+                
+                loadingDiv.style.display = 'none';
+                contentDiv.style.display = 'block';
+            }, 500);
+        }
+        
+        function getReturnStatusBadge(status) {
+            const badges = {
+                'pending': '<span class="status-badge pending">Pending Return</span>',
+                'returned': '<span class="status-badge approved">Returned</span>',
+                'overdue': '<span class="status-badge rejected">Overdue</span>'
+            };
+            return badges[status] || status;
+        }
+        
+        function getReturnActions(returnId, status) {
+            if (status === 'pending' || status === 'overdue') {
+                return `
+                    <button class="action-btn small approve" onclick="processReturn(${returnId})">Mark Returned</button>
+                    <button class="action-btn small view" onclick="viewReturn(${returnId})">View</button>
+                `;
+            } else {
+                return `<button class="action-btn small view" onclick="viewReturn(${returnId})">View</button>`;
+            }
+        }
+        
+        function processReturn(returnId) {
+            if (confirm('Are you sure you want to mark this item as returned?')) {
+                // Here you would make an API call to process the return
+                alert('Item marked as returned successfully!');
+                loadReturns(); // Reload the list
+            }
+        }
+        
+        function viewReturn(returnId) {
+            // Here you would show detailed view of the return
+            alert('Viewing return details for ID: ' + returnId);
+        }
+
+        // Add Item Functions
+        function openAddItemModal() {
+            const modal = document.getElementById('addItemModal');
+            modal.style.display = 'flex';
+            // Reset form
+            document.getElementById('addItemForm').reset();
+        }
+
+        function closeAddItemModal() {
+            const modal = document.getElementById('addItemModal');
+            modal.style.display = 'none';
+        }
+
+        // Handle Add Item Form Submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const addItemForm = document.getElementById('addItemForm');
+            if (addItemForm) {
+                addItemForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const itemData = {
+                        name: formData.get('name'),
+                        category: formData.get('category'),
+                        condition: formData.get('condition'),
+                        description: formData.get('description'),
+                        status: 'available' // Automatically set to available
+                    };
+                    
+                    // Send data to backend
+                    fetch('save_inventory_item.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(itemData)
+                    })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        console.log('Response headers:', response.headers.get('content-type'));
+                        
+                        // Check if response is actually JSON
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType || !contentType.includes('application/json')) {
+                            return response.text().then(text => {
+                                throw new Error('Server returned non-JSON response: ' + text);
+                            });
+                        }
+                        
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Parsed data:', data);
+                        if (data.success) {
+                            alert('Item added successfully! Status automatically set to "Available".');
+                            closeAddItemModal();
+                            loadInventoryItems(); // Reload the tables
+                        } else {
+                            alert('Error adding item: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Full error:', error);
+                        alert('Error adding item: ' + error.message);
+                    });
+                });
+            }
+        });
+
+        function loadInventoryItems() {
+            // Load costumes and equipment from the database
+            console.log('Loading inventory items...');
+            
+            fetch('get_inventory_items.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayCostumes(data.costumes);
+                        displayEquipment(data.equipment);
+                    } else {
+                        console.error('Error loading inventory:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading inventory:', error);
+                });
+        }
+
+        function displayCostumes(costumes) {
+            const tableBody = document.getElementById('costumesTableBody');
+            if (!costumes || costumes.length === 0) {
+                tableBody.innerHTML = `
+                    <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                        <p>No costumes found.</p>
+                        <small>Click "Add Costume" to get started.</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            costumes.forEach(costume => {
+                html += `
+                    <div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
+                        <div style="padding: 0 0.5rem;">
+                            ${costume.name}
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            ${getConditionBadge(costume.condition_status)}
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            ${getInventoryStatusBadge(costume.status)}
+                        </div>
+                    </div>
+                `;
+            });
+            tableBody.innerHTML = html;
+        }
+
+        function displayEquipment(equipment) {
+            const tableBody = document.getElementById('equipmentTableBody');
+            if (!equipment || equipment.length === 0) {
+                tableBody.innerHTML = `
+                    <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                        <p>No equipment found.</p>
+                        <small>Click "Add Costume" to get started.</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            equipment.forEach(item => {
+                html += `
+                    <div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
+                        <div style="padding: 0 0.5rem;">
+                            ${item.name}
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            ${getConditionBadge(item.condition_status)}
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            ${getInventoryStatusBadge(item.status)}
+                        </div>
+                    </div>
+                `;
+            });
+            tableBody.innerHTML = html;
+        }
+
+        function getConditionBadge(condition) {
+            const badges = {
+                'good': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Good</span>',
+                'worn-out': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Worn-out</span>',
+                'bad': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Bad</span>'
+            };
+            return badges[condition] || condition;
+        }
+
+        function getInventoryStatusBadge(status) {
+            const badges = {
+                'available': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Available</span>',
+                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Borrowed</span>'
+            };
+            return badges[status] || status;
+        }
+
+        // Load inventory items when costume inventory section is activated
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    const sectionId = this.dataset.section;
+                    if (sectionId === 'costume-inventory') {
+                        // Load inventory items when costume inventory section is activated
+                        setTimeout(() => {
+                            loadInventoryItems();
+                        }, 100);
+                    }
+                });
+            });
+
+            // Load inventory if costume-inventory is the initial active section
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeSection = urlParams.get('section');
+            if (activeSection === 'costume-inventory') {
+                setTimeout(() => {
+                    loadInventoryItems();
+                }, 100);
+            }
+        });
 
         function loadAllEvents(page = 1) {
             const loadingDiv = document.getElementById('allEventsLoading');
@@ -3235,6 +3980,293 @@ try {
             });
 
             eventsList.innerHTML = html;
+        }
+
+        // Item Selection Modal Functions
+        let currentRequestId = null;
+        let availableItems = { costumes: [], equipment: [] };
+        let selectedItems = [];
+
+        function openItemSelectionModal(requestId) {
+            currentRequestId = requestId;
+            const modal = document.getElementById('itemSelectionModal');
+            modal.style.display = 'flex';
+            loadAvailableItems();
+        }
+
+        function closeItemSelectionModal() {
+            const modal = document.getElementById('itemSelectionModal');
+            modal.style.display = 'none';
+            currentRequestId = null;
+            selectedItems = [];
+            clearItemSelection();
+        }
+
+        function loadAvailableItems() {
+            const search = document.getElementById('itemSearchInput').value;
+            const category = document.getElementById('categoryFilterSelect').value;
+            
+            let url = 'get_available_items.php';
+            const params = new URLSearchParams();
+            
+            if (search) params.append('search', search);
+            if (category) params.append('category', category);
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        availableItems = {
+                            costumes: data.costumes,
+                            equipment: data.equipment
+                        };
+                        displayAvailableItems();
+                    } else {
+                        console.error('Error loading available items:', data.message);
+                        displayError('Error loading items: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    displayError('Error loading items: ' + error.message);
+                });
+        }
+
+        function displayAvailableItems() {
+            displayCostumeItems();
+            displayEquipmentItems();
+        }
+
+        function displayCostumeItems() {
+            const tbody = document.getElementById('availableCostumesBody');
+            
+            if (availableItems.costumes.length === 0) {
+                tbody.innerHTML = `
+                    <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                        <p>No available costumes found.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            availableItems.costumes.forEach(costume => {
+                const isSelected = selectedItems.some(item => item.id === costume.id && item.type === 'costume');
+                
+                html += `
+                    <div class="table-row" style="display: grid; grid-template-columns: 40px 1fr 120px 120px; padding: 0.75rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
+                        <div style="padding: 0 0.5rem;">
+                            <input type="checkbox" value="${costume.id}" 
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="toggleItemSelection('costume', ${costume.id}, '${costume.name}', this.checked)">
+                        </div>
+                        <div style="padding: 0 0.5rem; font-weight: 500;">
+                            ${costume.name}
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            <span class="condition-badge condition-${costume.condition}">${costume.condition}</span>
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            <span class="status-badge status-${costume.status}">${costume.status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function displayEquipmentItems() {
+            const tbody = document.getElementById('availableEquipmentBody');
+            
+            if (availableItems.equipment.length === 0) {
+                tbody.innerHTML = `
+                    <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
+                        <p>No available equipment found.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            availableItems.equipment.forEach(equipment => {
+                const isSelected = selectedItems.some(item => item.id === equipment.id && item.type === 'equipment');
+                
+                html += `
+                    <div class="table-row" style="display: grid; grid-template-columns: 40px 1fr 120px 120px; padding: 0.75rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
+                        <div style="padding: 0 0.5rem;">
+                            <input type="checkbox" value="${equipment.id}" 
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="toggleItemSelection('equipment', ${equipment.id}, '${equipment.name}', this.checked)">
+                        </div>
+                        <div style="padding: 0 0.5rem; font-weight: 500;">
+                            ${equipment.name}
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            <span class="condition-badge condition-${equipment.condition}">${equipment.condition}</span>
+                        </div>
+                        <div style="padding: 0 0.5rem;">
+                            <span class="status-badge status-${equipment.status}">${equipment.status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function displayError(message) {
+            const costumeBody = document.getElementById('availableCostumesBody');
+            const equipmentBody = document.getElementById('availableEquipmentBody');
+            
+            const errorHtml = `
+                <div class="empty-state" style="padding: 2rem; text-align: center; color: #dc2626;">
+                    <p>${message}</p>
+                </div>
+            `;
+            
+            costumeBody.innerHTML = errorHtml;
+            equipmentBody.innerHTML = errorHtml;
+        }
+
+        function toggleItemSelection(type, id, name, isChecked) {
+            if (isChecked) {
+                selectedItems.push({ type, id, name });
+            } else {
+                selectedItems = selectedItems.filter(item => !(item.type === type && item.id === id));
+            }
+            
+            updateSelectionCounts();
+            updateApproveButton();
+        }
+
+        function toggleSelectAllCostumes() {
+            const selectAll = document.getElementById('selectAllCostumes');
+            const checkboxes = document.querySelectorAll('#availableCostumesBody input[type="checkbox"]');
+            
+            checkboxes.forEach(checkbox => {
+                const id = parseInt(checkbox.value);
+                const costume = availableItems.costumes.find(c => c.id === id);
+                
+                if (costume) {
+                    checkbox.checked = selectAll.checked;
+                    toggleItemSelection('costume', id, costume.name, selectAll.checked);
+                }
+            });
+        }
+
+        function toggleSelectAllEquipment() {
+            const selectAll = document.getElementById('selectAllEquipment');
+            const checkboxes = document.querySelectorAll('#availableEquipmentBody input[type="checkbox"]');
+            
+            checkboxes.forEach(checkbox => {
+                const id = parseInt(checkbox.value);
+                const equipment = availableItems.equipment.find(e => e.id === id);
+                
+                if (equipment) {
+                    checkbox.checked = selectAll.checked;
+                    toggleItemSelection('equipment', id, equipment.name, selectAll.checked);
+                }
+            });
+        }
+
+        function updateSelectionCounts() {
+            const costumeCount = selectedItems.filter(item => item.type === 'costume').length;
+            const equipmentCount = selectedItems.filter(item => item.type === 'equipment').length;
+            
+            document.getElementById('selectedCostumesCount').textContent = `${costumeCount} selected`;
+            document.getElementById('selectedEquipmentCount').textContent = `${equipmentCount} selected`;
+        }
+
+        function updateApproveButton() {
+            const button = document.getElementById('approveButton');
+            const totalSelected = selectedItems.length;
+            
+            if (totalSelected > 0) {
+                button.disabled = false;
+                button.textContent = `Approve Request (${totalSelected} items)`;
+            } else {
+                button.disabled = true;
+                button.textContent = 'Approve Request (0 items)';
+            }
+        }
+
+        function clearItemSelection() {
+            selectedItems = [];
+            updateSelectionCounts();
+            updateApproveButton();
+            
+            // Clear checkboxes
+            document.querySelectorAll('#itemSelectionModal input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        }
+
+        function searchAvailableItems() {
+            loadAvailableItems();
+        }
+
+        function filterItemsByCategory() {
+            loadAvailableItems();
+        }
+
+        function approveWithSelectedItems() {
+            if (selectedItems.length === 0) {
+                alert('Please select at least one item to approve.');
+                return;
+            }
+
+            if (!currentRequestId) {
+                alert('Error: No request selected.');
+                return;
+            }
+
+            const confirmMessage = `Are you sure you want to approve this request with ${selectedItems.length} selected items?`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            // Send approval with selected items
+            fetch('update_borrowing_request.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    request_id: currentRequestId,
+                    action: 'approve',
+                    selected_items: selectedItems
+                })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.text();
+            })
+            .then(text => {
+                console.log('Response text:', text);
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        alert('Request approved successfully!');
+                        closeItemSelectionModal();
+                        loadBorrowRequests(); // Refresh the requests list
+                    } else {
+                        const errorMessage = data.message || data.error || 'Unknown error occurred';
+                        alert('Error approving request: ' + errorMessage);
+                    }
+                } catch (parseError) {
+                    console.error('JSON parse error:', parseError);
+                    alert('Error: Invalid response from server');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error approving request: ' + error.message);
+            });
         }
     </script>
 </body>

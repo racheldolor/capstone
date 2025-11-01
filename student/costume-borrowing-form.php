@@ -17,21 +17,21 @@ $student_id = $_SESSION['user_id'];
 $student_info = null;
 
 try {
-    $user_table = $_SESSION['user_table'] ?? 'users';
+    // Students can only be retrieved from student_artists and applications tables
+    // First get student from student_artists table
+    $stmt = $pdo->prepare("SELECT * FROM student_artists WHERE id = ?");
+    $stmt->execute([$student_id]);
+    $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($user_table === 'student_artists') {
-        $stmt = $pdo->prepare("SELECT * FROM student_artists WHERE id = ?");
-        $stmt->execute([$student_id]);
-        $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
-    } else {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-        $stmt->execute([$student_id]);
-        $user_info = $stmt->fetch(PDO::FETCH_ASSOC);
+    // If student found, get present_address from applications table
+    if ($student_info && isset($student_info['email'])) {
+        $stmt = $pdo->prepare("SELECT present_address FROM applications WHERE email = ? AND application_status = 'approved' ORDER BY submitted_at DESC LIMIT 1");
+        $stmt->execute([$student_info['email']]);
+        $application_data = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($user_info) {
-            $stmt = $pdo->prepare("SELECT * FROM student_artists WHERE email = ?");
-            $stmt->execute([$user_info['email']]);
-            $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($application_data && !empty($application_data['present_address'])) {
+            // Use only present_address from applications table
+            $student_info['address'] = $application_data['present_address'];
         }
     }
 } catch (Exception $e) {
@@ -46,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             CREATE TABLE IF NOT EXISTS borrowing_requests (
                 id INT PRIMARY KEY AUTO_INCREMENT,
                 student_id INT NOT NULL,
-                reference_no VARCHAR(50) NOT NULL,
                 campus VARCHAR(100),
                 requester_name VARCHAR(200),
                 college_office VARCHAR(200),
@@ -65,9 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             )
         ";
         $pdo->exec($createTableSQL);
-
-        // Generate reference number
-        $reference_no = 'BatStateU-FO-OCA-' . sprintf('%03d', rand(1, 999));
 
         // Get form data
         $campus = trim($_POST['campus'] ?? '');
@@ -103,15 +99,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Insert borrowing request
         $stmt = $pdo->prepare("
             INSERT INTO borrowing_requests (
-                student_id, reference_no, campus, requester_name, college_office, 
+                student_id, campus, requester_name, college_office, 
                 contact_number, email, address, equipment_categories, 
                 date_of_request, dates_of_use, times_of_use, estimated_return_date, purpose
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $result = $stmt->execute([
             $student_id,
-            $reference_no,
             $campus,
             $requester_name,
             $college_office,
@@ -127,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         if ($result) {
-            $success_message = "Your borrowing request has been submitted successfully! Reference No: $reference_no";
+            $success_message = "Your borrowing request has been submitted successfully!";
         } else {
             throw new Exception('Failed to submit borrowing request. Please try again.');
         }

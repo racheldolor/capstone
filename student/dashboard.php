@@ -538,6 +538,167 @@ try {
         .action-btn.secondary:hover {
             background: #5a6268;
         }
+
+        /* Borrowed Costumes Styles */
+        .borrowed-costumes-list {
+            padding: 0;
+            margin: 0;
+        }
+
+        #borrowedCostumesContent.panel-content {
+            padding: 0;
+            min-height: 0;
+            margin: 0;
+            display: block;
+            align-items: unset;
+            justify-content: unset;
+            text-align: left;
+        }
+
+        /* Remove bottom padding from borrowed costumes panel header */
+        #costume-borrowing .content-panel .panel-header {
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+
+        .borrowed-costumes-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 0;
+            overflow: hidden;
+            margin: 0;
+            margin-top: -1px; /* Pull table up to merge with header */
+            margin-left: 0;
+            margin-right: 0;
+            border-left: none;
+            border-right: none;
+        }
+
+        .borrowed-costumes-table thead {
+            background: #dc2626;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .borrowed-costumes-table th:first-child,
+        .borrowed-costumes-table td:first-child {
+            padding-left: 1.5rem;
+        }
+
+        .borrowed-costumes-table th:last-child,
+        .borrowed-costumes-table td:last-child {
+            padding-right: 1.5rem;
+        }
+
+        .borrowed-costumes-table th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .borrowed-costumes-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: top;
+        }
+
+        .borrowed-costumes-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .borrowed-costumes-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .item-name-cell {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .item-category-cell {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: capitalize;
+        }
+
+        .item-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: inline-block;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-returned {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .status-overdue {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .date-cell {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .notes-cell {
+            font-size: 0.85rem;
+            color: #666;
+            font-style: italic;
+            max-width: 200px;
+            word-wrap: break-word;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .empty-borrowed-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #888;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .empty-borrowed-state p {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-borrowed-state small {
+            color: #aaa;
+        }
     </style>
 </head>
 <body>
@@ -762,10 +923,12 @@ try {
                     <div class="panel-header">
                         <h3 class="panel-title">My Borrowed Costumes</h3>
                     </div>
-                    <div class="panel-content">
-                        <div class="empty-state">
-                            <p>No borrowed costumes</p>
-                            <small>Your borrowed costumes will be listed here</small>
+                    <div class="panel-content" id="borrowedCostumesContent">
+                        <div class="loading-state" id="borrowedCostumesLoading">
+                            <p>Loading borrowed costumes...</p>
+                        </div>
+                        <div class="borrowed-costumes-list" id="borrowedCostumesList" style="display: none;">
+                            <!-- Borrowed costumes will be loaded here -->
                         </div>
                     </div>
                 </div>
@@ -881,6 +1044,8 @@ try {
                             loadAnnouncements();
                         } else if (sectionId === 'upcoming-events') {
                             loadUpcomingEvents();
+                        } else if (sectionId === 'costume-borrowing') {
+                            loadBorrowedCostumes();
                         }
                     }
 
@@ -895,6 +1060,8 @@ try {
                 loadAnnouncements();
             } else if (activeSection === 'upcoming-events') {
                 loadUpcomingEvents();
+            } else if (activeSection === 'costume-borrowing') {
+                loadBorrowedCostumes();
             }
         });
 
@@ -1058,6 +1225,171 @@ try {
         // Open costume borrowing form
         function openCostumeBorrowingForm() {
             window.location.href = 'costume-borrowing-form.php';
+        }
+
+        // Load borrowed costumes
+        function loadBorrowedCostumes() {
+            const loadingDiv = document.getElementById('borrowedCostumesLoading');
+            const listDiv = document.getElementById('borrowedCostumesList');
+            
+            loadingDiv.style.display = 'block';
+            listDiv.style.display = 'none';
+            
+            fetch('get_borrowed_costumes.php')
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    listDiv.style.display = 'block';
+                    
+                    if (data.success) {
+                        displayBorrowedCostumes(data.requests);
+                    } else {
+                        showBorrowedCostumesError(data.message);
+                    }
+                })
+                .catch(error => {
+                    loadingDiv.style.display = 'none';
+                    listDiv.style.display = 'block';
+                    showBorrowedCostumesError('Error loading borrowed costumes: ' + error.message);
+                });
+        }
+
+        // Display borrowed costumes and all requests
+        function displayBorrowedCostumes(requests) {
+            const listDiv = document.getElementById('borrowedCostumesList');
+            
+            if (!requests || requests.length === 0) {
+                listDiv.innerHTML = `
+                    <div class="empty-borrowed-state">
+                        <p>No borrow requests</p>
+                        <small>Your borrow requests will be listed here</small>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table class="borrowed-costumes-table">
+                    <thead>
+                        <tr>
+                            <th>Item Name</th>
+                            <th>Status</th>
+                            <th>Request Date</th>
+                            <th>Return Date</th>
+                            <th>Usage Period</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            requests.forEach(request => {
+                const statusClass = getRequestStatusClass(request);
+                const formattedRequestDate = formatDate(request.request_date);
+                const formattedDueDate = formatDate(request.due_date);
+                
+                html += `
+                    <tr>
+                        <td class="item-name-cell">${request.item_name}</td>
+                        <td><span class="item-status ${statusClass}">${getRequestStatusText(request)}</span></td>
+                        <td class="date-cell">${formattedRequestDate}</td>
+                        <td class="date-cell">${formattedDueDate}</td>
+                        <td class="date-cell">${request.dates_of_use || 'Not specified'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            listDiv.innerHTML = html;
+        }
+
+        // Get status class for styling
+        function getRequestStatusClass(request) {
+            switch(request.status) {
+                case 'pending':
+                    return 'status-pending';
+                case 'approved':
+                    if (request.current_status === 'returned') {
+                        return 'status-returned';
+                    }
+                    if (request.due_date) {
+                        const dueDate = new Date(request.due_date);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        dueDate.setHours(0, 0, 0, 0);
+                        
+                        if (dueDate < today) {
+                            return 'status-overdue';
+                        }
+                    }
+                    return 'status-active';
+                case 'rejected':
+                    return 'status-rejected';
+                default:
+                    return 'status-pending';
+            }
+        }
+
+        // Get status text
+        function getRequestStatusText(request) {
+            switch(request.status) {
+                case 'pending':
+                    return 'Pending Review';
+                case 'approved':
+                    if (request.current_status === 'returned') {
+                        return 'Returned';
+                    }
+                    if (request.due_date) {
+                        const dueDate = new Date(request.due_date);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        dueDate.setHours(0, 0, 0, 0);
+                        
+                        if (dueDate < today) {
+                            return 'Overdue';
+                        }
+                    }
+                    return 'Approved';
+                case 'rejected':
+                    return 'Rejected';
+                default:
+                    return 'Unknown';
+            }
+        }
+
+        // Get display category
+        function getDisplayCategory(request) {
+            if (request.display_type === 'approved_item') {
+                return request.category.charAt(0).toUpperCase() + request.category.slice(1);
+            } else {
+                return 'Borrow Request';
+            }
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return 'Not specified';
+            
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Show error message
+        function showBorrowedCostumesError(message) {
+            const listDiv = document.getElementById('borrowedCostumesList');
+            listDiv.innerHTML = `
+                <div class="empty-borrowed-state">
+                    <p style="color: #dc2626;">Error loading borrowed costumes</p>
+                    <small>${message}</small>
+                </div>
+            `;
         }
     </script>
 </body>
