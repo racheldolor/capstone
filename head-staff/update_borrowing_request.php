@@ -101,15 +101,32 @@ try {
                 review_notes = ?,
                 reviewed_by = ?,
                 reviewed_at = CURRENT_TIMESTAMP,
-                approved_items = ?
+                approved_items = ?,
+                due_date = ?,
+                current_status = ?
             WHERE id = ?
         ");
+
+        // Set due date to estimated return date if approving
+        $due_date = null;
+        $current_status = null;
+        if ($status === 'approved') {
+            // Get the estimated return date from the request
+            $temp_stmt = $pdo->prepare("SELECT estimated_return_date FROM borrowing_requests WHERE id = ?");
+            $temp_stmt->execute([$request_id]);
+            $temp_request = $temp_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $due_date = $temp_request['estimated_return_date'] ?? null;
+            $current_status = 'active';
+        }
 
         $result = $stmt->execute([
             $status,
             $notes,
             $_SESSION['user_id'],
             $approved_items_json,
+            $due_date,
+            $current_status,
             $request_id
         ]);
 
@@ -133,14 +150,19 @@ try {
             $log_message .= ", Approved items: " . implode(', ', $item_names);
         }
 
-        // Log the admin action
-        logAdminAction(
-            $pdo, 
-            $_SESSION['user_id'], 
-            "Borrowing request $status", 
-            $request['student_id'], 
-            $log_message
-        );
+        // Log the admin action (after successful commit)
+        try {
+            logAdminAction(
+                $pdo, 
+                $_SESSION['user_id'], 
+                "Borrowing request $status", 
+                $request['student_id'], 
+                $log_message
+            );
+        } catch (Exception $log_error) {
+            // Don't fail the whole operation if logging fails
+            error_log("Admin action logging failed: " . $log_error->getMessage());
+        }
 
         // Commit transaction
         $pdo->commit();

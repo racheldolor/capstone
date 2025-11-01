@@ -2201,41 +2201,47 @@ try {
 
     <!-- Returns Modal -->
     <div id="returnsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 1000px; width: 95%;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%;">
             <div class="modal-header">
-                <h2>Student Returns</h2>
+                <h2>Return Requests</h2>
                 <span class="close" onclick="closeReturnsModal()">&times;</span>
             </div>
             <div class="modal-body">
                 <div id="returnsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
                     <div>
                         <label for="statusReturnFilter">Status:</label>
-                        <select id="statusReturnFilter" onchange="loadReturns()">
-                            <option value="pending">Pending Return</option>
-                            <option value="returned">Returned</option>
-                            <option value="overdue">Overdue</option>
+                        <select id="statusReturnFilter" onchange="loadReturnRequests()">
+                            <option value="pending">Pending Returns</option>
+                            <option value="completed">Completed Returns</option>
                             <option value="">All Status</option>
                         </select>
                     </div>
+                    <div>
+                        <label for="searchReturnFilter">Search:</label>
+                        <input type="text" id="searchReturnFilter" placeholder="Student name or item name..." 
+                               onkeyup="debounceReturnSearch()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <button onclick="loadReturnRequests()" style="padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 4px;">
+                        Refresh
+                    </button>
                 </div>
                 <div id="returnsLoading" style="text-align: center; padding: 2rem;">
-                    <p>Loading returns...</p>
+                    <p>Loading return requests...</p>
                 </div>
                 <div id="returnsContent" style="display: none;">
                     <div class="table-container">
-                        <table id="returnsTable">
+                        <table id="returnRequestsTable">
                             <thead>
                                 <tr>
                                     <th>Student Name</th>
-                                    <th>Student ID</th>
-                                    <th>Items Borrowed</th>
-                                    <th>Borrow Date</th>
-                                    <th>Due Date</th>
+                                    <th>Item Name</th>
+                                    <th>Request Date</th>
+                                    <th>Condition Notes</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="returnsTableBody">
+                            <tbody id="returnRequestsTableBody">
                                 <!-- Data will be loaded here -->
                             </tbody>
                         </table>
@@ -2413,10 +2419,25 @@ try {
     </div>
 
     <script>
+        // Utility function to format dates
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
         // Navigation functionality
         document.addEventListener('DOMContentLoaded', function() {
             const navLinks = document.querySelectorAll('.nav-link');
             const contentSections = document.querySelectorAll('.content-section');
+
+            console.log('Navigation initialized with', navLinks.length, 'links and', contentSections.length, 'sections');
 
             // Check URL parameter for active section
             const urlParams = new URLSearchParams(window.location.search);
@@ -2444,13 +2465,17 @@ try {
                 }
             } else {
                 // Default to dashboard if section not found
-                document.querySelector('[data-section="dashboard"]').classList.add('active');
-                document.getElementById('dashboard').classList.add('active');
+                const defaultLink = document.querySelector('[data-section="dashboard"]');
+                const defaultSection = document.getElementById('dashboard');
+                if (defaultLink) defaultLink.classList.add('active');
+                if (defaultSection) defaultSection.classList.add('active');
             }
 
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
+                    
+                    console.log('Navigation clicked:', this.dataset.section);
                     
                     // Remove active class from all links and sections
                     navLinks.forEach(l => l.classList.remove('active'));
@@ -2464,6 +2489,7 @@ try {
                     const targetSection = document.getElementById(sectionId);
                     if (targetSection) {
                         targetSection.classList.add('active');
+                        console.log('Activated section:', sectionId);
                         
                         // Load upcoming events when Events & Trainings section is activated
                         if (sectionId === 'events-trainings') {
@@ -2474,6 +2500,8 @@ try {
                         if (sectionId === 'costume-inventory') {
                             loadInventoryItems();
                         }
+                    } else {
+                        console.error('Target section not found:', sectionId);
                     }
 
                     // Update URL without page reload
@@ -3238,7 +3266,12 @@ try {
             .then(data => {
                 if (data.success) {
                     alert(data.message);
-                    loadBorrowRequests(); // Reload the list
+                    loadBorrowRequests(); // Reload the borrow requests list
+                    
+                    // If the request was approved, also refresh inventory to show updated status
+                    if (status === 'approved') {
+                        loadInventoryItems(); // Refresh inventory to show items as "borrowed"
+                    }
                 } else {
                     alert('Error: ' + data.error);
                 }
@@ -3259,7 +3292,7 @@ try {
             // Show the returns modal
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'flex';
-            loadReturns();
+            loadReturnRequests();
         }
 
         function closeReturnsModal() {
@@ -3267,59 +3300,172 @@ try {
             modal.style.display = 'none';
         }
 
-        function loadReturns(page = 1) {
+        function loadReturnRequests(page = 1) {
             const loadingDiv = document.getElementById('returnsLoading');
             const contentDiv = document.getElementById('returnsContent');
-            const tableBody = document.getElementById('returnsTableBody');
+            const tableBody = document.getElementById('returnRequestsTableBody');
             
             loadingDiv.style.display = 'block';
             contentDiv.style.display = 'none';
             
-            // Get filter value
+            // Get filter values
             const status = document.getElementById('statusReturnFilter').value;
+            const search = document.getElementById('searchReturnFilter').value;
             
-            // Here you would make an actual API call to fetch returns
-            // For now, show empty table
-            setTimeout(() => {
-                tableBody.innerHTML = `
-                `;
-                
+            // API call to fetch return requests
+            fetch('get_return_requests.php?' + new URLSearchParams({
+                page: page,
+                status: status,
+                search: search
+            }))
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayReturnRequests(data.requests);
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                } else {
+                    tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Error loading return requests: ${data.message}</td></tr>`;
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Error loading return requests</td></tr>`;
                 loadingDiv.style.display = 'none';
                 contentDiv.style.display = 'block';
+            });
+        }
+
+        function displayReturnRequests(requests) {
+            const tableBody = document.getElementById('returnRequestsTableBody');
+            
+            if (!requests || requests.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">No return requests found</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            requests.forEach(request => {
+                const statusBadge = getReturnRequestStatusBadge(request.status);
+                const actions = getReturnRequestActions(request.id, request.status);
+                
+                html += `
+                    <tr>
+                        <td>${request.student_name}</td>
+                        <td>${request.item_name}</td>
+                        <td>${formatDate(request.requested_at)}</td>
+                        <td>${request.condition_notes || '-'}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = html;
+        }
+
+        let returnSearchTimeout;
+        function debounceReturnSearch() {
+            clearTimeout(returnSearchTimeout);
+            returnSearchTimeout = setTimeout(() => {
+                loadReturnRequests();
             }, 500);
         }
         
-        function getReturnStatusBadge(status) {
+        function getReturnRequestStatusBadge(status) {
             const badges = {
-                'pending': '<span class="status-badge pending">Pending Return</span>',
-                'returned': '<span class="status-badge approved">Returned</span>',
-                'overdue': '<span class="status-badge rejected">Overdue</span>'
+                'pending': '<span class="status-badge pending">Pending</span>',
+                'completed': '<span class="status-badge approved">Completed</span>'
             };
             return badges[status] || status;
         }
         
-        function getReturnActions(returnId, status) {
-            if (status === 'pending' || status === 'overdue') {
+        function getReturnRequestActions(requestId, status) {
+            if (status === 'pending') {
                 return `
-                    <button class="action-btn small approve" onclick="processReturn(${returnId})">Mark Returned</button>
-                    <button class="action-btn small view" onclick="viewReturn(${returnId})">View</button>
+                    <button class="action-btn small approve" onclick="confirmReturn(${requestId})">Confirm Return</button>
+                    <button class="action-btn small view" onclick="viewReturnRequest(${requestId})">View Details</button>
                 `;
             } else {
-                return `<button class="action-btn small view" onclick="viewReturn(${returnId})">View</button>`;
+                return `
+                    <button class="action-btn small view" onclick="viewReturnRequest(${requestId})">View Details</button>
+                `;
             }
         }
         
-        function processReturn(returnId) {
-            if (confirm('Are you sure you want to mark this item as returned?')) {
-                // Here you would make an API call to process the return
-                alert('Item marked as returned successfully!');
-                loadReturns(); // Reload the list
+        function confirmReturn(requestId) {
+            if (confirm('Are you sure you want to confirm this return? This will mark the items as returned and available.')) {
+                fetch('process_return_confirmation.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        request_id: requestId,
+                        action: 'confirm_return'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Return confirmed successfully!');
+                        loadReturnRequests(); // Refresh the return requests list
+                        loadInventoryItems(); // Refresh the inventory to show updated status
+                    } else {
+                        alert('Error confirming return: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error confirming return: ' + error.message);
+                });
             }
         }
         
-        function viewReturn(returnId) {
-            // Here you would show detailed view of the return
-            alert('Viewing return details for ID: ' + returnId);
+        function viewReturnRequest(requestId) {
+            // TODO: Implement view return request details
+            alert('View return request details for ID: ' + requestId);
+        }
+
+        function getReturnRequestActions(requestId, status) {
+            if (status === 'pending') {
+                return `
+                    <button class="action-btn small confirm" onclick="confirmReturn(${requestId})" style="background: #10b981; color: white; margin-right: 0.5rem;">
+                        Confirm
+                    </button>
+                    <button class="action-btn small view" onclick="viewReturnRequest(${requestId})">
+                        View
+                    </button>
+                `;
+            } else {
+                return `<button class="action-btn small view" onclick="viewReturnRequest(${requestId})">View</button>`;
+            }
+        }
+
+        function getReturnRequestStatusBadge(status) {
+            const statusConfig = {
+                'pending': { text: 'Pending', color: '#f59e0b', bg: '#fef3c7' },
+                'confirmed': { text: 'Confirmed', color: '#10b981', bg: '#d1fae5' },
+                'cancelled': { text: 'Cancelled', color: '#ef4444', bg: '#fee2e2' }
+            };
+            
+            const config = statusConfig[status] || { text: status, color: '#6b7280', bg: '#f3f4f6' };
+            
+            return `
+                <span style="
+                    display: inline-block;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.375rem;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                    color: ${config.color};
+                    background-color: ${config.bg};
+                ">
+                    ${config.text}
+                </span>
+            `;
         }
 
         // Add Item Functions
@@ -3413,30 +3559,17 @@ try {
         function displayCostumes(costumes) {
             const tableBody = document.getElementById('costumesTableBody');
             if (!costumes || costumes.length === 0) {
-                tableBody.innerHTML = `
-                    <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
-                        <p>No costumes found.</p>
-                        <small>Click "Add Costume" to get started.</small>
-                    </div>
-                `;
+                tableBody.innerHTML = '<div class="empty-state" style="padding: 2rem; text-align: center; color: #666;"><p>No costumes found.</p><small>Click "Add Costume" to get started.</small></div>';
                 return;
             }
             
             let html = '';
             costumes.forEach(costume => {
-                html += `
-                    <div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
-                        <div style="padding: 0 0.5rem;">
-                            ${costume.name}
-                        </div>
-                        <div style="padding: 0 0.5rem;">
-                            ${getConditionBadge(costume.condition_status)}
-                        </div>
-                        <div style="padding: 0 0.5rem;">
-                            ${getInventoryStatusBadge(costume.status)}
-                        </div>
-                    </div>
-                `;
+                html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div style="padding: 0 0.5rem;">' + costume.name + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(costume.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '</div>';
             });
             tableBody.innerHTML = html;
         }
@@ -3444,30 +3577,17 @@ try {
         function displayEquipment(equipment) {
             const tableBody = document.getElementById('equipmentTableBody');
             if (!equipment || equipment.length === 0) {
-                tableBody.innerHTML = `
-                    <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
-                        <p>No equipment found.</p>
-                        <small>Click "Add Costume" to get started.</small>
-                    </div>
-                `;
+                tableBody.innerHTML = '<div class="empty-state" style="padding: 2rem; text-align: center; color: #666;"><p>No equipment found.</p><small>Click "Add Costume" to get started.</small></div>';
                 return;
             }
             
             let html = '';
             equipment.forEach(item => {
-                html += `
-                    <div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
-                        <div style="padding: 0 0.5rem;">
-                            ${item.name}
-                        </div>
-                        <div style="padding: 0 0.5rem;">
-                            ${getConditionBadge(item.condition_status)}
-                        </div>
-                        <div style="padding: 0 0.5rem;">
-                            ${getInventoryStatusBadge(item.status)}
-                        </div>
-                    </div>
-                `;
+                html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div style="padding: 0 0.5rem;">' + item.name + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(item.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '</div>';
             });
             tableBody.innerHTML = html;
         }
@@ -3575,41 +3695,38 @@ try {
                 const statusColor = event.event_status === 'upcoming' ? '#28a745' : 
                                   event.event_status === 'ongoing' ? '#ffc107' : '#6c757d';
 
-                html += `
-                    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; background: white;">
-                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;">
-                            <div>
-                                <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.2rem;">${event.title}</h4>
-                                <p style="margin: 0 0 0.75rem 0; color: #666; line-height: 1.4;">${event.description}</p>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.9rem;">
-                                    <div><strong>Date:</strong> ${event.start_date_formatted} - ${event.end_date_formatted}</div>
-                                    <div><strong>Location:</strong> ${event.location}</div>
-                                    <div><strong>Category:</strong> ${event.category}</div>
-                                    ${event.campus ? `<div><strong>Campus:</strong> ${event.campus}</div>` : ''}
-                                    <div><strong>Cultural Groups:</strong> ${culturalGroups}</div>
-                                    <div><strong>Created:</strong> ${event.created_at_formatted}</div>
-                                </div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="display: inline-block; background: ${statusColor}; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize; margin-bottom: 0.5rem;">
-                                    ${event.event_status}
-                                </div>
-                                ${event.days_difference >= 0 ? 
-                                    `<div style="font-size: 0.8rem; color: #666;">In ${event.days_difference} day(s)</div>` :
-                                    `<div style="font-size: 0.8rem; color: #666;">${Math.abs(event.days_difference)} day(s) ago</div>`
-                                }
-                                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                    <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                                        Edit
-                                    </button>
-                                    <button onclick="deleteEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}'); " style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
+                html += '<div style="border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; background: white;">';
+                html += '<div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;">';
+                html += '<div>';
+                html += '<h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.2rem;">' + event.title + '</h4>';
+                html += '<p style="margin: 0 0 0.75rem 0; color: #666; line-height: 1.4;">' + event.description + '</p>';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.9rem;">';
+                html += '<div><strong>Date:</strong> ' + event.start_date_formatted + ' - ' + event.end_date_formatted + '</div>';
+                html += '<div><strong>Location:</strong> ' + event.location + '</div>';
+                html += '<div><strong>Category:</strong> ' + event.category + '</div>';
+                if (event.campus) {
+                    html += '<div><strong>Campus:</strong> ' + event.campus + '</div>';
+                }
+                html += '<div><strong>Cultural Groups:</strong> ' + culturalGroups + '</div>';
+                html += '<div><strong>Created:</strong> ' + event.created_at_formatted + '</div>';
+                html += '</div>';
+                html += '</div>';
+                html += '<div style="text-align: right;">';
+                html += '<div style="display: inline-block; background: ' + statusColor + '; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize; margin-bottom: 0.5rem;">';
+                html += event.event_status;
+                html += '</div>';
+                if (event.days_difference >= 0) {
+                    html += '<div style="font-size: 0.8rem; color: #666;">In ' + event.days_difference + ' day(s)</div>';
+                } else {
+                    html += '<div style="font-size: 0.8rem; color: #666;">' + Math.abs(event.days_difference) + ' day(s) ago</div>';
+                }
+                html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
+                html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
+                html += '<button onclick="deleteEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>';
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
             });
             html += '</div>';
 
@@ -3628,7 +3745,7 @@ try {
             
             // Previous button
             if (pagination.current_page > 1) {
-                html += `<button onclick="loadAllEvents(${pagination.current_page - 1})" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Previous</button>`;
+                html += '<button onclick="loadAllEvents(' + (pagination.current_page - 1) + ')" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Previous</button>';
             }
             
             // Page numbers
@@ -3637,18 +3754,19 @@ try {
             
             for (let i = startPage; i <= endPage; i++) {
                 const isActive = i === pagination.current_page;
-                html += `<button onclick="loadAllEvents(${i})" style="padding: 0.5rem 0.75rem; border: 1px solid ${isActive ? '#dc2626' : '#ddd'}; background: ${isActive ? '#dc2626' : 'white'}; color: ${isActive ? 'white' : '#333'}; border-radius: 4px; cursor: pointer;">${i}</button>`;
+                const bgColor = isActive ? '#dc2626' : 'white';
+                const textColor = isActive ? 'white' : '#333';
+                const borderColor = isActive ? '#dc2626' : '#ddd';
+                html += '<button onclick="loadAllEvents(' + i + ')" style="padding: 0.5rem 0.75rem; border: 1px solid ' + borderColor + '; background: ' + bgColor + '; color: ' + textColor + '; border-radius: 4px; cursor: pointer;">' + i + '</button>';
             }
             
             // Next button
             if (pagination.current_page < pagination.total_pages) {
-                html += `<button onclick="loadAllEvents(${pagination.current_page + 1})" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Next</button>`;
+                html += '<button onclick="loadAllEvents(' + (pagination.current_page + 1) + ')" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Next</button>';
             }
             
             html += '</div>';
-            html += `<div style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
-                Showing ${pagination.total_events} total events
-            </div>`;
+            html += '<div style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem; color: #666;">Showing ' + pagination.total_events + ' total events</div>';
             
             paginationDiv.innerHTML = html;
         }
@@ -3716,7 +3834,7 @@ try {
         }
 
         function deleteEvent(eventId, eventTitle) {
-            if (!confirm(`Are you sure you want to delete the event "${eventTitle}"? This action cannot be undone.`)) {
+            if (!confirm('Are you sure you want to delete the event "' + eventTitle + '"? This action cannot be undone.')) {
                 return;
             }
             
