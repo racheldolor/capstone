@@ -711,14 +711,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="btn-group">
                         <button type="submit" class="btn btn-primary">Submit Borrowing Request</button>
                         <a href="dashboard.php?section=costume-borrowing" class="btn btn-secondary">Cancel</a>
-                        <a href="return-form.php" class="btn btn-info">Return Form</a>
                     </div>
                 </form>
+                
+                <!-- Return Form button outside the form to prevent form submission interference -->
+                <div class="btn-group" style="margin-top: 1rem;">
+                    <button type="button" class="btn btn-info" onclick="navigateToReturnForm(); return false;">Return Form</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // Navigation function for Return Form button
+        function navigateToReturnForm() {
+            console.log('navigateToReturnForm function called');
+            console.log('Current location:', window.location.href);
+            
+            // Prevent any default behavior
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Use absolute path to ensure correct navigation
+            const returnFormUrl = window.location.origin + window.location.pathname.replace('costume-borrowing-form.php', 'return-form.php');
+            console.log('Navigating to:', returnFormUrl);
+            
+            // Force navigation with a slight delay to ensure console logs are visible
+            setTimeout(() => {
+                window.location.href = returnFormUrl;
+            }, 100);
+        }
+
         // Enable/disable equipment description fields based on checkbox selection
         document.addEventListener('DOMContentLoaded', function() {
             const checkboxes = document.querySelectorAll('input[name="equipment_types[]"]');

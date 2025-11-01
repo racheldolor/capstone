@@ -134,3 +134,29 @@ CREATE INDEX idx_applications_campus ON applications(campus);
 CREATE INDEX idx_applications_submitted_at ON applications(submitted_at);
 CREATE INDEX idx_application_participation_app_id ON application_participation(application_id);
 CREATE INDEX idx_application_affiliations_app_id ON application_affiliations(application_id);
+
+-- Return requests table for costume/equipment return workflow
+CREATE TABLE IF NOT EXISTS return_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    borrowing_request_id INT NOT NULL,
+    student_id INT NOT NULL,
+    item_id INT NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    condition_notes TEXT NULL,
+    status ENUM('pending', 'completed', 'cancelled') DEFAULT 'pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    completed_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (borrowing_request_id) REFERENCES borrowing_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES student_artists(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES inventory(id) ON DELETE CASCADE,
+    FOREIGN KEY (completed_by) REFERENCES users(id) ON DELETE SET NULL,
+    
+    INDEX idx_return_requests_status (status),
+    INDEX idx_return_requests_student (student_id),
+    INDEX idx_return_requests_borrowing (borrowing_request_id),
+    INDEX idx_return_requests_requested_at (requested_at)
+);

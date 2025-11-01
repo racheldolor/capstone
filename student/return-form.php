@@ -10,6 +10,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_table'] !== 'student_artists
 // Database connection
 require_once '../config/database.php';
 
+$borrowing_request_id = $_GET['request_id'] ?? null;
+$borrowing_request = null;
+$approved_items = [];
+
 try {
     $pdo = getDBConnection();
     
@@ -24,8 +28,60 @@ try {
         exit();
     }
     
+    // Get all active borrowing requests for this student
+    $stmt = $pdo->prepare("
+        SELECT br.*, JSON_EXTRACT(br.approved_items, '$') as items_json
+        FROM borrowing_requests br 
+        WHERE br.student_id = ? AND br.status = 'approved' AND br.current_status = 'active'
+        ORDER BY br.created_at DESC
+    ");
+    $stmt->execute([$student_id]);
+    $all_borrowing_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $all_approved_items = [];
+    $borrowing_request_details = [];
+    
+    // Collect all approved items from all active borrowing requests
+    foreach ($all_borrowing_requests as $request) {
+        if ($request['items_json']) {
+            $items = json_decode($request['items_json'], true) ?? [];
+            foreach ($items as $item) {
+                // Add borrowing request ID to each item for tracking
+                $item['borrowing_request_id'] = $request['id'];
+                $item['request_date'] = $request['created_at'];
+                $item['due_date'] = $request['estimated_return_date'] ?? null;
+                $all_approved_items[] = $item;
+            }
+            
+            // Store request details for display
+            $borrowing_request_details[] = [
+                'id' => $request['id'],
+                'created_at' => $request['created_at'],
+                'estimated_return_date' => $request['estimated_return_date'] ?? null
+            ];
+        }
+    }
+    
+    // For backward compatibility, set the first request as primary if exists
+    $borrowing_request = !empty($all_borrowing_requests) ? $all_borrowing_requests[0] : null;
+    $borrowing_request_id = $borrowing_request ? $borrowing_request['id'] : null;
+    $approved_items = $all_approved_items;
+    
+    // Debug: Check what columns are available
+    if ($borrowing_request) {
+        error_log("Borrowing request columns: " . print_r(array_keys($borrowing_request), true));
+        error_log("Total approved items found: " . count($all_approved_items));
+    }
+    
+    if (empty($all_approved_items)) {
+        $_SESSION['error_message'] = 'No active borrowing requests found or no items to return.';
+        header("Location: dashboard.php?section=costume-borrowing");
+        exit();
+    }
+    
 } catch (Exception $e) {
-    header("Location: ../index.php");
+    $_SESSION['error_message'] = 'Database error occurred.';
+    header("Location: dashboard.php?section=costume-borrowing");
     exit();
 }
 ?>
@@ -308,14 +364,105 @@ try {
             </div>
             
             <div class="form-content">
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <?= htmlspecialchars($_SESSION['error_message']) ?>
+                    </div>
+                    <?php unset($_SESSION['error_message']); ?>
+                <?php endif; ?>
+
                 <form method="POST" action="process-return.php">
-                    <!-- Return Details -->
+                    <!-- Hidden field to indicate multiple requests mode -->
+                    <input type="hidden" name="multiple_requests" value="1">
+                    
+                    <!-- Borrowing Request Details -->
                     <div class="form-section">
-                        <h3>Return Details</h3>
+                        <h3>Borrowing Request Details</h3>
+                        <?php if (count($borrowing_request_details) > 1): ?>
+                            <p style="color: #666; margin-bottom: 1rem;">
+                                You have <?= count($borrowing_request_details) ?> active borrowing requests. 
+                                You can return items from any of these requests.
+                            </p>
+                        <?php endif; ?>
+                        
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Request Date Range</label>
+                                <input type="text" value="<?php
+                                    if (count($borrowing_request_details) > 1) {
+                                        $earliest = min(array_column($borrowing_request_details, 'created_at'));
+                                        $latest = max(array_column($borrowing_request_details, 'created_at'));
+                                        echo date('M j, Y', strtotime($earliest)) . ' - ' . date('M j, Y', strtotime($latest));
+                                    } else {
+                                        echo isset($borrowing_request['created_at']) ? 
+                                            date('F j, Y', strtotime($borrowing_request['created_at'])) : 'Not available';
+                                    }
+                                ?>" readonly>
+                            </div>
+                            <div class="input-group">
+                                <label>Due Date Range</label>
+                                <input type="text" value="<?php
+                                    if (count($borrowing_request_details) > 1) {
+                                        $due_dates = array_filter(array_column($borrowing_request_details, 'estimated_return_date'));
+                                        if (!empty($due_dates)) {
+                                            $earliest_due = min($due_dates);
+                                            $latest_due = max($due_dates);
+                                            if ($earliest_due === $latest_due) {
+                                                echo date('M j, Y', strtotime($earliest_due));
+                                            } else {
+                                                echo date('M j, Y', strtotime($earliest_due)) . ' - ' . date('M j, Y', strtotime($latest_due));
+                                            }
+                                        } else {
+                                            echo 'Not specified';
+                                        }
+                                    } else {
+                                        echo isset($borrowing_request['estimated_return_date']) ? 
+                                            date('F j, Y', strtotime($borrowing_request['estimated_return_date'])) : 'Not specified';
+                                    }
+                                ?>" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items Being Returned -->
+                    <div class="form-section">
+                        <h3>Items Being Returned</h3>
                         <div class="input-group">
-                            <label for="borrowed_items">Items Being Returned</label>
-                            <textarea id="borrowed_items" name="borrowed_items" rows="3" 
-                                      placeholder="List all items being returned..." required></textarea>
+                            <label>Select Approved Items to Return</label>
+                            <div class="checkbox-group">
+                                <?php if (!empty($approved_items)): ?>
+                                    <?php foreach ($approved_items as $index => $item): ?>
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" 
+                                                   id="item_<?= $index ?>" 
+                                                   name="selected_items[]" 
+                                                   value="<?= htmlspecialchars(json_encode([
+                                                       'id' => $item['id'],
+                                                       'name' => $item['name'],
+                                                       'borrowing_request_id' => $item['borrowing_request_id']
+                                                   ])) ?>" 
+                                                   checked>
+                                            <span class="checkmark"></span>
+                                            <label for="item_<?= $index ?>" class="checkbox-label">
+                                                <?= htmlspecialchars($item['name']) ?>
+                                                <?php if (count($borrowing_request_details) > 1): ?>
+                                                    <span style="color: #6c757d; margin-left: 0.5rem; font-size: 0.85rem;">
+                                                        (<?= date('M j, Y', strtotime($item['request_date'])) ?>)
+                                                    </span>
+                                                <?php endif; ?>
+                                            </label>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <p style="color: #666; font-style: italic;">No approved items found.</p>
+                                <?php endif; ?>
+                            </div>
+                            <small style="color: #666; margin-top: 0.5rem; display: block;">
+                                Select the items you want to return. All items are selected by default.
+                                <?php if (count($borrowing_request_details) > 1): ?>
+                                    <br>Items from multiple borrowing requests are shown.
+                                <?php endif; ?>
+                            </small>
                         </div>
                     </div>
 
@@ -352,9 +499,10 @@ try {
     <script>
         // Handle checkbox clicking
         document.addEventListener('DOMContentLoaded', function() {
-            const checkboxItems = document.querySelectorAll('.checkbox-item');
+            // Apply click handling to all checkbox items (both conditions and items)
+            const allCheckboxItems = document.querySelectorAll('.checkbox-item');
             
-            checkboxItems.forEach(item => {
+            allCheckboxItems.forEach(item => {
                 item.addEventListener('click', function(e) {
                     if (e.target.type === 'checkbox') return;
                     
@@ -364,6 +512,27 @@ try {
                     }
                 });
             });
+
+            // Form validation
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const selectedItems = document.querySelectorAll('input[name="selected_items[]"]:checked');
+                    const selectedConditions = document.querySelectorAll('input[name="condition[]"]:checked');
+                    
+                    if (selectedItems.length === 0) {
+                        e.preventDefault();
+                        alert('Please select at least one item to return.');
+                        return;
+                    }
+                    
+                    if (selectedConditions.length === 0) {
+                        e.preventDefault();
+                        alert('Please select the condition of the returned items.');
+                        return;
+                    }
+                });
+            }
         });
     </script>
 </body>

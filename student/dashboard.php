@@ -680,6 +680,27 @@ try {
             color: #666;
         }
 
+        .action-cell {
+            text-align: left;
+            padding: 0.5rem;
+        }
+
+        .return-btn {
+            background: #28a745;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+        .return-btn:hover {
+            background: #218838;
+        }
+
         .empty-borrowed-state {
             text-align: center;
             padding: 3rem 2rem;
@@ -1277,6 +1298,7 @@ try {
                             <th>Request Date</th>
                             <th>Return Date</th>
                             <th>Usage Period</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1287,6 +1309,25 @@ try {
                 const formattedRequestDate = formatDate(request.request_date);
                 const formattedDueDate = formatDate(request.due_date);
                 
+                // Determine if item is overdue
+                const now = new Date();
+                const dueDate = new Date(request.due_date);
+                const isOverdue = request.status === 'approved' && request.current_status === 'active' && dueDate < now;
+                
+                // Determine actions based on status
+                let actionsHtml = '';
+                if (request.status === 'approved' && request.current_status === 'active') {
+                    if (isOverdue) {
+                        actionsHtml = '<span class="overdue-text" style="color: #dc2626; font-weight: 600;">OVERDUE</span>';
+                    } else {
+                        actionsHtml = `<button class="action-btn return-btn" onclick="openReturnForm(${request.id})" style="background: #28a745; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">Return Items</button>`;
+                    }
+                } else if (request.current_status === 'pending_return') {
+                    actionsHtml = '<span style="color: #f59e0b; font-weight: 600;">Return Pending</span>';
+                } else if (request.current_status === 'returned') {
+                    actionsHtml = '<span style="color: #10b981; font-weight: 600;">Returned</span>';
+                }
+                
                 html += `
                     <tr>
                         <td class="item-name-cell">${request.item_name}</td>
@@ -1294,6 +1335,7 @@ try {
                         <td class="date-cell">${formattedRequestDate}</td>
                         <td class="date-cell">${formattedDueDate}</td>
                         <td class="date-cell">${request.dates_of_use || 'Not specified'}</td>
+                        <td class="action-cell">${actionsHtml}</td>
                     </tr>
                 `;
             });
@@ -1342,6 +1384,12 @@ try {
                     if (request.current_status === 'returned') {
                         return 'Returned';
                     }
+                    if (request.current_status === 'pending_return') {
+                        return 'Return Pending';
+                    }
+                    if (request.current_status === 'overdue') {
+                        return 'Overdue';
+                    }
                     if (request.due_date) {
                         const dueDate = new Date(request.due_date);
                         const today = new Date();
@@ -1352,11 +1400,11 @@ try {
                             return 'Overdue';
                         }
                     }
-                    return 'Approved';
+                    return 'Active';
                 case 'rejected':
                     return 'Rejected';
                 default:
-                    return 'Unknown';
+                    return request.status;
             }
         }
 
@@ -1390,6 +1438,13 @@ try {
                     <small>${message}</small>
                 </div>
             `;
+        }
+
+        // Open return form for a specific borrowing request
+        function openReturnForm(requestId) {
+            if (confirm('Do you want to submit a return request for this borrowing?')) {
+                window.location.href = `return-form.php?request_id=${requestId}`;
+            }
         }
     </script>
 </body>

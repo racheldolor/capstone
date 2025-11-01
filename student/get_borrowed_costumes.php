@@ -32,10 +32,12 @@ try {
             br.equipment_categories,
             br.dates_of_use,
             br.estimated_return_date,
+            br.due_date,
             br.approved_items,
             br.created_at,
             br.reviewed_at,
             br.status,
+            br.current_status,
             br.review_notes
         FROM borrowing_requests br
         WHERE br.student_id = ? 
@@ -65,18 +67,19 @@ try {
                     
                     if ($item_details) {
                         $all_requests[] = [
+                            'id' => $request['id'], // Add the borrowing request ID
                             'request_id' => $request['id'],
                             'item_id' => $item['id'],
                             'item_name' => $item_details['name'],
                             'item_type' => $item['type'],
                             'category' => $item_details['category'],
                             'condition' => $item_details['condition_status'],
-                            'current_status' => $item_details['status'],
+                            'current_status' => $request['current_status'] ?? 'active',
                             'dates_of_use' => $request['dates_of_use'],
                             'estimated_return_date' => $request['estimated_return_date'],
                             'request_date' => $request['created_at'],
                             'approved_date' => $request['reviewed_at'],
-                            'due_date' => $request['estimated_return_date'],
+                            'due_date' => $request['due_date'] ?? $request['estimated_return_date'],
                             'status' => $request['status'],
                             'review_notes' => $request['review_notes'],
                             'display_type' => 'approved_item'
@@ -102,18 +105,19 @@ try {
             }
             
             $all_requests[] = [
+                'id' => $request['id'], // Add the borrowing request ID
                 'request_id' => $request['id'],
                 'item_id' => null,
                 'item_name' => !empty($requested_items) ? implode(', ', $requested_items) : 'Various items requested',
                 'item_type' => 'request',
                 'category' => 'mixed',
                 'condition' => null,
-                'current_status' => null,
+                'current_status' => $request['current_status'] ?? null,
                 'dates_of_use' => $request['dates_of_use'],
                 'estimated_return_date' => $request['estimated_return_date'],
                 'request_date' => $request['created_at'],
                 'approved_date' => $request['reviewed_at'],
-                'due_date' => $request['estimated_return_date'],
+                'due_date' => $request['due_date'] ?? $request['estimated_return_date'],
                 'status' => $request['status'],
                 'review_notes' => $request['review_notes'],
                 'display_type' => 'request_summary'
