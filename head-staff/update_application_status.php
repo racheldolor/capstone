@@ -53,7 +53,6 @@ try {
         $stmt = $pdo->prepare("
             UPDATE applications 
             SET application_status = ?, 
-                status = ?,
                 updated_at = CURRENT_TIMESTAMP,
                 reviewed_by = ?,
                 approved_at = ?
@@ -62,10 +61,10 @@ try {
         
         $reviewedBy = $_SESSION['user_id'] ?? null;
         $approvedAt = ($status === 'approved') ? date('Y-m-d H:i:s') : null;
-        $stmt->execute([$status, $status, $reviewedBy, $approvedAt, $applicationId]);
+        $stmt->execute([$status, $reviewedBy, $approvedAt, $applicationId]);
 
-        // If approved, add to student_artists table
-        if ($status === 'approved') {
+        // For both approved and rejected applications, create student account
+        if ($status === 'approved' || $status === 'rejected') {
             // Check if student already exists in student_artists table
             $stmt = $pdo->prepare("SELECT id FROM student_artists WHERE sr_code = ? OR email = ?");
             $stmt->execute([$application['sr_code'], $application['email']]);
@@ -77,85 +76,156 @@ try {
             $deletedStudent = $stmt->fetch();
             
             if (!$existingStudent && !$deletedStudent) {
-                // Add to student_artists table with all available data from application
-                $stmt = $pdo->prepare("
-                    INSERT INTO student_artists (
-                        sr_code,
-                        first_name,
-                        middle_name,
-                        last_name,
-                        email,
-                        password,
-                        campus,
-                        college,
-                        program,
-                        year_level,
-                        contact_number,
-                        address,
-                        present_address,
-                        date_of_birth,
-                        age,
-                        gender,
-                        place_of_birth,
-                        father_name,
-                        mother_name,
-                        guardian,
-                        guardian_contact,
-                        performance_type,
-                        first_semester_units,
-                        second_semester_units,
-                        status,
-                        created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
-                ");
+                // Determine the student status
+                $studentStatus = 'suspended'; // Both approved and rejected students start as suspended
+                $isArchived = ($status === 'rejected') ? 1 : 0; // Only rejected students are archived
                 
-                // Generate default password (student can change later)
-                $defaultPassword = password_hash('student123', PASSWORD_DEFAULT);
-                
-                // Use existing name fields if available, otherwise split full_name
-                $firstName = $application['first_name'];
-                $middleName = $application['middle_name'];
-                $lastName = $application['last_name'];
-                
-                // If name fields are empty, try to split full_name
-                if (empty($firstName) && !empty($application['full_name'])) {
-                    $nameParts = explode(' ', trim($application['full_name']));
-                    $firstName = $nameParts[0];
-                    $lastName = count($nameParts) > 1 ? end($nameParts) : '';
+                // First, try to insert with is_archived column
+                try {
+                    // Add to student_artists table with all available data from application
+                    $stmt = $pdo->prepare("
+                        INSERT INTO student_artists (
+                            sr_code,
+                            first_name,
+                            middle_name,
+                            last_name,
+                            email,
+                            password,
+                            campus,
+                            college,
+                            program,
+                            year_level,
+                            contact_number,
+                            address,
+                            present_address,
+                            date_of_birth,
+                            age,
+                            gender,
+                            place_of_birth,
+                            father_name,
+                            mother_name,
+                            guardian,
+                            guardian_contact,
+                            performance_type,
+                            first_semester_units,
+                            second_semester_units,
+                            status,
+                            is_archived,
+                            created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ");
                     
-                    if (count($nameParts) > 2) {
-                        // Extract middle name(s)
-                        $middleParts = array_slice($nameParts, 1, -1);
-                        $middleName = implode(' ', $middleParts);
+                    // Generate default password (student can change later)
+                    $defaultPassword = password_hash('student123', PASSWORD_DEFAULT);
+                    
+                    // Use existing name fields if available, otherwise split full_name
+                    $firstName = $application['first_name'];
+                    $middleName = $application['middle_name'];
+                    $lastName = $application['last_name'];
+                    
+                    // If name fields are empty, try to split full_name
+                    if (empty($firstName) && !empty($application['full_name'])) {
+                        $nameParts = explode(' ', trim($application['full_name']));
+                        $firstName = $nameParts[0];
+                        $lastName = count($nameParts) > 1 ? end($nameParts) : '';
+                        
+                        if (count($nameParts) > 2) {
+                            // Extract middle name(s)
+                            $middleParts = array_slice($nameParts, 1, -1);
+                            $middleName = implode(' ', $middleParts);
+                        }
                     }
+                    
+                    $stmt->execute([
+                        $application['sr_code'],
+                        $firstName,
+                        $middleName,
+                        $lastName,
+                        $application['email'],
+                        $defaultPassword,
+                        $application['campus'],
+                        $application['college'],
+                        $application['program'],
+                        $application['year_level'],
+                        $application['contact_number'],
+                        $application['address'],
+                        $application['present_address'],
+                        $application['date_of_birth'],
+                        $application['age'],
+                        $application['gender'],
+                        $application['place_of_birth'],
+                        $application['father_name'],
+                        $application['mother_name'],
+                        $application['guardian'],
+                        $application['guardian_contact'],
+                        $application['performance_type'],
+                        $application['first_semester_units'],
+                        $application['second_semester_units'],
+                        $studentStatus,
+                        $isArchived
+                    ]);
+                    
+                } catch (Exception $e) {
+                    // If is_archived column doesn't exist, try without it
+                    $stmt = $pdo->prepare("
+                        INSERT INTO student_artists (
+                            sr_code,
+                            first_name,
+                            middle_name,
+                            last_name,
+                            email,
+                            password,
+                            campus,
+                            college,
+                            program,
+                            year_level,
+                            contact_number,
+                            address,
+                            present_address,
+                            date_of_birth,
+                            age,
+                            gender,
+                            place_of_birth,
+                            father_name,
+                            mother_name,
+                            guardian,
+                            guardian_contact,
+                            performance_type,
+                            first_semester_units,
+                            second_semester_units,
+                            status,
+                            created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ");
+                    
+                    $stmt->execute([
+                        $application['sr_code'],
+                        $firstName,
+                        $middleName,
+                        $lastName,
+                        $application['email'],
+                        $defaultPassword,
+                        $application['campus'],
+                        $application['college'],
+                        $application['program'],
+                        $application['year_level'],
+                        $application['contact_number'],
+                        $application['address'],
+                        $application['present_address'],
+                        $application['date_of_birth'],
+                        $application['age'],
+                        $application['gender'],
+                        $application['place_of_birth'],
+                        $application['father_name'],
+                        $application['mother_name'],
+                        $application['guardian'],
+                        $application['guardian_contact'],
+                        $application['performance_type'],
+                        $application['first_semester_units'],
+                        $application['second_semester_units'],
+                        $studentStatus
+                    ]);
                 }
-                
-                $stmt->execute([
-                    $application['sr_code'],
-                    $firstName,
-                    $middleName,
-                    $lastName,
-                    $application['email'],
-                    $defaultPassword,
-                    $application['campus'],
-                    $application['college'],
-                    $application['program'],
-                    $application['year_level'],
-                    $application['contact_number'],
-                    $application['address'],
-                    $application['present_address'],
-                    $application['date_of_birth'],
-                    $application['age'],
-                    $application['gender'],
-                    $application['place_of_birth'],
-                    $application['father_name'],
-                    $application['mother_name'],
-                    $application['guardian'],
-                    $application['guardian_contact'],
-                    $application['performance_type'],
-                    $application['first_semester_units'],
-                    $application['second_semester_units']
-                ]);
                 
                 $studentId = $pdo->lastInsertId();
             }
@@ -184,9 +254,16 @@ try {
         // Commit transaction
         $pdo->commit();
         
+        $message = "Application {$status} successfully";
+        if ($status === 'approved') {
+            $message .= " and student account created with suspended status";
+        } elseif ($status === 'rejected') {
+            $message .= " and student account created as suspended and archived";
+        }
+        
         echo json_encode([
             'success' => true,
-            'message' => "Application {$status} successfully",
+            'message' => $message,
             'status' => $status
         ]);
         

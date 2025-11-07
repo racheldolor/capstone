@@ -37,22 +37,45 @@ try {
         exit;
     }
     
-    // Delete the event from database
-    $stmt = $pdo->prepare("DELETE FROM events WHERE id = ?");
-    $result = $stmt->execute([$event_id]);
+    // Start transaction to ensure both event and announcements are deleted together
+    $pdo->beginTransaction();
     
-    if ($result) {
-        // Delete associated image file if it exists
-        if ($event['image_path'] && file_exists('../' . $event['image_path'])) {
-            unlink('../' . $event['image_path']);
+    try {
+        // First, delete any announcements related to this event
+        $stmt = $pdo->prepare("DELETE FROM announcements WHERE event_id = ?");
+        $stmt->execute([$event_id]);
+        $deleted_announcements = $stmt->rowCount();
+        
+        // Then delete the event from database
+        $stmt = $pdo->prepare("DELETE FROM events WHERE id = ?");
+        $result = $stmt->execute([$event_id]);
+        
+        if ($result) {
+            // Commit the transaction
+            $pdo->commit();
+            
+            // Delete associated image file if it exists
+            if ($event['image_path'] && file_exists('../' . $event['image_path'])) {
+                unlink('../' . $event['image_path']);
+            }
+            
+            $message = 'Event "' . $event['title'] . '" deleted successfully!';
+            if ($deleted_announcements > 0) {
+                $message .= " Also deleted $deleted_announcements related announcement(s).";
+            }
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => $message
+            ]);
+        } else {
+            $pdo->rollback();
+            echo json_encode(['success' => false, 'message' => 'Failed to delete event']);
         }
         
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Event "' . $event['title'] . '" deleted successfully!'
-        ]);
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to delete event']);
+    } catch (Exception $e) {
+        $pdo->rollback();
+        throw $e;
     }
     
 } catch (Exception $e) {

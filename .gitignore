@@ -1,0 +1,47 @@
+# User uploaded files
+uploads/*.png
+uploads/*.jpg
+uploads/*.jpeg
+uploads/*.gif
+uploads/*.pdf
+uploads/*.doc
+uploads/*.docx
+uploads/*.txt
+uploads/certificates/*
+!uploads/.htaccess
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Debug files
+debug_*.php
+*_debug.php
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+error_log
+access_log
+
+# Database dumps
+*.sql.backup
+*.sql.bak
+
+# Configuration files with sensitive data (if any)
+# config/secrets.php

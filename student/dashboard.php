@@ -68,21 +68,86 @@ try {
 
 // Get dashboard statistics for student
 try {
-    // Count upcoming events
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE status = 'active' AND start_date >= CURDATE()");
+    // Get the actual student ID for queries (handle both user tables)
+    $actual_student_id = $student_id;
+    $user_email = null;
+    
+    // Get user email for cross-table lookups
+    if ($user_table === 'student_artists') {
+        $stmt = $pdo->prepare("SELECT email FROM student_artists WHERE id = ?");
+        $stmt->execute([$student_id]);
+        $user_data = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user_email = $user_data['email'] ?? null;
+    } else {
+        $stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+        $stmt->execute([$student_id]);
+        $user_data = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user_email = $user_data['email'] ?? null;
+    }
+    
+    // Count upcoming events (events this month)
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as count 
+        FROM events 
+        WHERE status = 'active' 
+        AND start_date >= CURDATE() 
+        AND MONTH(start_date) = MONTH(CURDATE()) 
+        AND YEAR(start_date) = YEAR(CURDATE())
+    ");
     $stmt->execute();
     $upcoming_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
     
-    // Count borrowed costumes (placeholder - will implement table later)
-    $borrowed_costumes = 0;
+    // Count currently borrowed costumes for this student
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as count 
+        FROM borrowing_requests 
+        WHERE student_id = ? 
+        AND status IN ('approved') 
+        AND current_status IN ('active', 'pending_return')
+    ");
+    $stmt->execute([$student_id]);
+    $borrowed_costumes = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
     
-    // Count performances (placeholder - will implement table later)
-    $total_performances = 0;
+    // Count total performances/events this student has participated in
+    // Try both student_id and email-based lookup
+    $performance_count = 0;
     
-    // Count announcements (placeholder - will implement table later)
-    $total_announcements = 0;
+    // First try with current student_id
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as count 
+        FROM event_participants ep
+        JOIN events e ON ep.event_id = e.id
+        WHERE ep.student_id = ?
+    ");
+    $stmt->execute([$student_id]);
+    $performance_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    
+    // If no results and we have email, try to find by email match
+    if ($performance_count == 0 && $user_email) {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as count 
+            FROM event_participants ep
+            JOIN events e ON ep.event_id = e.id
+            JOIN student_artists sa ON ep.student_id = sa.id
+            WHERE sa.email = ?
+        ");
+        $stmt->execute([$user_email]);
+        $performance_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    }
+    
+    $total_performances = $performance_count;
+    
+    // Count new announcements (posted in last 7 days)
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as count 
+        FROM announcements 
+        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+    ");
+    $stmt->execute();
+    $total_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
     
 } catch (Exception $e) {
+    error_log("Dashboard stats error: " . $e->getMessage());
     $upcoming_events = 0;
     $borrowed_costumes = 0;
     $total_performances = 0;
@@ -555,6 +620,17 @@ try {
             text-align: left;
         }
 
+        /* Events Participated panel content styling for seamless table connection */
+        #performance-record .content-panel .panel-content {
+            padding: 0;
+            min-height: 0;
+            margin: 0;
+            display: block;
+            align-items: unset;
+            justify-content: unset;
+            text-align: left;
+        }
+
         /* Remove bottom padding from borrowed costumes panel header */
         #costume-borrowing .content-panel .panel-header {
             padding-bottom: 0;
@@ -625,6 +701,18 @@ try {
             color: #666;
             font-size: 0.9rem;
             text-transform: capitalize;
+        }
+
+        .item-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .item-description {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.4;
         }
 
         .item-status {
@@ -789,39 +877,39 @@ try {
 
                 <!-- Dashboard Cards -->
                 <div class="dashboard-cards">
-                    <div class="dashboard-card">
+                    <div class="dashboard-card stat-card">
                         <div class="card-header">
                             <div class="card-title">Announcements</div>
                             <div class="card-icon">📢</div>
                         </div>
-                        <div class="card-number"><?= $total_announcements ?></div>
+                        <div class="card-number stat-number"><?= $total_announcements ?></div>
                         <div class="card-subtitle">New announcements</div>
                     </div>
 
-                    <div class="dashboard-card">
+                    <div class="dashboard-card stat-card">
                         <div class="card-header">
                             <div class="card-title">Upcoming Events</div>
                             <div class="card-icon">📅</div>
                         </div>
-                        <div class="card-number"><?= $upcoming_events ?></div>
+                        <div class="card-number stat-number"><?= $upcoming_events ?></div>
                         <div class="card-subtitle">Events this month</div>
                     </div>
 
-                    <div class="dashboard-card">
+                    <div class="dashboard-card stat-card">
                         <div class="card-header">
                             <div class="card-title">Performances</div>
                             <div class="card-icon">🎭</div>
                         </div>
-                        <div class="card-number"><?= $total_performances ?></div>
+                        <div class="card-number stat-number"><?= $total_performances ?></div>
                         <div class="card-subtitle">Total performances</div>
                     </div>
 
-                    <div class="dashboard-card">
+                    <div class="dashboard-card stat-card">
                         <div class="card-header">
                             <div class="card-title">Borrowed Costumes</div>
                             <div class="card-icon">👗</div>
                         </div>
-                        <div class="card-number"><?= $borrowed_costumes ?></div>
+                        <div class="card-number stat-number"><?= $borrowed_costumes ?></div>
                         <div class="card-subtitle">Currently borrowed</div>
                     </div>
                 </div>
@@ -910,18 +998,77 @@ try {
             <section class="content-section" id="performance-record">
                 <div class="page-header">
                     <h1 class="page-title">Performance Record</h1>
-                    <p class="page-subtitle">Track your performance history and achievements</p>
+                    <p class="page-subtitle">Track your performance history, achievements, and upload certificates</p>
                 </div>
 
+                <!-- Certificate Upload Section -->
                 <div class="content-panel">
                     <div class="panel-header">
-                        <h3 class="panel-title">Performance History</h3>
+                        <h3 class="panel-title">Certificates & Achievements</h3>
+                        <button class="action-btn" onclick="openCertificateUploadModal()">
+                            <span>+</span>
+                            Upload Certificate
+                        </button>
                     </div>
                     <div class="panel-content">
-                        <div class="empty-state">
-                            <p>No performance records</p>
-                            <small>Your performance history will be displayed here</small>
+                        <div id="certificatesLoading" class="loading-state" style="display: none;">
+                            <p>Loading certificates...</p>
                         </div>
+                        <div id="certificatesContainer">
+                            <!-- Certificates will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Events Participated Section -->
+                <div class="content-panel" style="margin-top: 2rem;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">Events Participated</h3>
+                    </div>
+                    <div class="panel-content">
+                        <div id="eventsLoading" class="loading-state" style="display: none;">
+                            <p>Loading your event history...</p>
+                        </div>
+                        <div id="eventsContainer">
+                            <!-- Events will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Certificate Upload Modal -->
+                <div id="certificateUploadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+                    <div style="background: white; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0; color: #333; font-size: 1.2rem;">Upload Certificate</h3>
+                            <button onclick="closeCertificateUploadModal()" style="background: none; border: none; font-size: 1.5rem; color: #666; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+                        </div>
+                        <form id="certificateUploadForm" style="padding: 1.5rem;">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333;">Certificate Title *</label>
+                                <input type="text" id="certificateTitle" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit;">
+                            </div>
+                            
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333;">Description</label>
+                                <textarea id="certificateDescription" rows="3" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333;">Date Received *</label>
+                                <input type="date" id="certificateDate" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                            </div>
+                            
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333;">Certificate File *</label>
+                                <input type="file" id="certificateFile" accept=".jpg,.jpeg,.png,.pdf" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                                <small style="color: #666; margin-top: 0.25rem; display: block;">Accepted formats: JPG, PNG, PDF (Max 5MB)</small>
+                            </div>
+                            
+                            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                                <button type="button" onclick="closeCertificateUploadModal()" style="padding: 0.75rem 1.5rem; border: 1px solid #ddd; background: white; color: #333; border-radius: 4px; cursor: pointer;">Cancel</button>
+                                <button type="submit" style="padding: 0.75rem 1.5rem; border: none; background: #dc2626; color: white; border-radius: 4px; cursor: pointer;">Upload Certificate</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </section>
@@ -1219,15 +1366,50 @@ try {
                     ? `${event.formatted_start_date} - ${event.formatted_end_date}`
                     : event.formatted_start_date;
                 
+                // Determine button text and style based on participation status
+                let joinButtonHtml = '';
+                if (event.show_join_button) {
+                    if (event.has_joined) {
+                        joinButtonHtml = `
+                            <button class="action-btn secondary" onclick="leaveEvent(${event.id})" 
+                                    style="background: #6c757d; margin-left: auto;">
+                                Leave Event
+                            </button>
+                        `;
+                    } else if (event.can_join) {
+                        joinButtonHtml = `
+                            <button class="action-btn" onclick="joinEvent(${event.id})" 
+                                    style="margin-left: auto;">
+                                Join Event
+                            </button>
+                        `;
+                    }
+                }
+                
+                // Show participation status
+                let participationStatusHtml = '';
+                if (event.has_joined) {
+                    participationStatusHtml = `
+                        <div style="display: flex; align-items: center; gap: 0.5rem; color: #28a745; font-weight: 600; margin-top: 0.5rem;">
+                            <span>✓</span>
+                            <span>You have joined this event</span>
+                            ${event.joined_at_formatted ? `<small style="color: #666; font-weight: normal;">(Joined on ${event.joined_at_formatted})</small>` : ''}
+                        </div>
+                    `;
+                }
+                
                 html += `
                     <div class="event-card" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; background: white;">
-                        <div class="event-header" style="margin-bottom: 1rem;">
-                            <h3 style="color: #dc2626; margin: 0 0 0.5rem 0;">${event.title}</h3>
-                            <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; color: #666;">
-                                <span><strong>Date:</strong> ${dateRange}</span>
-                                <span><strong>Location:</strong> ${event.location}</span>
-                                <span><strong>Category:</strong> ${event.category}</span>
+                        <div class="event-header" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <h3 style="color: #dc2626; margin: 0 0 0.5rem 0;">${event.title}</h3>
+                                <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; color: #666;">
+                                    <span><strong>Date:</strong> ${dateRange}</span>
+                                    <span><strong>Location:</strong> ${event.location}</span>
+                                    <span><strong>Category:</strong> ${event.category}</span>
+                                </div>
                             </div>
+                            ${joinButtonHtml}
                         </div>
                         <div class="event-description" style="margin-bottom: 1rem; line-height: 1.5;">
                             ${event.description}
@@ -1235,6 +1417,7 @@ try {
                         <div class="event-groups" style="font-size: 0.9rem; color: #666;">
                             <strong>Cultural Groups:</strong> ${event.cultural_groups_array.join(', ')}
                         </div>
+                        ${participationStatusHtml}
                     </div>
                 `;
             });
@@ -1446,6 +1629,514 @@ try {
                 window.location.href = `return-form.php?request_id=${requestId}`;
             }
         }
+
+        // Join event function
+        function joinEvent(eventId) {
+            if (!confirm('Are you sure you want to join this event?')) {
+                return;
+            }
+
+            const button = event.target;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Joining...';
+
+            fetch('join_event.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    event_id: eventId,
+                    action: 'join'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    alert('Successfully joined the event!');
+                    // Reload events to update the display
+                    loadUpcomingEvents();
+                } else {
+                    alert('Error joining event: ' + data.message);
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error joining event. Please try again.');
+                button.disabled = false;
+                button.textContent = originalText;
+            });
+        }
+
+        // Leave event function
+        function leaveEvent(eventId) {
+            if (!confirm('Are you sure you want to leave this event?')) {
+                return;
+            }
+
+            const button = event.target;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Leaving...';
+
+            fetch('join_event.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    event_id: eventId,
+                    action: 'leave'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    alert('Successfully left the event.');
+                    // Reload events to update the display
+                    loadUpcomingEvents();
+                } else {
+                    alert('Error leaving event: ' + data.message);
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error leaving event. Please try again.');
+                button.disabled = false;
+                button.textContent = originalText;
+            });
+        }
+
+        // Performance Record Functions
+        function loadPerformanceRecord() {
+            loadCertificates();
+            loadParticipatedEvents();
+        }
+
+        // Certificate Upload Functions
+        function openCertificateUploadModal() {
+            const modal = document.getElementById('certificateUploadModal');
+            modal.style.display = 'flex';
+            modal.style.overflowY = 'auto';
+            modal.style.padding = '2rem 0';
+            modal.style.justifyContent = 'unset';
+            modal.style.alignItems = 'unset';
+            
+            // Update the modal content container for scrollability
+            const modalContent = modal.querySelector('div');
+            modalContent.style.margin = 'auto';
+            modalContent.style.maxHeight = '90vh';
+            modalContent.style.overflowY = 'auto';
+            modalContent.style.overflow = 'auto';
+            
+            // Reset form
+            document.getElementById('certificateUploadForm').reset();
+        }
+
+        function closeCertificateUploadModal() {
+            const modal = document.getElementById('certificateUploadModal');
+            modal.style.display = 'none';
+        }
+
+        // Handle certificate upload form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('certificateUploadForm');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    uploadCertificate();
+                });
+            }
+        });
+
+        function uploadCertificate() {
+            const form = document.getElementById('certificateUploadForm');
+            const formData = new FormData();
+            
+            const title = document.getElementById('certificateTitle').value;
+            const description = document.getElementById('certificateDescription').value;
+            const date = document.getElementById('certificateDate').value;
+            const file = document.getElementById('certificateFile').files[0];
+            
+            if (!title || !date || !file) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Check file size (5MB limit)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                return;
+            }
+            
+            formData.append('title', title);
+            formData.append('description', description);
+            formData.append('date', date);
+            formData.append('certificate_file', file);
+            
+            // Show loading state
+            const submitBtn = form.querySelector('[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Uploading...';
+            submitBtn.disabled = true;
+            
+            fetch('upload_certificate.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Certificate uploaded successfully!');
+                    closeCertificateUploadModal();
+                    loadCertificates(); // Reload certificates
+                } else {
+                    alert('Error uploading certificate: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error uploading certificate. Please try again.');
+            })
+            .finally(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            });
+        }
+
+        function loadCertificates() {
+            const container = document.getElementById('certificatesContainer');
+            const loading = document.getElementById('certificatesLoading');
+            
+            loading.style.display = 'block';
+            container.innerHTML = '';
+            
+            fetch('get_student_certificates.php')
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+                    displayCertificates(data.certificates || []);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    loading.style.display = 'none';
+                    container.innerHTML = '<p style="color: #dc2626; text-align: center; padding: 2rem;">Error loading certificates</p>';
+                });
+        }
+
+        function displayCertificates(certificates) {
+            const container = document.getElementById('certificatesContainer');
+            
+            if (certificates.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>No certificates uploaded</p>
+                        <small>Upload your first certificate to get started</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">';
+            certificates.forEach(cert => {
+                const fileExtension = cert.file_path.split('.').pop().toLowerCase();
+                const isImage = ['jpg', 'jpeg', 'png'].includes(fileExtension);
+                
+                html += `
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="aspect-ratio: 16/9; background: #f8f9fa; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            ${isImage ? 
+                                `<img src="${cert.file_path}" alt="${cert.title}" style="width: 100%; height: 100%; object-fit: cover;">` :
+                                `<div style="text-align: center; color: #666;">
+                                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
+                                    <div>PDF Certificate</div>
+                                </div>`
+                            }
+                        </div>
+                        <div style="padding: 1rem;">
+                            <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1rem;">${cert.title}</h4>
+                            ${cert.description ? `<p style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem;">${cert.description}</p>` : ''}
+                            <div style="color: #888; font-size: 0.8rem; margin-bottom: 1rem;">
+                                Date: ${new Date(cert.date_received).toLocaleDateString()}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button onclick="viewCertificate('${cert.file_path}')" style="flex: 1; padding: 0.5rem; border: 1px solid #dc2626; background: white; color: #dc2626; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                    View
+                                </button>
+                                <button onclick="deleteCertificate(${cert.id})" style="padding: 0.5rem; border: 1px solid #dc3545; background: #dc3545; color: white; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        function viewCertificate(filePath) {
+            console.log('Viewing certificate:', filePath); // Debug log
+            
+            const fileExtension = filePath.split('.').pop().toLowerCase();
+            const isImage = ['jpg', 'jpeg', 'png'].includes(fileExtension);
+            
+            if (isImage) {
+                // Show image in modal
+                showImageModal(filePath);
+            } else {
+                // Open PDF in new tab
+                window.open(filePath, '_blank');
+            }
+        }
+
+        function showImageModal(imagePath) {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('imageViewModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'imageViewModal';
+                modal.style.cssText = `
+                    display: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.8);
+                    z-index: 2000;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 2rem;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="position: relative; max-width: 90%; max-height: 90%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+                            <button onclick="closeImageModal()" style="background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">&times;</button>
+                        </div>
+                        <img id="modalImage" style="max-width: 100%; max-height: 90vh; object-fit: contain; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <div style="display: none; padding: 2rem; text-align: center; color: #666;">
+                            <p>Unable to load image</p>
+                            <small>The certificate file may not exist or is not accessible</small>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Close modal when clicking outside
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeImageModal();
+                    }
+                });
+            }
+            
+            // Set image source and show modal
+            const modalImage = document.getElementById('modalImage');
+            const errorDiv = modalImage.nextElementSibling;
+            
+            // Reset states
+            modalImage.style.display = 'block';
+            errorDiv.style.display = 'none';
+            
+            // Add loading state
+            modalImage.style.opacity = '0.5';
+            modalImage.onload = function() {
+                this.style.opacity = '1';
+                console.log('Image loaded successfully');
+            };
+            modalImage.onerror = function() {
+                console.error('Failed to load image:', imagePath);
+                this.style.display = 'none';
+                errorDiv.style.display = 'block';
+            };
+            
+            modalImage.src = imagePath;
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('imageViewModal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+
+        function deleteCertificate(certificateId) {
+            if (!confirm('Are you sure you want to delete this certificate?')) {
+                return;
+            }
+            
+            fetch('delete_certificate.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ certificate_id: certificateId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Certificate deleted successfully!');
+                    loadCertificates(); // Reload certificates
+                } else {
+                    alert('Error deleting certificate: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting certificate. Please try again.');
+            });
+        }
+
+        function loadParticipatedEvents() {
+            const container = document.getElementById('eventsContainer');
+            const loading = document.getElementById('eventsLoading');
+            
+            loading.style.display = 'block';
+            container.innerHTML = '';
+            
+            fetch('get_student_events.php')
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+                    displayParticipatedEvents(data.events || []);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    loading.style.display = 'none';
+                    container.innerHTML = '<p style="color: #dc2626; text-align: center; padding: 2rem;">Error loading events</p>';
+                });
+        }
+
+        function displayParticipatedEvents(events) {
+            const container = document.getElementById('eventsContainer');
+            
+            if (events.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>No events participated</p>
+                        <small>Your event participation history will appear here</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <table class="borrowed-costumes-table">
+                    <thead>
+                        <tr>
+                            <th>EVENT NAME</th>
+                            <th>STATUS</th>
+                            <th>EVENT DATE</th>
+                            <th>LOCATION</th>
+                            <th>CATEGORY</th>
+                            <th>JOINED</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            events.forEach(event => {
+                const dateRange = event.is_multi_day 
+                    ? `${event.formatted_start_date} - ${event.formatted_end_date}`
+                    : event.formatted_start_date;
+                
+                const statusClass = event.date_status === 'completed' ? 'status-returned' : 
+                                   event.date_status === 'ongoing' ? 'status-active' : 'status-pending';
+                
+                const joinedDate = new Date(event.joined_date).toLocaleDateString();
+                
+                html += `
+                    <tr>
+                        <td class="item-name-cell">${event.title}</td>
+                        <td><span class="item-status ${statusClass}">${event.date_status.toUpperCase()}</span></td>
+                        <td class="date-cell">${dateRange}</td>
+                        <td>${event.location}</td>
+                        <td class="item-category-cell">${event.category}</td>
+                        <td class="date-cell">${joinedDate}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // Load performance record when section is activated
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const section = this.dataset.section;
+                    if (section === 'performance-record') {
+                        setTimeout(() => loadPerformanceRecord(), 100);
+                    }
+                });
+            });
+            
+            // Load if initially on performance record page
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeSection = urlParams.get('section');
+            if (activeSection === 'performance-record') {
+                setTimeout(() => loadPerformanceRecord(), 100);
+            }
+        });
+
+        // Load dashboard statistics
+        function loadDashboardStats() {
+            fetch('get_dashboard_stats.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateDashboardCards(data.stats);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading dashboard stats:', error);
+                });
+        }
+
+        function updateDashboardCards(stats) {
+            // Update card values
+            const cards = document.querySelectorAll('.stat-card .stat-number');
+            if (cards.length >= 4) {
+                cards[0].textContent = stats.new_announcements;
+                cards[1].textContent = stats.upcoming_events; 
+                cards[2].textContent = stats.total_performances;
+                cards[3].textContent = stats.borrowed_costumes;
+            }
+        }
+
+        // Load stats when dashboard is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load stats after a short delay to ensure DOM is ready
+            setTimeout(loadDashboardStats, 500);
+        });
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('certificateUploadModal');
+            if (event.target === modal) {
+                closeCertificateUploadModal();
+            }
+        });
     </script>
 </body>
 </html>

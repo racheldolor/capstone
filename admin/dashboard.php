@@ -103,7 +103,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit();
             }
             
-        case 'delete_user':
+        case 'archive_user':
+            try {
+                // Ensure clean output
+                while (ob_get_level()) {
+                    ob_end_clean();
+                }
+                
+                $user_id = intval($_POST['user_id']);
+                $source_table = $_POST['source_table'] ?? 'users';
+                
+                if ($source_table === 'student_artists') {
+                    // Update status to archived for student artists
+                    $stmt = $pdo->prepare("UPDATE student_artists SET status = 'archived' WHERE id = ?");
+                    $stmt->execute([$user_id]);
+                    
+                    // Log the action
+                    try {
+                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_ARCHIVE', $user_id, "Student artist archived");
+                    } catch (Exception $logError) {
+                        // Ignore logging errors to prevent JSON corruption
+                    }
+                } else {
+                    // Update status to archived for regular users
+                    $stmt = $pdo->prepare("UPDATE users SET status = 'archived' WHERE id = ?");
+                    $stmt->execute([$user_id]);
+                    
+                    try {
+                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_ARCHIVE', $user_id, "User archived from $source_table");
+                    } catch (Exception $logError) {
+                        // Ignore logging errors
+                    }
+                }
+                
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => 'User archived successfully']);
+            } catch (Exception $e) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Error archiving user: ' . $e->getMessage()]);
+            }
+            exit();
+            
+        case 'permanent_delete_user':
             try {
                 // Ensure clean output
                 while (ob_get_level()) {
@@ -122,16 +163,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     if ($student) {
                         // Add to deleted_students tracking table
                         $stmt = $pdo->prepare("INSERT INTO deleted_students (sr_code, email, deleted_by, reason) VALUES (?, ?, ?, ?)");
-                        $reason = "Student account deleted by admin";
+                        $reason = "Student account permanently deleted by admin from archive";
                         $stmt->execute([$student['sr_code'], $student['email'], $_SESSION['admin_id'] ?? 1, $reason]);
                         
                         // Now delete from student_artists
                         $stmt = $pdo->prepare("DELETE FROM student_artists WHERE id = ?");
                         $stmt->execute([$user_id]);
                         
-                        // Log the action (suppress any output from logging)
+                        // Log the action
                         try {
-                            logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_DELETE', $user_id, "Student artist deleted: {$student['first_name']} {$student['last_name']} ({$student['sr_code']})");
+                            logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_PERMANENT_DELETE', $user_id, "Student artist permanently deleted: {$student['first_name']} {$student['last_name']} ({$student['sr_code']})");
                         } catch (Exception $logError) {
                             // Ignore logging errors to prevent JSON corruption
                         }
@@ -140,17 +181,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
                     $stmt->execute([$user_id]);
                     try {
-                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_DELETE', $user_id, "User deleted from $source_table");
+                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_PERMANENT_DELETE', $user_id, "User permanently deleted from $source_table");
                     } catch (Exception $logError) {
                         // Ignore logging errors
                     }
                 }
                 
                 header('Content-Type: application/json');
-                echo json_encode(['success' => true, 'message' => 'User deleted successfully']);
+                echo json_encode(['success' => true, 'message' => 'User permanently deleted successfully']);
             } catch (Exception $e) {
                 header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'message' => 'Error deleting user: ' . $e->getMessage()]);
+                echo json_encode(['success' => false, 'message' => 'Error permanently deleting user: ' . $e->getMessage()]);
             }
             exit();
             
@@ -335,11 +376,9 @@ $pdo = getDBConnection();
 
 // Get users from database
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
-$role_filter = isset($_GET['role']) ? $_GET['role'] : '';
-$status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 
 // Pagination variables
-$users_per_page = 5;
+$users_per_page = 10;
 $current_page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $students_page = isset($_GET['students_page']) ? max(1, intval($_GET['students_page'])) : 1;
 
@@ -353,16 +392,6 @@ if (!empty($search)) {
     $params[] = $search_param;
     $params[] = $search_param;
     $params[] = $search_param;
-}
-
-if (!empty($role_filter)) {
-    $where_conditions[] = "role = ?";
-    $params[] = $role_filter;
-}
-
-if (!empty($status_filter)) {
-    $where_conditions[] = "status = ?";
-    $params[] = $status_filter;
 }
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
@@ -384,18 +413,9 @@ if (!empty($search)) {
     $regular_params[] = $search_param;
 }
 
-if (!empty($role_filter) && $role_filter !== 'student') {
-    $regular_where_conditions[] = "role = ?";
-    $regular_params[] = $role_filter;
-}
-
-// Exclude student role from regular users table
+// Exclude student role from regular users table and exclude archived users
 $regular_where_conditions[] = "role != 'student'";
-
-if (!empty($status_filter)) {
-    $regular_where_conditions[] = "status = ?";
-    $regular_params[] = $status_filter;
-}
+$regular_where_conditions[] = "status != 'archived'";
 
 $regular_where_clause = 'WHERE ' . implode(' AND ', $regular_where_conditions);
 
@@ -419,6 +439,9 @@ $regular_users = $stmt->fetchAll();
 $student_where_conditions = [];
 $student_params = [];
 
+// Exclude archived student artists
+$student_where_conditions[] = "status != 'archived'";
+
 if (!empty($search)) {
     $student_where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
     $search_param = "%$search%";
@@ -428,12 +451,7 @@ if (!empty($search)) {
     $student_params[] = $search_param;
 }
 
-if (!empty($status_filter)) {
-    $student_where_conditions[] = "status = ?";
-    $student_params[] = $status_filter;
-}
-
-$student_where_clause = !empty($student_where_conditions) ? 'WHERE ' . implode(' AND ', $student_where_conditions) : '';
+$student_where_clause = 'WHERE ' . implode(' AND ', $student_where_conditions);
 
 // Get total count of student artists
 $count_sql_students = "SELECT COUNT(*) FROM student_artists $student_where_clause";
@@ -493,6 +511,13 @@ ob_end_clean();
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            height: 70px;
+            box-sizing: border-box;
         }
 
         .header-left {
@@ -547,7 +572,8 @@ ob_end_clean();
         /* Main Layout */
         .main-container {
             display: flex;
-            min-height: calc(100vh - 70px);
+            min-height: 100vh;
+            padding-top: 70px; /* Account for fixed header */
         }
 
         /* Sidebar */
@@ -556,6 +582,12 @@ ob_end_clean();
             background: white;
             border-right: 1px solid #e0e0e0;
             padding: 2rem 0;
+            position: fixed;
+            top: 70px;
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+            z-index: 999;
         }
 
         .nav-menu {
@@ -586,6 +618,8 @@ ob_end_clean();
         .main-content {
             flex: 1;
             padding: 2rem;
+            margin-left: 250px; /* Account for fixed sidebar */
+            overflow-y: auto;
         }
 
         .content-section {
@@ -597,6 +631,54 @@ ob_end_clean();
         }
 
         /* User Management */
+        /* Tabs Styles */
+        .tabs-container {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tabs-nav {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .tab-link {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-link:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .tab-link.active {
+            background: white;
+            color: #dc3545;
+            border-bottom-color: #dc3545;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 1.5rem;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         .page-header {
             display: flex;
             justify-content: space-between;
@@ -754,6 +836,11 @@ ob_end_clean();
             color: #333;
         }
 
+        .btn-archive {
+            background: #6c757d;
+            color: white;
+        }
+
         .btn-delete {
             background: #dc3545;
             color: white;
@@ -855,6 +942,15 @@ ob_end_clean();
 
             .sidebar {
                 width: 100%;
+                position: relative;
+                top: 0;
+                left: 0;
+                bottom: auto;
+                height: auto;
+            }
+
+            .main-content {
+                margin-left: 0;
             }
 
             .search-filters {
@@ -1103,226 +1199,323 @@ ob_end_clean();
             <!-- User Management Section -->
             <section class="content-section active" id="users">
                 <div class="page-header">
-                    <h1 class="page-title">User Management - System Users</h1>
+                    <h1 class="page-title">User Management</h1>
                     <div style="display: flex; align-items: center; gap: 1rem;">
-                        <button class="notification-btn" id="notificationBtn" style="position: relative; background: #f0f0f0; border: 1px solid #ddd; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                            🔔
-                            <span class="notification-badge" id="notificationBadge" style="position: absolute; top: -5px; right: -5px; background: #ff4757; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; font-weight: bold; display: none; align-items: center; justify-content: center;"></span>
-                        </button>
                         <button class="add-user-btn">+ Add New User</button>
                     </div>
                 </div>
 
-                <!-- Search and Filters -->
-                <div class="search-filters">
-                    <form method="GET" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
-                        <input type="text" name="search" placeholder="Search users..." class="search-input" value="<?= htmlspecialchars($search) ?>">
-                        <button type="submit" class="search-btn">🔍</button>
-                        <select name="role" class="filter-select" onchange="this.form.submit()">
-                            <option value="">All Roles</option>
-                            <option value="head" <?= $role_filter === 'head' ? 'selected' : '' ?>>Head</option>
-                            <option value="central" <?= $role_filter === 'central' ? 'selected' : '' ?>>Central</option>
-                            <option value="staff" <?= $role_filter === 'staff' ? 'selected' : '' ?>>Staff</option>
-                        </select>
-                        <select name="status" class="filter-select" onchange="this.form.submit()">
-                            <option value="">All Status</option>
-                            <option value="active" <?= $status_filter === 'active' ? 'selected' : '' ?>>Active</option>
-                            <option value="inactive" <?= $status_filter === 'inactive' ? 'selected' : '' ?>>Inactive</option>
-                            <option value="suspended" <?= $status_filter === 'suspended' ? 'selected' : '' ?>>Suspended</option>
-                        </select>
-                    </form>
-                </div>
-
-                <!-- Users Table -->
-                <div class="table-container">
-                    <table class="users-table">
-                        <thead>
-                            <tr>
-                                <th>User ID</th>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Last Login</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($users)): ?>
-                                <tr>
-                                    <td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
-                                        <?php if (!empty($search) || !empty($role_filter) || !empty($status_filter)): ?>
-                                            No users found matching your criteria.
-                                        <?php else: ?>
-                                            No users found. Click "Add New User" to create the first user.
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($users as $user): ?>
-                                    <tr data-user-id="<?= $user['id'] ?>" data-source-table="<?= $user['source_table'] ?>">
-                                        <td><?= str_pad($user['id'], 3, '0', STR_PAD_LEFT) ?></td>
-                                        <td><?= htmlspecialchars(trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'] . ' ' : '') . $user['last_name'])) ?></td>
-                                        <td><?= htmlspecialchars($user['email']) ?></td>
-                                        <td>
-                                            <span class="role-badge role-<?= $user['role'] ?>">
-                                                <?= strtoupper($user['role']) ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="status-badge status-<?= $user['status'] ?>">
-                                                <?= strtoupper($user['status']) ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <?= $user['last_login'] ? date('Y-m-d H:i', strtotime($user['last_login'])) : 'Never' ?>
-                                        </td>
-                                        <td>
-                                            <button class="action-btn btn-edit" onclick="editUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Edit</button>
-                                            <?php if ($user['status'] === 'active'): ?>
-                                                <button class="action-btn btn-suspend" onclick="suspendUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Suspend</button>
-                                            <?php else: ?>
-                                                <button class="action-btn btn-activate" onclick="activateUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Activate</button>
-                                            <?php endif; ?>
-                                            <button class="action-btn btn-delete" onclick="deleteUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Delete</button>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- User Count and Pagination -->
-                <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="color: #666;">
-                        Total Regular Users: <?= $total_regular_users ?> (Showing <?= count($users) ?> of <?= $total_regular_users ?>)
+                <!-- Tabs Container -->
+                <div class="tabs-container">
+                    <!-- Tabs Navigation -->
+                    <div class="tabs-nav">
+                        <button class="tab-link active" onclick="switchTab(event, 'staffs-tab')">Staffs</button>
+                        <button class="tab-link" onclick="switchTab(event, 'students-tab')">Students</button>
+                        <button class="tab-link" onclick="switchTab(event, 'archive-tab')">Archive</button>
                     </div>
-                    <?php if ($total_pages > 1): ?>
-                        <div class="pagination">
-                            <?php
-                            $query_params = $_GET;
-                            unset($query_params['page']);
-                            $base_url = '?' . http_build_query($query_params);
-                            if (empty($query_params)) $base_url = '?';
-                            ?>
-                            
-                            <?php if ($current_page > 1): ?>
-                                <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>page=<?= $current_page - 1 ?>" class="page-btn">← Previous</a>
-                            <?php endif; ?>
-                            
-                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <?php if ($i == $current_page): ?>
-                                    <span class="page-btn active"><?= $i ?></span>
-                                <?php else: ?>
-                                    <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>page=<?= $i ?>" class="page-btn"><?= $i ?></a>
-                                <?php endif; ?>
-                            <?php endfor; ?>
-                            
-                            <?php if ($current_page < $total_pages): ?>
-                                <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>page=<?= $current_page + 1 ?>" class="page-btn">Next →</a>
-                            <?php endif; ?>
+
+                    <!-- Staffs Tab Content -->
+                    <div id="staffs-tab" class="tab-content active">
+                        <!-- Search and Filters -->
+                        <div class="search-filters">
+                            <form method="GET" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
+                                <input type="hidden" name="tab" value="staffs">
+                                <input type="text" name="search" placeholder="Search staff..." class="search-input" value="<?= htmlspecialchars($search) ?>">
+                                <button type="submit" class="search-btn">🔍</button>
+                            </form>
                         </div>
-                    <?php endif; ?>
-                </div>
 
-                <!-- Student Artists Section -->
-                <div style="margin-top: 3rem;">
-                    <div class="page-header">
-                        <h2 class="page-title" style="font-size: 1.5rem; margin-bottom: 1rem;">Student Artists</h2>
-                    </div>
-
-                    <!-- Student Artists Table -->
-                    <div class="table-container">
-                        <table class="users-table">
-                            <thead>
-                                <tr>
-                                    <th>Student ID</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                    <th>Application Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($student_artists)): ?>
+                        <!-- Staff Users Table -->
+                        <div class="table-container">
+                            <table class="users-table">
+                                <thead>
                                     <tr>
-                                        <td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
-                                            <?php if (!empty($search) || !empty($status_filter)): ?>
-                                                No student artists found matching your criteria.
-                                            <?php else: ?>
-                                                No student artists found yet.
-                                            <?php endif; ?>
-                                        </td>
+                                        <th>User ID</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
                                     </tr>
-                                <?php else: ?>
-                                    <?php foreach ($student_artists as $student): ?>
-                                        <tr data-user-id="<?= $student['id'] ?>" data-source-table="<?= $student['source_table'] ?>">
-                                            <td><?= str_pad($student['id'], 3, '0', STR_PAD_LEFT) ?></td>
-                                            <td><?= htmlspecialchars(trim($student['first_name'] . ' ' . ($student['middle_name'] ? $student['middle_name'] . ' ' : '') . $student['last_name'])) ?></td>
-                                            <td><?= htmlspecialchars($student['email']) ?></td>
-                                            <td>
-                                                <span class="role-badge role-<?= $student['role'] ?>">
-                                                    <?= strtoupper($student['role']) ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="status-badge status-<?= $student['status'] ?>">
-                                                    <?= strtoupper($student['status']) ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <?= $student['created_at'] ? date('Y-m-d H:i', strtotime($student['created_at'])) : 'N/A' ?>
-                                            </td>
-                                            <td>
-                                                <button class="action-btn btn-edit" onclick="editUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Edit</button>
-                                                <?php if ($student['status'] === 'active'): ?>
-                                                    <button class="action-btn btn-suspend" onclick="suspendUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Suspend</button>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($users)): ?>
+                                        <tr>
+                                            <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                                                <?php if (!empty($search)): ?>
+                                                    No staff found matching your criteria.
                                                 <?php else: ?>
-                                                    <button class="action-btn btn-activate" onclick="activateUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Activate</button>
+                                                    No staff found. Click "Add New User" to create the first user.
                                                 <?php endif; ?>
-                                                <button class="action-btn btn-delete" onclick="deleteUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Delete</button>
                                             </td>
                                         </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
+                                    <?php else: ?>
+                                        <?php foreach ($users as $user): ?>
+                                            <tr data-user-id="<?= $user['id'] ?>" data-source-table="<?= $user['source_table'] ?>">
+                                                <td><?= $user['id'] ?></td>
+                                                <td><?= htmlspecialchars(trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'] . ' ' : '') . $user['last_name'])) ?></td>
+                                                <td><?= htmlspecialchars($user['email']) ?></td>
+                                                <td>
+                                                    <span class="role-badge role-<?= $user['role'] ?>">
+                                                        <?= strtoupper($user['role']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="status-badge status-<?= $user['status'] ?>">
+                                                        <?= strtoupper($user['status']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <button class="action-btn btn-edit" onclick="editUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Edit</button>
+                                                    <?php if ($user['status'] === 'active'): ?>
+                                                        <button class="action-btn btn-suspend" onclick="suspendUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Suspend</button>
+                                                    <?php else: ?>
+                                                        <button class="action-btn btn-activate" onclick="activateUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Activate</button>
+                                                    <?php endif; ?>
+                                                    <button class="action-btn btn-archive" onclick="archiveUser(<?= $user['id'] ?>, '<?= $user['source_table'] ?>')">Archive</button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Staff Count and Pagination -->
+                        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="color: #666;">
+                                Total Staff: <?= $total_regular_users ?> (Showing <?= count($users) ?> of <?= $total_regular_users ?>)
+                            </div>
+                            <?php if ($total_pages > 1): ?>
+                                <div class="pagination">
+                                    <?php
+                                    $query_params = $_GET;
+                                    unset($query_params['page']);
+                                    $base_url = '?' . http_build_query($query_params);
+                                    if (empty($query_params)) $base_url = '?';
+                                    ?>
+                                    
+                                    <?php if ($current_page > 1): ?>
+                                        <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>page=<?= $current_page - 1 ?>" class="page-btn">← Previous</a>
+                                    <?php endif; ?>
+                                    
+                                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                        <?php if ($i == $current_page): ?>
+                                            <span class="page-btn active"><?= $i ?></span>
+                                        <?php else: ?>
+                                            <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>page=<?= $i ?>" class="page-btn"><?= $i ?></a>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+                                    
+                                    <?php if ($current_page < $total_pages): ?>
+                                        <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>page=<?= $current_page + 1 ?>" class="page-btn">Next →</a>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
-                    <!-- Student Artists Count and Pagination -->
-                    <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                        <div style="color: #666;">
-                            Total Student Artists: <?= $total_student_artists ?> (Showing <?= count($student_artists) ?> of <?= $total_student_artists ?>)
+                    <!-- Students Tab Content -->
+                    <div id="students-tab" class="tab-content">
+                        <!-- Search and Filters -->
+                        <div class="search-filters">
+                            <form method="GET" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
+                                <input type="hidden" name="tab" value="students">
+                                <input type="text" name="search" placeholder="Search students..." class="search-input" value="<?= htmlspecialchars($search) ?>">
+                                <button type="submit" class="search-btn">🔍</button>
+                            </form>
                         </div>
-                        <?php if ($total_students_pages > 1): ?>
-                            <div class="pagination">
-                                <?php
-                                $student_query_params = $_GET;
-                                unset($student_query_params['students_page']);
-                                $student_base_url = '?' . http_build_query($student_query_params);
-                                if (empty($student_query_params)) $student_base_url = '?';
-                                ?>
-                                
-                                <?php if ($students_page > 1): ?>
-                                    <a href="<?= $student_base_url ?><?= !empty($student_query_params) ? '&' : '' ?>students_page=<?= $students_page - 1 ?>" class="page-btn">← Previous</a>
-                                <?php endif; ?>
-                                
-                                <?php for ($i = 1; $i <= $total_students_pages; $i++): ?>
-                                    <?php if ($i == $students_page): ?>
-                                        <span class="page-btn active"><?= $i ?></span>
+
+                        <!-- Student Artists Table -->
+                        <div class="table-container">
+                            <table class="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($student_artists)): ?>
+                                        <tr>
+                                            <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                                                <?php if (!empty($search)): ?>
+                                                    No student artists found matching your criteria.
+                                                <?php else: ?>
+                                                    No student artists found yet.
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
                                     <?php else: ?>
-                                        <a href="<?= $student_base_url ?><?= !empty($student_query_params) ? '&' : '' ?>students_page=<?= $i ?>" class="page-btn"><?= $i ?></a>
+                                        <?php foreach ($student_artists as $student): ?>
+                                            <tr data-user-id="<?= $student['id'] ?>" data-source-table="<?= $student['source_table'] ?>">
+                                                <td><?= $student['id'] ?></td>
+                                                <td><?= htmlspecialchars(trim($student['first_name'] . ' ' . ($student['middle_name'] ? $student['middle_name'] . ' ' : '') . $student['last_name'])) ?></td>
+                                                <td><?= htmlspecialchars($student['email']) ?></td>
+                                                <td>
+                                                    <span class="role-badge role-<?= $student['role'] ?>">
+                                                        <?= strtoupper($student['role']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="status-badge status-<?= $student['status'] ?>">
+                                                        <?= strtoupper($student['status']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <button class="action-btn btn-edit" onclick="editUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Edit</button>
+                                                    <?php if ($student['status'] === 'active'): ?>
+                                                        <button class="action-btn btn-suspend" onclick="suspendUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Suspend</button>
+                                                    <?php else: ?>
+                                                        <button class="action-btn btn-activate" onclick="activateUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Activate</button>
+                                                    <?php endif; ?>
+                                                    <button class="action-btn btn-archive" onclick="archiveUser(<?= $student['id'] ?>, '<?= $student['source_table'] ?>')">Archive</button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
                                     <?php endif; ?>
-                                <?php endfor; ?>
-                                
-                                <?php if ($students_page < $total_students_pages): ?>
-                                    <a href="<?= $student_base_url ?><?= !empty($student_query_params) ? '&' : '' ?>students_page=<?= $students_page + 1 ?>" class="page-btn">Next →</a>
-                                <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Student Artists Count and Pagination -->
+                        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="color: #666;">
+                                Total Students: <?= $total_student_artists ?> (Showing <?= count($student_artists) ?> of <?= $total_student_artists ?>)
                             </div>
-                        <?php endif; ?>
+                            <?php if ($total_students_pages > 1): ?>
+                                <div class="pagination">
+                                    <?php
+                                    $query_params = $_GET;
+                                    unset($query_params['students_page']);
+                                    $base_url = '?' . http_build_query($query_params);
+                                    if (empty($query_params)) $base_url = '?';
+                                    ?>
+                                    
+                                    <?php if ($students_page > 1): ?>
+                                        <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>students_page=<?= $students_page - 1 ?>" class="page-btn">← Previous</a>
+                                    <?php endif; ?>
+                                    
+                                    <?php for ($i = 1; $i <= $total_students_pages; $i++): ?>
+                                        <?php if ($i == $students_page): ?>
+                                            <span class="page-btn active"><?= $i ?></span>
+                                        <?php else: ?>
+                                            <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>students_page=<?= $i ?>" class="page-btn"><?= $i ?></a>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+                                    
+                                    <?php if ($students_page < $total_students_pages): ?>
+                                        <a href="<?= $base_url ?><?= !empty($query_params) ? '&' : '' ?>students_page=<?= $students_page + 1 ?>" class="page-btn">Next →</a>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Archive Tab Content -->
+                    <div id="archive-tab" class="tab-content">
+                        <!-- Search and Filters -->
+                        <div class="search-filters">
+                            <form method="GET" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
+                                <input type="hidden" name="tab" value="archive">
+                                <input type="text" name="search" placeholder="Search archived users..." class="search-input" value="<?= htmlspecialchars($search) ?>">
+                                <button type="submit" class="search-btn">🔍</button>
+                            </form>
+                        </div>
+
+                        <!-- Archive Table -->
+                        <div class="table-container">
+                            <table class="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>User ID</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php 
+                                    // Get archived users from both tables
+                                    $archived_users = [];
+                                    
+                                    // Get archived regular users
+                                    $archived_where_conditions = ["status = 'archived'"];
+                                    $archived_params = [];
+                                    
+                                    if (!empty($search)) {
+                                        $archived_where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
+                                        $search_param = "%$search%";
+                                        $archived_params[] = $search_param;
+                                        $archived_params[] = $search_param;
+                                        $archived_params[] = $search_param;
+                                        $archived_params[] = $search_param;
+                                    }
+                                    
+                                    $archived_where_clause = 'WHERE ' . implode(' AND ', $archived_where_conditions);
+                                    
+                                    $sql_archived_users = "SELECT id, first_name, middle_name, last_name, email, role, status, last_login, created_at, 'users' as source_table FROM users $archived_where_clause ORDER BY id ASC";
+                                    $stmt = $pdo->prepare($sql_archived_users);
+                                    $stmt->execute($archived_params);
+                                    $archived_regular_users = $stmt->fetchAll();
+                                    
+                                    // Get archived student artists
+                                    $sql_archived_students = "SELECT id, first_name, middle_name, last_name, email, 'student' as role, status, NULL as last_login, created_at, 'student_artists' as source_table FROM student_artists $archived_where_clause ORDER BY id ASC";
+                                    $stmt = $pdo->prepare($sql_archived_students);
+                                    $stmt->execute($archived_params);
+                                    $archived_student_artists = $stmt->fetchAll();
+                                    
+                                    // Combine archived users
+                                    $archived_users = array_merge($archived_regular_users, $archived_student_artists);
+                                    ?>
+                                    
+                                    <?php if (empty($archived_users)): ?>
+                                        <tr>
+                                            <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                                                <?php if (!empty($search)): ?>
+                                                    No archived users found matching your criteria.
+                                                <?php else: ?>
+                                                    No archived users found.
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($archived_users as $archived_user): ?>
+                                            <tr data-user-id="<?= $archived_user['id'] ?>" data-source-table="<?= $archived_user['source_table'] ?>">
+                                                <td><?= $archived_user['id'] ?></td>
+                                                <td><?= htmlspecialchars(trim($archived_user['first_name'] . ' ' . ($archived_user['middle_name'] ? $archived_user['middle_name'] . ' ' : '') . $archived_user['last_name'])) ?></td>
+                                                <td><?= htmlspecialchars($archived_user['email']) ?></td>
+                                                <td>
+                                                    <span class="role-badge role-<?= $archived_user['role'] ?>">
+                                                        <?= strtoupper($archived_user['role']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="status-badge status-<?= $archived_user['status'] ?>">
+                                                        <?= strtoupper($archived_user['status']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <button class="action-btn btn-activate" onclick="activateUser(<?= $archived_user['id'] ?>, '<?= $archived_user['source_table'] ?>')">Restore</button>
+                                                    <button class="action-btn btn-delete" onclick="permanentDeleteUser(<?= $archived_user['id'] ?>, '<?= $archived_user['source_table'] ?>')">Delete Permanently</button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Archive Count -->
+                        <div style="margin-top: 1rem; color: #666;">
+                            Total Archived Users: <?= count($archived_users) ?>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1483,19 +1676,6 @@ ob_end_clean();
                     </div>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- Notifications Modal -->
-    <div id="notificationsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Approved Applications</h3>
-                <span class="close" onclick="closeNotificationsModal()">&times;</span>
-            </div>
-            <div id="notificationsContent">
-                <p>Loading approved applications...</p>
-            </div>
         </div>
     </div>
 
@@ -1694,10 +1874,10 @@ ob_end_clean();
             }
         }
 
-        function deleteUser(userId, sourceTable = 'users') {
-            if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+        function archiveUser(userId, sourceTable = 'users') {
+            if (confirm('Are you sure you want to archive this user? They will be moved to the Archive tab.')) {
                 const formData = new FormData();
-                formData.append('action', 'delete_user');
+                formData.append('action', 'archive_user');
                 formData.append('user_id', userId);
                 formData.append('source_table', sourceTable);
 
@@ -1708,7 +1888,34 @@ ob_end_clean();
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('User deleted successfully!');
+                        alert('User archived successfully!');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error archiving user: ' + error.message);
+                });
+            }
+        }
+
+        // Permanent delete function for archived users
+        function permanentDeleteUser(userId, sourceTable = 'users') {
+            if (confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
+                const formData = new FormData();
+                formData.append('action', 'permanent_delete_user');
+                formData.append('user_id', userId);
+                formData.append('source_table', sourceTable);
+
+                fetch('', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('User permanently deleted!');
                         location.reload();
                     } else {
                         alert('Error: ' + data.message);
@@ -1769,87 +1976,6 @@ ob_end_clean();
             }
         });
 
-        // Notification functions
-        function loadNotifications() {
-            console.log('Loading notifications...');
-            fetch('get_approved_applications.php')
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Response data:', data);
-                    if (data.success) {
-                        updateNotificationBadge(data.count);
-                        displayNotifications(data.applications);
-                    } else if (data.error) {
-                        console.error('API Error:', data.error);
-                        document.getElementById('notificationsContent').innerHTML = 
-                            '<p style="color: red;">Error: ' + data.error + '</p>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading notifications:', error);
-                    document.getElementById('notificationsContent').innerHTML = 
-                        '<p style="color: red;">Error loading notifications: ' + error.message + '</p>';
-                });
-        }
-
-        function updateNotificationBadge(count) {
-            const badge = document.getElementById('notificationBadge');
-            if (count > 0) {
-                badge.textContent = count;
-                badge.style.display = 'flex';
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-
-        function displayNotifications(applications) {
-            const content = document.getElementById('notificationsContent');
-            if (applications.length === 0) {
-                content.innerHTML = '<p style="text-align: center; color: #666;">No approved applications pending user creation.</p>';
-                return;
-            }
-
-            content.innerHTML = applications.map(app => `
-                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #f9f9f9;">
-                    <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.5rem;">
-                        <h4 style="margin: 0; color: #333;">${app.full_name}</h4>
-                        <span style="font-size: 0.9em; color: #666;">Approved: ${app.approved_at}</span>
-                    </div>
-                    <p style="margin: 0.5rem 0; color: #666;"><strong>SR Code:</strong> ${app.sr_code}</p>
-                    <p style="margin: 0.5rem 0; color: #666;"><strong>Email:</strong> ${app.email}</p>
-                    <p style="margin: 0.5rem 0; color: #666;"><strong>Reviewed by:</strong> ${app.reviewer_name || 'Unknown'}</p>
-                    <button onclick="createUserFromApplication('${app.sr_code}', '${app.first_name}', '${app.middle_name}', '${app.last_name}', '${app.email}')" 
-                            style="background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-top: 0.5rem;">
-                        Create User Account
-                    </button>
-                </div>
-            `).join('');
-        }
-
-        function createUserFromApplication(srCode, firstName, middleName, lastName, email) {
-            // Close notifications modal
-            closeNotificationsModal();
-            
-            // Pre-fill add user modal
-            document.getElementById('firstName').value = firstName || '';
-            document.getElementById('middleName').value = middleName || '';
-            document.getElementById('lastName').value = lastName || '';
-            document.getElementById('email').value = email;
-            document.getElementById('srCode').value = srCode;
-            document.getElementById('role').value = 'student';
-            document.getElementById('password').value = srCode;
-            document.getElementById('confirmPassword').value = srCode;
-            
-            // Show SR Code field
-            document.getElementById('srCodeGroup').style.display = 'block';
-            
-            // Open add user modal
-            openModal();
-        }
-
         function toggleSrCodeField() {
             const role = document.getElementById('role').value;
             const srCodeGroup = document.getElementById('srCodeGroup');
@@ -1864,18 +1990,6 @@ ob_end_clean();
                 srCodeInput.value = '';
             }
         }
-
-        function openNotificationsModal() {
-            document.getElementById('notificationsModal').style.display = 'block';
-            loadNotifications();
-        }
-
-        function closeNotificationsModal() {
-            document.getElementById('notificationsModal').style.display = 'none';
-        }
-
-        // Add notification button event listener
-        document.getElementById('notificationBtn').addEventListener('click', openNotificationsModal);
 
         // Show/hide password functions
         function toggleAddPasswords() {
@@ -2010,10 +2124,39 @@ ob_end_clean();
                     }
                 });
             }
+        });
 
-            loadNotifications();
-            // Refresh notifications every 30 seconds
-            setInterval(loadNotifications, 30000);
+        // Tab switching functionality
+        function switchTab(event, tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tab links
+            const tabLinks = document.querySelectorAll('.tab-link');
+            tabLinks.forEach(link => {
+                link.classList.remove('active');
+            });
+
+            // Show the selected tab
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to the clicked tab link
+            event.target.classList.add('active');
+        }
+
+        // Initialize the first tab as active when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Ensure the first tab is active by default
+            const firstTabLink = document.querySelector('.tab-link');
+            const firstTabContent = document.querySelector('.tab-content');
+            
+            if (firstTabLink && firstTabContent) {
+                firstTabLink.classList.add('active');
+                firstTabContent.classList.add('active');
+            }
         });
     </script>
 </body>
