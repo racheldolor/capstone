@@ -14,7 +14,23 @@ header('Content-Type: application/json');
 try {
     $pdo = getDBConnection();
     
-    // Get cultural group distribution
+    // Define all available cultural groups
+    $allGroups = [
+        'Dulaang Batangan',
+        'BatStateU Dance Company', 
+        'Diwayanis Dance Theatre',
+        'BatStateU Band',
+        'Indak Yaman Dance Varsity',
+        'Ritmo Voice',
+        'Sandugo Dance Group',
+        'Areglo Band',
+        'Teatro Aliwana',
+        'The Levites',
+        'Melophiles',
+        'Sindayog'
+    ];
+    
+    // Get actual student counts for each group
     $stmt = $pdo->prepare("
         SELECT 
             CASE 
@@ -28,10 +44,29 @@ try {
             WHEN cultural_group IS NULL OR cultural_group = '' THEN 'Not Assigned'
             ELSE cultural_group
         END
-        ORDER BY count DESC
     ");
     $stmt->execute();
-    $groupData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $actualCounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Create associative array for easy lookup
+    $countLookup = [];
+    foreach ($actualCounts as $row) {
+        $countLookup[$row['group_name']] = $row['count'];
+    }
+    
+    // Build complete group data including groups with 0 students
+    $groupData = [];
+    foreach ($allGroups as $groupName) {
+        $groupData[] = [
+            'group_name' => $groupName,
+            'count' => isset($countLookup[$groupName]) ? $countLookup[$groupName] : 0
+        ];
+    }
+    
+    // Sort by count (descending)
+    usort($groupData, function($a, $b) {
+        return $b['count'] - $a['count'];
+    });
     
     // Get total count
     $totalStmt = $pdo->prepare("SELECT COUNT(*) as total FROM student_artists WHERE status = 'active'");

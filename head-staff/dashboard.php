@@ -22,20 +22,29 @@ try {
     $stmt->execute();
     $student_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count cultural groups (for now, we'll simulate this data)
-    $cultural_groups = 0; // Will be implemented later
+    // Count distinct cultural groups assigned to student artists
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cultural_group) as count FROM student_artists 
+                          WHERE cultural_group IS NOT NULL AND cultural_group != ''");
+    $stmt->execute();
+    $cultural_groups = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count scheduled events (for now, we'll simulate this data)
-    $scheduled_events = 0; // Will be implemented later
+    // Count scheduled events (future events that are not yet completed)
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE()");
+    $stmt->execute();
+    $scheduled_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count worn out costumes (for now, we'll simulate this data)
-    $worn_costumes = 0; // Will be implemented later
+    // Count worn out costumes (for now, simulate this data - can be implemented later with inventory system)
+    $worn_costumes = 0; // Will be implemented when costume inventory system is added
     
 } catch (Exception $e) {
-    $student_count = 0;
-    $cultural_groups = 0;
-    $scheduled_events = 0;
+    // If any query fails, set safe default values
+    $student_count = $student_count ?? 0;
+    $cultural_groups = $cultural_groups ?? 0;
+    $scheduled_events = $scheduled_events ?? 0;
     $worn_costumes = 0;
+    
+    // Log the error for debugging (optional)
+    error_log("Dashboard statistics error: " . $e->getMessage());
 }
 
 // Get student artists with pagination (active and suspended)
@@ -257,8 +266,8 @@ try {
         /* Dashboard Cards */
         .dashboard-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
             margin-bottom: 2rem;
         }
 
@@ -303,8 +312,8 @@ try {
         /* Content Grid */
         .content-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
             margin-bottom: 2rem;
         }
 
@@ -351,6 +360,50 @@ try {
             text-align: center;
             color: #888;
             font-style: italic;
+        }
+
+        /* Event Participation Table - Seamless Connection */
+        #eventParticipationContent {
+            padding: 0;
+            text-align: left;
+            color: inherit;
+            font-style: normal;
+        }
+
+        .participation-table-container {
+            margin: 0;
+        }
+
+        .participation-table-container table {
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            margin-top: -1px; /* Pull table up to merge with header */
+        }
+
+        /* Event Evaluations Analytics - Remove Italic Styling */
+        #evaluationAnalyticsContent,
+        #evaluationAnalyticsContent *,
+        .evaluation-stats-grid,
+        .evaluation-stats-grid *,
+        .stat-card,
+        .stat-card *,
+        .comments-analysis,
+        .comments-analysis * {
+            font-style: normal !important;
+        }
+
+        #evaluationAnalyticsContent {
+            text-align: center;
+        }
+
+        /* Center descriptions in evaluation analytics */
+        #evaluationAnalyticsContent .stat-card,
+        #evaluationAnalyticsContent .comments-analysis,
+        #evaluationAnalyticsContent p,
+        #evaluationAnalyticsContent .performance-text,
+        #evaluationAnalyticsContent .strengths-text,
+        #evaluationAnalyticsContent .recommendations-text {
+            text-align: center !important;
         }
 
         /* Chart Area */
@@ -740,7 +793,7 @@ try {
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            height: 200px;
+            height: 400px;
             background: #f8f9fa;
             border-radius: 8px;
             text-align: center;
@@ -751,7 +804,7 @@ try {
             display: flex;
             flex-direction: column;
             gap: 0.4rem;
-            max-height: 170px;
+            max-height: 350px;
             overflow-y: auto;
             width: 100%;
             padding: 0.25rem;
@@ -1606,7 +1659,7 @@ try {
                         <div class="card-header">
                             <div class="card-title">Cultural Groups</div>
                         </div>
-                        <div class="card-number"><?= $cultural_groups ?></div>
+                        <div class="card-number">12</div>
                         <div class="card-subtitle">Registered cultural groups</div>
                     </div>
 
@@ -1657,16 +1710,6 @@ try {
                         <div class="panel-content">
                             No inventory data available
                         </div>
-                    </div>
-                </div>
-
-                <!-- Performance Trend Chart -->
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3 class="chart-title">Performance Trend Line</h3>
-                    </div>
-                    <div class="chart-content">
-                        No performance data available
                     </div>
                 </div>
             </section>
@@ -2056,6 +2099,147 @@ try {
                         </div>
                         <div id="eventSelectionList" style="max-height: 350px; overflow-y: auto; padding: 1rem;">
                             <!-- Event list will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Evaluation Selection Modal -->
+                <div id="eventEvaluationSelectionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+                    <div style="background: white; border-radius: 8px; max-width: 600px; width: 90%; max-height: 70vh; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0; color: #333; font-size: 1.2rem;">Select Event for Evaluation</h3>
+                            <button onclick="closeEventEvaluationSelectionModal()" style="background: none; border: none; font-size: 1.5rem; color: #666; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+                        </div>
+                        <!-- Search Bar -->
+                        <div style="padding: 1rem; border-bottom: 1px solid #e0e0e0;">
+                            <div style="position: relative; max-width: 100%;">
+                                <input 
+                                    type="text" 
+                                    id="eventEvaluationSearchInput" 
+                                    placeholder="Search events by title, category, or location..." 
+                                    style="width: 100%; padding: 10px 40px 10px 15px; border: 1px solid #ddd; border-radius: 25px; font-size: 14px; outline: none; transition: border-color 0.3s; box-sizing: border-box;"
+                                    oninput="filterEvaluationEvents()"
+                                >
+                                <span style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #666; font-size: 16px;">🔍</span>
+                            </div>
+                        </div>
+                        <div id="eventEvaluationSelectionList" style="max-height: 350px; overflow-y: auto; padding: 1rem;">
+                            <!-- Event list will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Evaluations Analytics Section -->
+                <div class="content-panel" style="margin-top: 2rem;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">Event Evaluations Analytics</h3>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <button id="allEvaluationsBtn" class="chart-control-btn active" style="padding: 0.5rem 1rem; border: 1px solid #dc2626; border-radius: 4px; background: #dc2626; color: white; cursor: pointer; font-weight: 600;">
+                                All Evaluations
+                            </button>
+                            <button id="individualEventEvalBtn" class="chart-control-btn" style="padding: 0.5rem 1rem; border: 1px solid #ddd; border-radius: 4px; background: white; color: #333; cursor: pointer; font-weight: 600;">
+                                Individual Event
+                            </button>
+                            <span id="selectedEvaluationEventDisplay" style="margin-left: 1rem; color: #dc2626; font-style: normal; display: none;">
+                                No event selected
+                            </span>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="loading-state" id="evaluationAnalyticsLoading">
+                            <p>Loading evaluation analytics...</p>
+                        </div>
+                        <div id="evaluationAnalyticsContent" style="display: none;">
+                            <!-- Evaluation Statistics Cards -->
+                            <div class="evaluation-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                                <div class="stat-card" style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #28a745;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <h4 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 500;">Total Evaluations</h4>
+                                            <p id="totalEvaluations" style="margin: 0; font-size: 2rem; font-weight: 700; color: #28a745;">0</p>
+                                        </div>
+                                        <div style="font-size: 2rem; color: #28a745;">📝</div>
+                                    </div>
+                                </div>
+                                <div class="stat-card" style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #ffc107;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <h4 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 500;">Average Rating</h4>
+                                            <p id="averageRating" style="margin: 0; font-size: 2rem; font-weight: 700; color: #ffc107;">0.0</p>
+                                        </div>
+                                        <div style="font-size: 2rem; color: #ffc107;">⭐</div>
+                                    </div>
+                                </div>
+                                <div class="stat-card" style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #17a2b8;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <h4 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 500;">Response Rate</h4>
+                                            <p id="responseRate" style="margin: 0; font-size: 2rem; font-weight: 700; color: #17a2b8;">0%</p>
+                                        </div>
+                                        <div style="font-size: 2rem; color: #17a2b8;">📊</div>
+                                    </div>
+                                </div>
+                                <div class="stat-card" style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #6f42c1;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <h4 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 500;">Satisfaction Score</h4>
+                                            <p id="satisfactionScore" style="margin: 0; font-size: 2rem; font-weight: 700; color: #6f42c1;">0%</p>
+                                        </div>
+                                        <div style="font-size: 2rem; color: #6f42c1;">😊</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Charts Grid -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                                <!-- Rating Distribution Chart -->
+                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;">
+                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Rating Distribution</h4>
+                                    <canvas id="ratingDistributionChart" width="400" height="300" style="max-width: 100%; height: auto; display: block; margin: 0 auto;"></canvas>
+                                </div>
+
+                                <!-- Question Scores Chart -->
+                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Question Scores</h4>
+                                    <canvas id="questionScoresChart" width="400" height="420" style="max-width: 100%; height: auto;"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Evaluation Trends Chart -->
+                            <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+                                <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Evaluation Trends Over Time</h4>
+                                <canvas id="evaluationTrendsChart" width="800" height="400" style="max-width: 100%; height: auto;"></canvas>
+                            </div>
+
+                            <!-- Detailed Analytics -->
+                            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #dc2626;">
+                                <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">📈 Detailed Analytics & Insights</h4>
+                                <div id="evaluationInsightsContent">
+                                    <!-- Detailed insights will be populated here -->
+                                    <p style="color: #666; margin: 0;">Loading detailed analytics...</p>
+                                </div>
+                            </div>
+
+                            <!-- Comments Analysis -->
+                            <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 2rem;">
+                                <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">💬 Comments Analysis</h4>
+                                <div id="commentsAnalysisContent">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                                        <div>
+                                            <h5 style="margin: 0 0 1rem 0; color: #666; font-size: 1rem;">Most Positive Comments</h5>
+                                            <div id="positiveComments" style="max-height: 200px; overflow-y: auto;">
+                                                <!-- Positive comments will be loaded here -->
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h5 style="margin: 0 0 1rem 0; color: #666; font-size: 1rem;">Areas for Improvement</h5>
+                                            <div id="improvementComments" style="max-height: 200px; overflow-y: auto;">
+                                                <!-- Improvement comments will be loaded here -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2613,6 +2797,7 @@ try {
                 // Load event participation if Reports & Analytics section is initially active
                 if (activeSection === 'reports-analytics') {
                     loadEventParticipation();
+                    loadEvaluationAnalytics();
                 }
                 
                 // Load inventory items if Costume Inventory section is initially active
@@ -2655,6 +2840,7 @@ try {
                         // Load event participation when Reports & Analytics section is activated
                         if (sectionId === 'reports-analytics') {
                             loadEventParticipation();
+                            initializeEvaluationAnalytics();
                         }
                         
                         // Load inventory items when Costume Inventory section is activated
@@ -3068,6 +3254,9 @@ try {
             initializeStudentSearch();
             loadCampusDistribution();
             loadCulturalGroupDistribution();
+            loadStudentArtistOverview();
+            loadUpcomingEventsOverview();
+            loadCostumeInventoryOverview();
         });
 
         // Campus Distribution Functions
@@ -3265,6 +3454,239 @@ try {
                 <div class="record-number">0</div>
                 <div class="record-label">student artists</div>
                 <div class="record-sublabel">No groups assigned</div>
+            `;
+        }
+
+        // Student Artist Overview Functions
+        function loadStudentArtistOverview() {
+            console.log('Loading student artist overview...');
+            fetch('get_student_artist_overview.php')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Student artist overview response:', data);
+                    if (data.success) {
+                        displayStudentArtistOverview(data);
+                    } else {
+                        console.error('Failed to load student artist overview:', data.error);
+                        showEmptyStudentOverview();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading student artist overview:', error);
+                    showEmptyStudentOverview();
+                });
+        }
+
+        function displayStudentArtistOverview(data) {
+            const container = document.querySelector('.content-panel:first-child .panel-content');
+            if (!container) return;
+
+            const stats = data.statistics;
+            const participation = data.participation;
+            const recentActivity = data.recent_activity;
+            
+            const participationRate = Math.round(participation.participation_rate || 0);
+            
+            container.innerHTML = `
+                <div style="padding: 1rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-style: normal;">${stats.total_students}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Total Students</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #17a2b8; font-style: normal;">${stats.assigned_students}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Assigned</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #ffc107; font-style: normal;">${stats.active_students}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Active</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #6f42c1; font-style: normal;">${participationRate}%</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Participation</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 0.9rem; font-style: normal;">Recent Event Activity</h4>
+                        <div style="max-height: 120px; overflow-y: auto;">
+                            ${recentActivity.length > 0 ? recentActivity.map(activity => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; border-bottom: 1px solid #eee; font-size: 0.8rem; font-style: normal;">
+                                    <span style="font-weight: 500; font-style: normal;">${activity.event_title}</span>
+                                    <span style="color: #666; font-style: normal;">${activity.actual_participants || 0} participants</span>
+                                </div>
+                            `).join('') : '<div style="color: #888; font-size: 0.8rem; text-align: center; padding: 1rem; font-style: normal;">No recent activity</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showEmptyStudentOverview() {
+            const container = document.querySelector('.content-panel:first-child .panel-content');
+            if (!container) return;
+            
+            container.innerHTML = `
+                <div style="text-align: center; color: #888; padding: 2rem;">
+                    <p>Unable to load student artist data</p>
+                </div>
+            `;
+        }
+
+        // Upcoming Events Overview Functions
+        function loadUpcomingEventsOverview() {
+            console.log('Loading upcoming events overview...');
+            fetch('get_upcoming_events_overview.php')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Upcoming events overview response:', data);
+                    if (data.success) {
+                        displayUpcomingEventsOverview(data);
+                    } else {
+                        console.error('Failed to load upcoming events overview:', data.error);
+                        showUpcomingEventsError();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading upcoming events overview:', error);
+                    showUpcomingEventsError();
+                });
+        }
+
+        function displayUpcomingEventsOverview(data) {
+            const container = document.querySelector('.content-panel:nth-child(2) .panel-content');
+            if (!container) return;
+
+            const stats = data.statistics;
+            const upcomingEvents = data.upcoming_events;
+            
+            container.innerHTML = `
+                <div style="padding: 1rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-style: normal;">${stats.total_upcoming}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Upcoming</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545; font-style: normal;">${stats.this_week}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">This Week</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #17a2b8; font-style: normal;">${stats.trainings}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Trainings</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #6f42c1; font-style: normal;">${stats.performances}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Shows</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 0.9rem; font-style: normal;">Next Events</h4>
+                        <div style="max-height: 120px; overflow-y: auto;">
+                            ${upcomingEvents.length > 0 ? upcomingEvents.slice(0, 4).map(event => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; border-bottom: 1px solid #eee; font-size: 0.8rem; font-style: normal;">
+                                    <div style="font-style: normal;">
+                                        <div style="font-weight: 500; font-style: normal;">${event.title}</div>
+                                        <div style="color: #666; font-size: 0.7rem; font-style: normal;">${new Date(event.start_date).toLocaleDateString()}</div>
+                                    </div>
+                                    <span style="color: #666; font-style: normal;">${event.registered_count || 0} registered</span>
+                                </div>
+                            `).join('') : '<div style="color: #888; font-size: 0.8rem; text-align: center; padding: 1rem; font-style: normal;">No upcoming events</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showUpcomingEventsError() {
+            const container = document.querySelector('.content-panel:nth-child(2) .panel-content');
+            if (!container) return;
+            
+            container.innerHTML = `
+                <div style="text-align: center; color: #888; padding: 2rem; font-style: normal;">
+                    <p>Unable to load upcoming events data</p>
+                </div>
+            `;
+        }
+
+        // Costume Inventory Overview Functions
+        function loadCostumeInventoryOverview() {
+            console.log('Loading costume inventory overview...');
+            fetch('get_costume_inventory_overview.php')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Costume inventory overview response:', data);
+                    if (data.success) {
+                        displayCostumeInventoryOverview(data);
+                    } else {
+                        console.error('Failed to load costume inventory overview:', data.error);
+                        showEmptyCostumeInventory();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading costume inventory overview:', error);
+                    showEmptyCostumeInventory();
+                });
+        }
+
+        function displayCostumeInventoryOverview(data) {
+            const container = document.querySelector('.content-panel:nth-child(3) .panel-content');
+            if (!container) return;
+
+            const stats = data.statistics;
+            const itemsNeedingAttention = data.items_needing_attention;
+            
+            container.innerHTML = `
+                <div style="padding: 1rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-style: normal;">${stats.total_items}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Total Items</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #17a2b8; font-style: normal;">${stats.available_items}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Available</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #ffc107; font-style: normal;">${stats.borrowed_items}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Borrowed</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545; font-style: normal;">${stats.damaged_items}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Damaged</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 0.9rem; font-style: normal;">Needs Attention</h4>
+                        <div style="max-height: 120px; overflow-y: auto;">
+                            ${itemsNeedingAttention.length > 0 ? itemsNeedingAttention.map(item => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; border-bottom: 1px solid #eee; font-size: 0.8rem; font-style: normal;">
+                                    <div style="font-style: normal;">
+                                        <div style="font-weight: 500; font-style: normal;">${item.item_name}</div>
+                                        <div style="color: #666; font-size: 0.7rem; font-style: normal;">${item.category || 'General'}</div>
+                                    </div>
+                                    <span style="color: ${item.condition_status === 'damaged' ? '#dc3545' : '#ffc107'}; font-style: normal; font-size: 0.7rem;">
+                                        ${item.condition_status === 'damaged' ? 'Damaged' : item.status === 'maintenance' ? 'Maintenance' : 'Poor'}
+                                    </span>
+                                </div>
+                            `).join('') : '<div style="color: #888; font-size: 0.8rem; text-align: center; padding: 1rem; font-style: normal;">All items in good condition</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showEmptyCostumeInventory() {
+            const container = document.querySelector('.content-panel:nth-child(3) .panel-content');
+            if (!container) return;
+            
+            container.innerHTML = `
+                <div style="text-align: center; color: #888; padding: 2rem; font-style: normal;">
+                    <p>Unable to load costume inventory data</p>
+                </div>
             `;
         }
 
@@ -4673,7 +5095,7 @@ try {
                 `;
             } else {
                 let html = `
-                    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <table style="width: 100%; border-collapse: collapse; background: white; margin: 0;">
                         <thead style="background: #dc2626; color: white;">
                             <tr>
                                 <th style="padding: 1rem; text-align: left; font-weight: 600; font-style: normal;">Event Details</th>
@@ -4712,7 +5134,7 @@ try {
                             </td>
                             <td style="padding: 1rem; text-align: center; vertical-align: top;">
                                 <span style="background: ${event.participants_count > 0 ? '#28a745' : '#6c757d'}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; font-style: normal;">
-                                    ${event.participants_count} ${event.participants_count === 1 ? 'participant' : 'participants'}
+                                    ${event.participants_count} participant(s)
                                 </span>
                             </td>
                             <td style="padding: 1rem; text-align: center; vertical-align: top;">
@@ -5100,7 +5522,7 @@ try {
                         <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">${event.location}</div>
                         <div style="display: flex; justify-content: between; align-items: center;">
                             <span style="background: ${event.participants_count > 0 ? '#28a745' : '#6c757d'}; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
-                                ${event.participants_count} ${event.participants_count === 1 ? 'participant' : 'participants'}
+                                ${event.participants_count} participant(s)
                             </span>
                         </div>
                     </div>
@@ -5725,7 +6147,7 @@ try {
             `;
             
             // Update participants count
-            document.getElementById('participantsCount').textContent = `${participants.length} ${participants.length === 1 ? 'participant' : 'participants'}`;
+            document.getElementById('participantsCount').textContent = `${participants.length} participant(s)`;
             
             const tableBody = document.getElementById('participantsTableBody');
             const noParticipantsMsg = document.getElementById('noParticipantsMessage');
@@ -5813,6 +6235,589 @@ try {
             const eventSelectionModal = document.getElementById('eventSelectionModal');
             if (event.target === eventSelectionModal) {
                 closeEventSelectionModal();
+            }
+            
+            // Close event evaluation selection modal when clicking outside
+            const eventEvaluationSelectionModal = document.getElementById('eventEvaluationSelectionModal');
+            if (event.target === eventEvaluationSelectionModal) {
+                closeEventEvaluationSelectionModal();
+            }
+        });
+
+        // Event Evaluations Analytics Functions
+        let evaluationData = [];
+        let evaluationEvents = [];
+        let currentEvaluationMode = 'all';
+
+        // Initialize evaluation analytics when reports section is active
+        let evaluationAnalyticsInitialized = false;
+        function initializeEvaluationAnalytics() {
+            if (evaluationAnalyticsInitialized) {
+                console.log('Evaluation analytics already initialized, just loading data...');
+                loadEvaluationAnalytics();
+                return;
+            }
+            
+            console.log('Initializing evaluation analytics...');
+            const allEvaluationsBtn = document.getElementById('allEvaluationsBtn');
+            const individualEventEvalBtn = document.getElementById('individualEventEvalBtn');
+
+            console.log('Buttons found:', {
+                allEvaluationsBtn: !!allEvaluationsBtn,
+                individualEventEvalBtn: !!individualEventEvalBtn
+            });
+
+            // Button event listeners
+            if (allEvaluationsBtn) {
+                allEvaluationsBtn.addEventListener('click', () => {
+                    console.log('All evaluations clicked');
+                    setEvaluationMode('all');
+                });
+            }
+            if (individualEventEvalBtn) {
+                individualEventEvalBtn.addEventListener('click', () => {
+                    console.log('Individual event clicked - opening modal');
+                    setEvaluationMode('individual');
+                    openEventEvaluationSelectionModal();
+                });
+            }
+
+            evaluationAnalyticsInitialized = true;
+            loadEvaluationAnalytics();
+        }
+
+        function setEvaluationMode(mode) {
+            console.log('Setting evaluation mode to:', mode);
+            currentEvaluationMode = mode;
+            const allBtn = document.getElementById('allEvaluationsBtn');
+            const individualBtn = document.getElementById('individualEventEvalBtn');
+
+            console.log('Mode buttons found:', {
+                allBtn: !!allBtn,
+                individualBtn: !!individualBtn
+            });
+
+            // Update button styles and selected event display
+            const selectedEventDisplay = document.getElementById('selectedEvaluationEventDisplay');
+            
+            if (mode === 'all') {
+                allBtn.style.background = '#dc2626';
+                allBtn.style.color = 'white';
+                allBtn.style.borderColor = '#dc2626';
+                individualBtn.style.background = 'white';
+                individualBtn.style.color = '#333';
+                individualBtn.style.borderColor = '#ddd';
+                
+                // Hide selected event display for all mode
+                if (selectedEventDisplay) {
+                    selectedEventDisplay.style.display = 'none';
+                }
+            } else {
+                individualBtn.style.background = '#dc2626';
+                individualBtn.style.color = 'white';
+                individualBtn.style.borderColor = '#dc2626';
+                allBtn.style.background = 'white';
+                allBtn.style.color = '#333';
+                allBtn.style.borderColor = '#ddd';
+                
+                // Show selected event display for individual mode
+                if (selectedEventDisplay && window.selectedEvaluationEventTitle) {
+                    selectedEventDisplay.textContent = window.selectedEvaluationEventTitle;
+                    selectedEventDisplay.style.display = 'inline';
+                } else if (selectedEventDisplay) {
+                    selectedEventDisplay.textContent = 'No event selected';
+                    selectedEventDisplay.style.display = 'inline';
+                }
+            }
+
+            loadEvaluationAnalytics();
+        }
+
+        function loadEvaluationAnalytics() {
+            console.log('Loading evaluation analytics...');
+            const loadingDiv = document.getElementById('evaluationAnalyticsLoading');
+            const contentDiv = document.getElementById('evaluationAnalyticsContent');
+
+            if (!loadingDiv || !contentDiv) {
+                console.error('Evaluation analytics elements not found');
+                return;
+            }
+
+            loadingDiv.style.display = 'block';
+            contentDiv.style.display = 'none';
+
+            const params = new URLSearchParams({
+                mode: currentEvaluationMode
+            });
+
+            if (currentEvaluationMode === 'individual') {
+                const selectedEventId = window.selectedEvaluationEventId;
+                if (selectedEventId) {
+                    params.append('event_id', selectedEventId);
+                }
+            }
+
+            console.log('Fetching evaluation analytics with params:', params.toString());
+            console.log('Current evaluation mode:', currentEvaluationMode);
+            console.log('Selected event ID:', window.selectedEvaluationEventId);
+            fetch(`get_evaluation_analytics.php?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Evaluation analytics response:', data);
+                    loadingDiv.style.display = 'none';
+                    if (data.success) {
+                        evaluationData = data.evaluations;
+                        evaluationEvents = data.events;
+                        displayEvaluationAnalytics(data);
+                        contentDiv.style.display = 'block';
+                    } else {
+                        console.error('Evaluation analytics API error:', data.message);
+                        showEvaluationError(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Evaluation analytics fetch error:', error);
+                    loadingDiv.style.display = 'none';
+                    showEvaluationError('Error loading evaluation analytics: ' + error.message);
+                });
+        }
+
+
+
+        function displayEvaluationAnalytics(data) {
+            // Update statistics cards
+            document.getElementById('totalEvaluations').textContent = data.statistics.total_evaluations;
+            document.getElementById('averageRating').textContent = data.statistics.average_rating.toFixed(1);
+            document.getElementById('responseRate').textContent = data.statistics.response_rate + '%';
+            document.getElementById('satisfactionScore').textContent = data.statistics.satisfaction_score + '%';
+
+            // Draw charts
+            drawRatingDistributionChart(data.rating_distribution);
+            drawQuestionScoresChart(data.question_scores);
+            drawEvaluationTrendsChart(data.trends);
+
+            // Display detailed insights
+            displayEvaluationInsights(data.insights);
+
+            // Display comments analysis
+            displayCommentsAnalysis(data.comments);
+        }
+
+        function drawRatingDistributionChart(ratingData) {
+            const canvas = document.getElementById('ratingDistributionChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!ratingData || ratingData.length === 0) {
+                drawEmptyChart(ctx, canvas, 'No rating data available');
+                return;
+            }
+
+            // Chart setup
+            const padding = 50;
+            const chartWidth = canvas.width - (padding * 2);
+            const chartHeight = canvas.height - (padding * 2);
+            const barWidth = chartWidth / ratingData.length;
+
+            // Find max value for scaling
+            const maxValue = Math.max(...ratingData.map(d => d.count));
+
+            // Draw bars
+            ratingData.forEach((data, index) => {
+                const barHeight = (data.count / maxValue) * chartHeight;
+                const x = padding + (index * barWidth);
+                const y = padding + chartHeight - barHeight;
+
+                // Draw bar
+                ctx.fillStyle = `hsl(${120 - (data.rating * 12)}, 70%, 50%)`;
+                ctx.fillRect(x + 5, y, barWidth - 10, barHeight);
+
+                // Draw rating label
+                ctx.fillStyle = '#333';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${data.rating}★`, x + barWidth/2, canvas.height - 20);
+
+                // Draw count label
+                ctx.fillText(data.count, x + barWidth/2, y - 5);
+            });
+
+            // Draw title
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Rating Distribution', canvas.width / 2, 25);
+        }
+
+        function drawQuestionScoresChart(questionData) {
+            const canvas = document.getElementById('questionScoresChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!questionData || questionData.length === 0) {
+                drawEmptyChart(ctx, canvas, 'No question data available');
+                return;
+            }
+
+            // Chart setup
+            const padding = 60;
+            const chartWidth = canvas.width - (padding * 2);
+            const chartHeight = canvas.height - (padding * 2);
+            const barHeight = 15;
+            const barSpacing = 35;
+
+            // Draw horizontal bars
+            questionData.forEach((question, index) => {
+                const barWidth = (question.average_score / 5) * chartWidth;
+                const y = padding + (index * barSpacing);
+
+                // Draw bar background
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(padding, y, chartWidth, barHeight);
+
+                // Draw bar
+                const hue = (question.average_score / 5) * 120; // Green for high scores
+                ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+                ctx.fillRect(padding, y, barWidth, barHeight);
+
+                // Draw question label
+                ctx.fillStyle = '#333';
+                ctx.font = '11px Arial';
+                ctx.textAlign = 'left';
+                const questionText = question.question.length > 50 ? 
+                    question.question.substring(0, 50) + '...' : question.question;
+                ctx.fillText(questionText, padding, y - 8);
+
+                // Draw score
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(question.average_score.toFixed(1), canvas.width - padding, y + 12);
+            });
+
+            // Draw title
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Average Question Scores', canvas.width / 2, 20);
+        }
+
+        function drawEvaluationTrendsChart(trendsData) {
+            const canvas = document.getElementById('evaluationTrendsChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!trendsData || trendsData.length === 0) {
+                drawEmptyChart(ctx, canvas, 'No trend data available');
+                return;
+            }
+
+            // Chart setup
+            const padding = 60;
+            const chartWidth = canvas.width - (padding * 2);
+            const chartHeight = canvas.height - (padding * 2);
+
+            // Find min/max values
+            const ratings = trendsData.map(d => d.average_rating);
+            const minRating = Math.min(...ratings);
+            const maxRating = Math.max(...ratings);
+            const ratingRange = maxRating - minRating || 1;
+
+            // Draw grid lines
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (i / 5) * chartHeight;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+
+                // Y-axis labels
+                ctx.fillStyle = '#666';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText((5 - i).toFixed(1), padding - 10, y + 3);
+            }
+
+            // Draw trend line
+            if (trendsData.length > 1) {
+                ctx.strokeStyle = '#dc2626';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+
+                trendsData.forEach((point, index) => {
+                    const x = padding + (index / (trendsData.length - 1)) * chartWidth;
+                    const y = padding + ((5 - point.average_rating) / 5) * chartHeight;
+
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.stroke();
+
+                // Draw data points
+                ctx.fillStyle = '#dc2626';
+                trendsData.forEach((point, index) => {
+                    const x = padding + (index / (trendsData.length - 1)) * chartWidth;
+                    const y = padding + ((5 - point.average_rating) / 5) * chartHeight;
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    // Date labels
+                    ctx.fillStyle = '#666';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.save();
+                    ctx.translate(x, canvas.height - padding + 15);
+                    ctx.rotate(-Math.PI / 4);
+                    ctx.fillText(point.date, 0, 0);
+                    ctx.restore();
+                });
+            }
+
+            // Draw title
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Evaluation Trends Over Time', canvas.width / 2, 20);
+
+            // Draw Y-axis label
+            ctx.save();
+            ctx.translate(15, canvas.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.font = '12px Arial';
+            ctx.fillText('Average Rating', 0, 0);
+            ctx.restore();
+        }
+
+        function displayEvaluationInsights(insights) {
+            const container = document.getElementById('evaluationInsightsContent');
+            
+            if (!insights) {
+                container.innerHTML = '<p style="color: #666; margin: 0;">No insights available</p>';
+                return;
+            }
+
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">';
+
+            // Overall Performance
+            if (insights.overall) {
+                html += `
+                    <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid #28a745;">
+                        <h5 style="margin: 0 0 0.5rem 0; color: #28a745; font-size: 0.9rem;">📊 Overall Performance</h5>
+                        <p style="margin: 0; color: #666; font-size: 0.85rem; line-height: 1.4;">${insights.overall}</p>
+                    </div>
+                `;
+            }
+
+            // Strengths
+            if (insights.strengths) {
+                html += `
+                    <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid #ffc107;">
+                        <h5 style="margin: 0 0 0.5rem 0; color: #ffc107; font-size: 0.9rem;">💪 Key Strengths</h5>
+                        <p style="margin: 0; color: #666; font-size: 0.85rem; line-height: 1.4;">${insights.strengths}</p>
+                    </div>
+                `;
+            }
+
+            // Areas for Improvement
+            if (insights.improvements) {
+                html += `
+                    <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid #dc3545;">
+                        <h5 style="margin: 0 0 0.5rem 0; color: #dc3545; font-size: 0.9rem;">🎯 Areas for Improvement</h5>
+                        <p style="margin: 0; color: #666; font-size: 0.85rem; line-height: 1.4;">${insights.improvements}</p>
+                    </div>
+                `;
+            }
+
+            // Trends
+            if (insights.trends) {
+                html += `
+                    <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid #17a2b8;">
+                        <h5 style="margin: 0 0 0.5rem 0; color: #17a2b8; font-size: 0.9rem;">📈 Trends</h5>
+                        <p style="margin: 0; color: #666; font-size: 0.85rem; line-height: 1.4;">${insights.trends}</p>
+                    </div>
+                `;
+            }
+
+            // Recommendations
+            if (insights.recommendations) {
+                html += `
+                    <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid #6f42c1;">
+                        <h5 style="margin: 0 0 0.5rem 0; color: #6f42c1; font-size: 0.9rem;">💡 Recommendations</h5>
+                        <p style="margin: 0; color: #666; font-size: 0.85rem; line-height: 1.4;">${insights.recommendations}</p>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function displayCommentsAnalysis(comments) {
+            const positiveContainer = document.getElementById('positiveComments');
+            const improvementContainer = document.getElementById('improvementComments');
+
+            // Display positive comments
+            if (comments.positive && comments.positive.length > 0) {
+                let positiveHtml = '';
+                comments.positive.forEach(comment => {
+                    positiveHtml += `
+                        <div style="background: #f8f9fa; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem; border-left: 3px solid #28a745;">
+                            <p style="margin: 0 0 0.5rem 0; color: #333; font-size: 0.85rem; line-height: 1.4;">"${comment.text}"</p>
+                            <small style="color: #666;">- ${comment.event_title} (${comment.date})</small>
+                        </div>
+                    `;
+                });
+                positiveContainer.innerHTML = positiveHtml;
+            } else {
+                positiveContainer.innerHTML = '<p style="color: #666; font-style: italic; text-align: center; padding: 1rem;">No positive comments available</p>';
+            }
+
+            // Display improvement comments
+            if (comments.improvement && comments.improvement.length > 0) {
+                let improvementHtml = '';
+                comments.improvement.forEach(comment => {
+                    improvementHtml += `
+                        <div style="background: #f8f9fa; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem; border-left: 3px solid #ffc107;">
+                            <p style="margin: 0 0 0.5rem 0; color: #333; font-size: 0.85rem; line-height: 1.4;">"${comment.text}"</p>
+                            <small style="color: #666;">- ${comment.event_title} (${comment.date})</small>
+                        </div>
+                    `;
+                });
+                improvementContainer.innerHTML = improvementHtml;
+            } else {
+                improvementContainer.innerHTML = '<p style="color: #666; font-style: italic; text-align: center; padding: 1rem;">No improvement suggestions available</p>';
+            }
+        }
+
+        function showEvaluationError(message) {
+            const contentDiv = document.getElementById('evaluationAnalyticsContent');
+            contentDiv.innerHTML = `
+                <div style="text-align: center; padding: 3rem; color: #dc2626;">
+                    <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">Error loading evaluation analytics</p>
+                    <small>${message}</small>
+                </div>
+            `;
+            contentDiv.style.display = 'block';
+        }
+
+        // Event Evaluation Selection Modal Functions
+        function openEventEvaluationSelectionModal() {
+            const modal = document.getElementById('eventEvaluationSelectionModal');
+            const eventList = document.getElementById('eventEvaluationSelectionList');
+            
+            if (!modal || !eventList) {
+                console.error('Event evaluation selection modal elements not found');
+                return;
+            }
+            
+            modal.style.display = 'flex';
+            populateEventEvaluationSelectionModal();
+        }
+
+        function closeEventEvaluationSelectionModal() {
+            const modal = document.getElementById('eventEvaluationSelectionModal');
+            modal.style.display = 'none';
+        }
+
+        function filterEvaluationEvents() {
+            const searchInput = document.getElementById('eventEvaluationSearchInput');
+            const searchValue = searchInput.value.toLowerCase();
+            populateEventEvaluationSelectionModal(searchValue);
+        }
+
+        function populateEventEvaluationSelectionModal(searchFilter = '') {
+            const eventList = document.getElementById('eventEvaluationSelectionList');
+            
+            if (!evaluationEvents || evaluationEvents.length === 0) {
+                eventList.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No events available for evaluation analytics.</p>';
+                return;
+            }
+
+            // Filter events based on search
+            const filteredEvents = evaluationEvents.filter(event => {
+                if (!searchFilter) return true;
+                
+                return event.title.toLowerCase().includes(searchFilter) ||
+                       event.category.toLowerCase().includes(searchFilter) ||
+                       event.location.toLowerCase().includes(searchFilter) ||
+                       event.formatted_date.toLowerCase().includes(searchFilter);
+            });
+
+            if (filteredEvents.length === 0) {
+                eventList.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No events match your search criteria.</p>';
+                return;
+            }
+
+            // Generate event list HTML
+            eventList.innerHTML = filteredEvents.map(event => `
+                <div class="event-item" style="padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s ease;" 
+                     onmouseover="this.style.backgroundColor='#f8f9fa'; this.style.borderColor='#007bff';" 
+                     onmouseout="this.style.backgroundColor='white'; this.style.borderColor='#e0e0e0';"
+                     onclick="selectEvaluationEvent(${event.id}, '${event.title.replace(/'/g, '\\\'')}')"
+                >
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">${event.title}</h4>
+                            <p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;">📅 ${event.formatted_date || event.date || 'Date not available'}</p>
+                            <p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;">📍 ${event.location || 'Location not specified'}</p>
+                            <p style="margin: 0; color: #666; font-size: 0.9rem;">🏷️ ${event.category || 'Category not specified'}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="background: #e3f2fd; color: #1976d2; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: 500;">
+                                ${event.evaluation_count || event.evaluations_count || 0} evaluation(s)
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectEvaluationEvent(eventId, eventTitle) {
+            // Store selected event
+            window.selectedEvaluationEventId = eventId;
+            window.selectedEvaluationEventTitle = eventTitle;
+            
+            // Set mode to individual
+            currentEvaluationMode = 'individual';
+            
+            // Update selected event display
+            const selectedEventDisplay = document.getElementById('selectedEvaluationEventDisplay');
+            if (selectedEventDisplay) {
+                selectedEventDisplay.textContent = eventTitle;
+                selectedEventDisplay.style.display = 'inline';
+            }
+            
+            console.log('Selected event for evaluation:', eventTitle, 'Event ID:', eventId);
+            
+            // Close modal
+            closeEventEvaluationSelectionModal();
+            
+            // Reload analytics with selected event
+            loadEvaluationAnalytics();
+        }
+
+        // Initialize evaluation analytics when the reports section becomes active
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if we're already on the reports section (via URL parameter)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('section') === 'reports-analytics') {
+                setTimeout(() => {
+                    initializeEvaluationAnalytics();
+                }, 100);
             }
         });
     </script>

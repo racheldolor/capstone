@@ -21,7 +21,21 @@ try {
     }
     
     // Validate cultural group options
-    $valid_groups = ['', 'Dulaang Batangan', 'Indak Yaman Dance Varsity'];
+    $valid_groups = [
+        '', 
+        'Dulaang Batangan',
+        'BatStateU Dance Company', 
+        'Diwayanis Dance Theatre',
+        'BatStateU Band',
+        'Indak Yaman Dance Varsity',
+        'Ritmo Voice',
+        'Sandugo Dance Group',
+        'Areglo Band',
+        'Teatro Aliwana',
+        'The Levites',
+        'Melophiles',
+        'Sindayog'
+    ];
     if (!in_array($cultural_group, $valid_groups)) {
         echo json_encode(['success' => false, 'message' => 'Invalid cultural group']);
         exit();
