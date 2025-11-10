@@ -64,14 +64,19 @@ try {
             CASE 
                 WHEN e.start_date = e.end_date THEN false
                 ELSE true
-            END as is_multi_day
+            END as is_multi_day,
+            CASE 
+                WHEN ev.id IS NOT NULL THEN true
+                ELSE false
+            END as has_evaluation
         FROM events e
         INNER JOIN event_participants ep ON e.id = ep.event_id
+        LEFT JOIN event_evaluations ev ON e.id = ev.event_id AND ev.student_id = ?
         WHERE ep.student_id = ?
         ORDER BY e.start_date DESC
     ");
     
-    $stmt->execute([$student_info['id']]);
+    $stmt->execute([$student_info['id'], $student_info['id']]);
     $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Process cultural groups for each event

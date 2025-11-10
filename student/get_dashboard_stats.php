@@ -78,14 +78,41 @@ try {
         $performance_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
     }
     
-    // Count new announcements (posted in last 7 days)
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) as count 
-        FROM announcements 
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-    ");
-    $stmt->execute();
-    $new_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    // Get student's cultural group for announcements filtering
+    $studentCulturalGroup = null;
+    if ($user_table === 'student_artists') {
+        $stmt = $pdo->prepare("SELECT cultural_group FROM student_artists WHERE id = ?");
+        $stmt->execute([$student_id]);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
+        $studentCulturalGroup = $student['cultural_group'] ?? null;
+    }
+    
+    // Count new announcements (posted in last 7 days, excluding finished events, for student's cultural group)
+    if ($studentCulturalGroup) {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as count 
+            FROM announcements a
+            LEFT JOIN events e ON a.event_id = e.id
+            WHERE a.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            AND (a.target_groups LIKE ? OR a.target_groups LIKE ?)
+            AND (a.event_id IS NULL OR e.end_date >= CURDATE())
+        ");
+        $groupPattern1 = '%"' . $studentCulturalGroup . '"%';
+        $groupPattern2 = '%' . $studentCulturalGroup . '%';
+        $stmt->execute([$groupPattern1, $groupPattern2]);
+        $new_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    } else {
+        // Fallback for students without cultural group
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as count 
+            FROM announcements a
+            LEFT JOIN events e ON a.event_id = e.id
+            WHERE a.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            AND (a.event_id IS NULL OR e.end_date >= CURDATE())
+        ");
+        $stmt->execute();
+        $new_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    }
     
     echo json_encode([
         'success' => true,

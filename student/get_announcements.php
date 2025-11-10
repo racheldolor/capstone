@@ -24,12 +24,13 @@ try {
     
     $studentCulturalGroup = $student['cultural_group'];
     
-    // Get announcements for this student's cultural group
+    // Get announcements for this student's cultural group, excluding finished events
     $announcementsStmt = $pdo->prepare("
         SELECT a.*, e.start_date, e.end_date, e.location, e.category
         FROM announcements a
         LEFT JOIN events e ON a.event_id = e.id
-        WHERE a.target_groups LIKE ? OR a.target_groups LIKE ?
+        WHERE (a.target_groups LIKE ? OR a.target_groups LIKE ?)
+        AND (a.event_id IS NULL OR e.end_date >= CURDATE())
         ORDER BY a.created_at DESC
         LIMIT 10
     ");

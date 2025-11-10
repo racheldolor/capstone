@@ -808,6 +808,51 @@ try {
         .empty-borrowed-state small {
             color: #aaa;
         }
+
+        /* Evaluation Modal Responsive Styles */
+        .evaluation-question {
+            transition: background-color 0.2s ease;
+        }
+
+        .evaluation-question:hover {
+            background-color: #f8f9fa;
+        }
+
+        .evaluation-question input[type="radio"] {
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            #eventEvaluationModal .evaluation-question {
+                display: block !important;
+                padding: 1rem 0.5rem;
+            }
+            
+            #eventEvaluationModal .evaluation-question > div:first-child {
+                margin-bottom: 1rem;
+                font-weight: 600;
+            }
+            
+            #eventEvaluationModal .evaluation-question > div:not(:first-child) {
+                display: inline-block;
+                margin: 0.25rem 0.5rem;
+                text-align: left !important;
+            }
+            
+            #eventEvaluationModal .evaluation-question input[type="radio"] {
+                margin-right: 0.5rem;
+            }
+            
+            #eventEvaluationModal > div {
+                margin: 1rem;
+                width: calc(100% - 2rem);
+            }
+            
+            #eventEvaluationModal form {
+                padding: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1067,6 +1112,130 @@ try {
                             <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                                 <button type="button" onclick="closeCertificateUploadModal()" style="padding: 0.75rem 1.5rem; border: 1px solid #ddd; background: white; color: #333; border-radius: 4px; cursor: pointer;">Cancel</button>
                                 <button type="submit" style="padding: 0.75rem 1.5rem; border: none; background: #dc2626; color: white; border-radius: 4px; cursor: pointer;">Upload Certificate</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Event Evaluation Modal -->
+                <div id="eventEvaluationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto; padding: 2rem 0;">
+                    <div style="background: white; border-radius: 8px; max-width: 800px; width: 90%; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; background: white;">
+                            <h3 style="margin: 0; color: #333; font-size: 1.3rem;">Event Evaluation</h3>
+                            <button onclick="closeEventEvaluationModal()" style="background: none; border: none; font-size: 1.5rem; color: #666; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+                        </div>
+                        <form id="eventEvaluationForm" style="padding: 2rem;">
+                            <div style="margin-bottom: 2rem; text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
+                                <h4 id="evaluationEventTitle" style="margin: 0; color: #333; font-size: 1.1rem;">Event Title</h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">Please rate the following aspects of the event on a scale of 1-5</p>
+                            </div>
+
+                            <!-- Likert Scale Questions -->
+                            <div style="margin-bottom: 2rem;">
+                                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; margin-bottom: 1rem; padding: 0.75rem; background: #dc2626; color: white; font-weight: 600; border-radius: 4px;">
+                                    <div>Evaluation Criteria</div>
+                                    <div style="text-align: center;">Strongly Disagree (1)</div>
+                                    <div style="text-align: center;">Disagree (2)</div>
+                                    <div style="text-align: center;">Neutral (3)</div>
+                                    <div style="text-align: center;">Agree (4)</div>
+                                    <div style="text-align: center;">Strongly Agree (5)</div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">1. The goals of the presentation were clear.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q1" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q1" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q1" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q1" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q1" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">2. Effectiveness of the Activity.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q2" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q2" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q2" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q2" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q2" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">3. Methods and Procedure of the Activity (Orderliness and sequencing of the activity).</div>
+                                    <div style="text-align: center;"><input type="radio" name="q3" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q3" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q3" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q3" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q3" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">4. Time allotment of the activity.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q4" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q4" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q4" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q4" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q4" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">5. Relevance of the activity to University Vision, Mission and Objectives.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q5" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q5" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q5" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q5" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q5" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">6. Registration (system and procedure, organization and orderliness, services of the committee).</div>
+                                    <div style="text-align: center;"><input type="radio" name="q6" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q6" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q6" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q6" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q6" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">7. Objectives of the activity were achieved.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q7" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q7" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q7" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q7" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q7" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">8. Venue (facilities, equipment, multimedia etc.).</div>
+                                    <div style="text-align: center;"><input type="radio" name="q8" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q8" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q8" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q8" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q8" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 1rem;">
+                                    <div style="font-weight: 500;">9. Technical Support Services (Audio/ Visual setup).</div>
+                                    <div style="text-align: center;"><input type="radio" name="q9" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q9" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q9" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q9" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q9" value="5" required></div>
+                                </div>
+                            </div>
+
+                            <!-- Comments Section -->
+                            <div style="margin-bottom: 2rem;">
+                                <label for="evaluationComments" style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: #333; font-size: 1.1rem;">Comments and Suggestions of the Activity Conducted:</label>
+                                <textarea id="evaluationComments" name="comments" rows="4" style="width: 100%; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit; resize: vertical;" placeholder="Please share your thoughts, suggestions, or additional feedback about the event..."></textarea>
+                            </div>
+
+                            <!-- Hidden field for event ID -->
+                            <input type="hidden" id="evaluationEventId" name="event_id" value="">
+
+                            <!-- Submit Buttons -->
+                            <div style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
+                                <button type="button" onclick="closeEventEvaluationModal()" style="padding: 0.75rem 1.5rem; border: 1px solid #ddd; background: white; color: #333; border-radius: 4px; cursor: pointer; font-weight: 500;">Cancel</button>
+                                <button type="submit" style="padding: 0.75rem 2rem; border: none; background: #17a2b8; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">Submit Evaluation</button>
                             </div>
                         </form>
                     </div>
@@ -1754,6 +1923,15 @@ try {
                     uploadCertificate();
                 });
             }
+
+            // Handle evaluation form submission
+            const evaluationForm = document.getElementById('eventEvaluationForm');
+            if (evaluationForm) {
+                evaluationForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    submitEventEvaluation();
+                });
+            }
         });
 
         function uploadCertificate() {
@@ -2044,6 +2222,7 @@ try {
                             <th>LOCATION</th>
                             <th>CATEGORY</th>
                             <th>JOINED</th>
+                            <th>ACTION</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2059,6 +2238,18 @@ try {
                 
                 const joinedDate = new Date(event.joined_date).toLocaleDateString();
                 
+                // Determine if evaluate button should be shown
+                let evaluateButtonHtml = '';
+                if (event.date_status === 'completed') {
+                    if (event.has_evaluation) {
+                        evaluateButtonHtml = '<span class="item-status" style="background: #d1fae5; color: #065f46;">Evaluated</span>';
+                    } else {
+                        evaluateButtonHtml = `<button class="action-btn" style="background: #17a2b8; padding: 0.5rem 1rem; font-size: 0.8rem;" onclick="openEvaluationForm(${event.id}, '${event.title}')">Evaluate</button>`;
+                    }
+                } else {
+                    evaluateButtonHtml = '<span style="color: #6c757d; font-size: 0.8rem;">Not Available</span>';
+                }
+                
                 html += `
                     <tr>
                         <td class="item-name-cell">${event.title}</td>
@@ -2067,6 +2258,7 @@ try {
                         <td>${event.location}</td>
                         <td class="item-category-cell">${event.category}</td>
                         <td class="date-cell">${joinedDate}</td>
+                        <td class="action-cell">${evaluateButtonHtml}</td>
                     </tr>
                 `;
             });
@@ -2106,6 +2298,8 @@ try {
                 .then(data => {
                     if (data.success) {
                         updateDashboardCards(data.stats);
+                    } else {
+                        console.error('Dashboard stats error:', data.message);
                     }
                 })
                 .catch(error => {
@@ -2137,6 +2331,98 @@ try {
                 closeCertificateUploadModal();
             }
         });
+
+        // Event evaluation function
+        function openEvaluationForm(eventId, eventTitle) {
+            // Set the event title and ID in the modal
+            document.getElementById('evaluationEventTitle').textContent = eventTitle;
+            document.getElementById('evaluationEventId').value = eventId;
+            
+            // Reset the form
+            document.getElementById('eventEvaluationForm').reset();
+            document.getElementById('evaluationEventId').value = eventId; // Set again after reset
+            
+            // Show the modal
+            const modal = document.getElementById('eventEvaluationModal');
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        // Close evaluation modal
+        function closeEventEvaluationModal() {
+            const modal = document.getElementById('eventEvaluationModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+
+        // Submit event evaluation
+        function submitEventEvaluation() {
+            const form = document.getElementById('eventEvaluationForm');
+            const formData = new FormData(form);
+            
+            // Convert FormData to JSON for easier handling
+            const evaluationData = {
+                event_id: formData.get('event_id'),
+                q1_rating: formData.get('q1'),
+                q2_rating: formData.get('q2'),
+                q3_rating: formData.get('q3'),
+                q4_rating: formData.get('q4'),
+                q5_rating: formData.get('q5'),
+                q6_rating: formData.get('q6'),
+                q7_rating: formData.get('q7'),
+                q8_rating: formData.get('q8'),
+                q9_rating: formData.get('q9'),
+                comments: formData.get('comments')
+            };
+
+            // Validate that all questions are answered
+            for (let i = 1; i <= 9; i++) {
+                if (!evaluationData[`q${i}_rating`]) {
+                    alert(`Please answer question ${i} before submitting.`);
+                    return;
+                }
+            }
+            
+            // Validate that comments are filled
+            if (!evaluationData.comments || evaluationData.comments.trim() === '') {
+                alert('Please provide your comments before submitting.');
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = form.querySelector('[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Submitting...';
+            submitBtn.disabled = true;
+
+            // Submit evaluation
+            fetch('submit_event_evaluation.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(evaluationData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Thank you! Your evaluation has been submitted successfully.');
+                    closeEventEvaluationModal();
+                    // Optionally reload events to show updated status
+                    loadParticipatedEvents();
+                } else {
+                    alert('Error submitting evaluation: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error submitting evaluation. Please try again.');
+            })
+            .finally(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            });
+        }
     </script>
 </body>
 </html>

@@ -97,7 +97,4 @@ try {
     http_response_code(500);
     echo json_encode(['error' => 'Failed to fetch approved applications: ' . $e->getMessage()]);
 }
-
-// Close connection
-$conn->close();
 ?>
