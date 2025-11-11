@@ -19,6 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
+
+            
             // If not found in users table, check student_artists table
             if (!$user) {
                 $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status FROM student_artists WHERE email = ?");
@@ -82,11 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
                         case 'staff':
                             header('Location: head-staff/dashboard.php');
                             break;
-                        default:
+                        case 'admin':
                             header('Location: admin/dashboard.php');
+                            break;
+                        default:
+                            // Unknown role, redirect to login
+                            header('Location: index.php?error=invalid_role');
                     }
                     exit();
                 } else {
+                    error_log("Password verification failed for user: " . $user['email']);
                     $error_message = 'Invalid email or password.';
                 }
             } else {

@@ -1630,7 +1630,7 @@ try {
                     </li>
                     <li class="nav-item">
                         <a href="#" class="nav-link" data-section="costume-inventory">
-                            Costume Inventory
+                            Inventory
                         </a>
                     </li>
                 </ul>
@@ -1673,7 +1673,7 @@ try {
 
                     <div class="dashboard-card">
                         <div class="card-header">
-                            <div class="card-title">Worn Out Costumes</div>
+                            <div class="card-title">Worn Out Items</div>
                         </div>
                         <div class="card-number"><?= $worn_costumes ?></div>
                         <div class="card-subtitle">Need replacement</div>
@@ -1685,7 +1685,6 @@ try {
                     <div class="content-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">Student Artist Overview</h3>
-                            <button class="expand-btn">+</button>
                         </div>
                         <div class="panel-content">
                             No data available
@@ -1695,7 +1694,6 @@ try {
                     <div class="content-panel">
                         <div class="panel-header">
                             <h3 class="panel-title">Upcoming Events & Trainings</h3>
-                            <button class="expand-btn">+</button>
                         </div>
                         <div class="panel-content">
                             No upcoming events scheduled
@@ -1704,8 +1702,7 @@ try {
 
                     <div class="content-panel">
                         <div class="panel-header">
-                            <h3 class="panel-title">Costume Inventory Status</h3>
-                            <button class="expand-btn">+</button>
+                            <h3 class="panel-title">Inventory Status</h3>
                         </div>
                         <div class="panel-content">
                             No inventory data available
@@ -2248,11 +2245,11 @@ try {
             <!-- Costume Inventory Section -->
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
-                    <h1 class="page-title">Costume Inventory</h1>
+                    <h1 class="page-title">Inventory</h1>
                     <div style="display: flex; gap: 1rem;">
                         <button class="add-btn" onclick="openAddItemModal()">
                             <span>+</span>
-                            Add Costume
+                            Add Item
                         </button>
                         <button class="add-btn" onclick="openBorrowRequests()">
                             Borrow Requests
@@ -2443,8 +2440,8 @@ try {
             <div class="modal-body">
                 <div id="borrowRequestsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
                     <div>
-                        <label for="statusRequestFilter">Status:</label>
-                        <select id="statusRequestFilter" onchange="loadBorrowRequests()">
+                        <label for="statusRequestFilter" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Status:</label>
+                        <select id="statusRequestFilter" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 120px;" onchange="loadBorrowRequests()">
                             <option value="pending">Pending</option>
                             <option value="approved">Approved</option>
                             <option value="rejected">Rejected</option>
@@ -2452,11 +2449,14 @@ try {
                         </select>
                     </div>
                     <div>
-                        <label for="requestSearchInput">Search:</label>
+                        <label for="requestSearchInput" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Search:</label>
                         <input type="text" id="requestSearchInput" placeholder="Search by name or email..." 
-                               style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; width: 250px;"
+                               style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; width: 250px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"
                                onkeyup="debounceSearch(loadBorrowRequests, 500)">
                     </div>
+                    <button onclick="loadBorrowRequests()" style="padding: 0.75rem 1rem; background: #dc2626; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; cursor: pointer; height: fit-content;">
+                        Refresh
+                    </button>
                 </div>
                 <div id="borrowRequestsLoading" style="text-align: center; padding: 2rem;">
                     <p>Loading borrow requests...</p>
@@ -2496,19 +2496,19 @@ try {
             <div class="modal-body">
                 <div id="returnsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
                     <div>
-                        <label for="statusReturnFilter">Status:</label>
-                        <select id="statusReturnFilter" onchange="loadReturnRequests()">
+                        <label for="statusReturnFilter" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Status:</label>
+                        <select id="statusReturnFilter" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 150px;" onchange="loadReturnRequests()">
                             <option value="pending">Pending Returns</option>
                             <option value="completed">Completed Returns</option>
                             <option value="">All Status</option>
                         </select>
                     </div>
                     <div>
-                        <label for="searchReturnFilter">Search:</label>
+                        <label for="searchReturnFilter" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Search:</label>
                         <input type="text" id="searchReturnFilter" placeholder="Student name or item name..." 
-                               onkeyup="debounceReturnSearch()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                               onkeyup="debounceReturnSearch()" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; width: 250px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                     </div>
-                    <button onclick="loadReturnRequests()" style="padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 4px;">
+                    <button onclick="loadReturnRequests()" style="padding: 0.75rem 1rem; background: #dc2626; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; cursor: pointer; height: fit-content;">
                         Refresh
                     </button>
                 </div>
@@ -3514,7 +3514,7 @@ try {
                             ${recentActivity.length > 0 ? recentActivity.map(activity => `
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; border-bottom: 1px solid #eee; font-size: 0.8rem; font-style: normal;">
                                     <span style="font-weight: 500; font-style: normal;">${activity.event_title}</span>
-                                    <span style="color: #666; font-style: normal;">${activity.actual_participants || 0} participants</span>
+                                    <span style="color: #666; font-style: normal;">${activity.actual_participants || 0} participant(s)</span>
                                 </div>
                             `).join('') : '<div style="color: #888; font-size: 0.8rem; text-align: center; padding: 1rem; font-style: normal;">No recent activity</div>'}
                         </div>

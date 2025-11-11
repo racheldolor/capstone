@@ -356,6 +356,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             exit();
             
+        case 'update_system_settings':
+            try {
+                $admin_email = trim($_POST['admin_email'] ?? '');
+                $admin_password = trim($_POST['admin_password'] ?? '');
+                
+                if (empty($admin_email)) {
+                    throw new Exception('Admin email is required');
+                }
+                
+                // Validate email format
+                if (!filter_var($admin_email, FILTER_VALIDATE_EMAIL)) {
+                    throw new Exception('Invalid email format');
+                }
+                
+                // Check if this email already exists in users table with different role
+                $stmt = $pdo->prepare("SELECT id, role FROM users WHERE email = ?");
+                $stmt->execute([$admin_email]);
+                $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($existingUser && $existingUser['role'] !== 'admin') {
+                    throw new Exception('This email is already registered with a different role');
+                }
+                
+                // Get current admin user
+                $stmt = $pdo->prepare("SELECT id, email FROM users WHERE role = 'admin' LIMIT 1");
+                $stmt->execute();
+                $currentAdmin = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($currentAdmin) {
+                    // Update existing admin user
+                    if (!empty($admin_password)) {
+                        // Update both email and password
+                        $hashed_password = password_hash($admin_password, PASSWORD_DEFAULT);
+                        $stmt = $pdo->prepare("UPDATE users SET email = ?, password = ? WHERE id = ?");
+                        $stmt->execute([$admin_email, $hashed_password, $currentAdmin['id']]);
+                    } else {
+                        // Update only email
+                        $stmt = $pdo->prepare("UPDATE users SET email = ? WHERE id = ?");
+                        $stmt->execute([$admin_email, $currentAdmin['id']]);
+                    }
+                } else {
+                    // Create new admin user if none exists
+                    $default_password = !empty($admin_password) ? password_hash($admin_password, PASSWORD_DEFAULT) : password_hash('batstateu', PASSWORD_DEFAULT);
+                    $stmt = $pdo->prepare("
+                        INSERT INTO users (first_name, last_name, email, password, role, status) 
+                        VALUES ('Admin', 'User', ?, ?, 'admin', 'active')
+                    ");
+                    $stmt->execute([$admin_email, $default_password]);
+                }
+                
+                // Update system settings in a settings table (create if doesn't exist)
+                try {
+                    // Try to create settings table if it doesn't exist
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS system_settings (
+                            id INT PRIMARY KEY AUTO_INCREMENT,
+                            setting_key VARCHAR(100) UNIQUE NOT NULL,
+                            setting_value TEXT,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        )
+                    ");
+                    
+                    // Update or insert admin email
+                    $stmt = $pdo->prepare("
+                        INSERT INTO system_settings (setting_key, setting_value) 
+                        VALUES ('admin_email', ?) 
+                        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+                    ");
+                    $stmt->execute([$admin_email]);
+                    
+                } catch (Exception $settingsError) {
+                    // If settings table operations fail, continue anyway since user table was updated
+                    error_log("Settings table error: " . $settingsError->getMessage());
+                }
+                
+                // Log admin action
+                try {
+                    logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'SYSTEM_SETTINGS_UPDATE', 0, "Updated system settings - Admin email: $admin_email");
+                } catch (Exception $logError) {
+                    // Ignore logging errors
+                }
+                
+                echo json_encode(['success' => true, 'message' => 'System settings updated successfully']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Error updating system settings: ' . $e->getMessage()]);
+            }
+            exit();
+            
+        case 'get_system_settings':
+            try {
+                $settings = ['admin_email' => 'admin@g.batstate-u.edu.ph'];
+                
+                // Try to get from database
+                try {
+                    $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key = 'admin_email'");
+                    $stmt->execute();
+                    $dbSettings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+                    
+                    if (!empty($dbSettings)) {
+                        $settings = array_merge($settings, $dbSettings);
+                    }
+                } catch (Exception $e) {
+                    // If settings table doesn't exist, use defaults
+                }
+                
+                // Get admin email from users table if not in settings
+                if (!isset($settings['admin_email']) || empty($settings['admin_email'])) {
+                    $stmt = $pdo->prepare("SELECT email FROM users WHERE role = 'admin' LIMIT 1");
+                    $stmt->execute();
+                    $adminUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($adminUser) {
+                        $settings['admin_email'] = $adminUser['email'];
+                    }
+                }
+                
+                echo json_encode(['success' => true, 'settings' => $settings]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Error loading system settings: ' . $e->getMessage()]);
+            }
+            exit();
+            
+        case 'logout':
+            try {
+                // Clear all session data
+                session_unset();
+                session_destroy();
+                echo json_encode(['success' => true, 'message' => 'Logged out successfully']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Logout error: ' . $e->getMessage()]);
+            }
+            exit();
+            
         // ... other cases will be added here
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action: ' . $_POST['action']]);
@@ -366,13 +498,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 // Prevent any output before JSON response
 ob_start();
 
-// Simple authentication check - you can implement proper login later
-if (!isset($_SESSION['admin_logged_in'])) {
-    $_SESSION['admin_logged_in'] = true; // For now, auto-login
-    $_SESSION['admin_id'] = 1;
+// Admin authentication check
+if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'admin') {
+    // Redirect to login page if not logged in as admin
+    header('Location: ../index.php');
+    exit();
 }
 
+// Set admin_logged_in for backwards compatibility
+$_SESSION['admin_logged_in'] = true;
+$_SESSION['admin_id'] = $_SESSION['user_id'];
+
 $pdo = getDBConnection();
+
+// Ensure an admin user exists
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+    $stmt->execute();
+    $adminCount = $stmt->fetchColumn();
+    
+    if ($adminCount == 0) {
+        // Create default admin user
+        $defaultPassword = password_hash('batstateu', PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("
+            INSERT INTO users (first_name, last_name, email, password, role, status) 
+            VALUES ('Admin', 'User', 'admin@g.batstate-u.edu.ph', ?, 'admin', 'active')
+        ");
+        $stmt->execute([$defaultPassword]);
+        $_SESSION['admin_id'] = $pdo->lastInsertId();
+    } else {
+        // Get the admin user ID for session
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+        $stmt->execute();
+        $adminUser = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($adminUser) {
+            $_SESSION['admin_id'] = $adminUser['id'];
+        }
+    }
+} catch (Exception $e) {
+    // If there's an error, just continue with default admin_id
+    error_log("Error ensuring admin user exists: " . $e->getMessage());
+}
 
 // Get users from database
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -1173,7 +1339,7 @@ ob_end_clean();
             <h1 class="header-title">Culture and Arts - Dashboard</h1>
         </div>
         <div class="header-right">
-            <button class="admin-btn">Admin</button>
+            <button class="admin-btn"><?= htmlspecialchars($_SESSION['user_name'] ?? 'Admin User') ?></button>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
@@ -1526,29 +1692,21 @@ ob_end_clean();
                     <h1 class="page-title">System Settings</h1>
                 </div>
 
-                <form class="settings-form">
-                    <div class="form-group">
-                        <label class="form-label">System Name</label>
-                        <input type="text" class="form-input" value="Culture and Arts - BatStateU TNEU">
-                    </div>
-                    
+                <form id="systemSettingsForm" class="settings-form" onsubmit="updateSystemSettings(event)">
                     <div class="form-group">
                         <label class="form-label">Admin Email</label>
-                        <input type="email" class="form-input" value="admin@g.batstate-u.edu.ph">
+                        <input type="email" name="admin_email" class="form-input" value="admin@g.batstate-u.edu.ph" required>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Session Timeout (minutes)</label>
-                        <input type="number" class="form-input" value="30">
+                        <label class="form-label">Admin Password</label>
+                        <input type="password" name="admin_password" class="form-input" placeholder="Enter new password (leave blank to keep current)">
+                        <small style="color: #666; font-size: 0.85rem; margin-top: 0.25rem; display: block;">Leave blank to keep the current password</small>
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label">Password Policy</label>
-                        <select class="form-select">
-                            <option>Basic (8 characters)</option>
-                            <option selected>Medium (8 chars + mixed case)</option>
-                            <option>Strong (8 chars + mixed case + numbers + symbols)</option>
-                        </select>
+                    <div class="show-password-container">
+                        <input type="checkbox" id="showAdminPassword" onchange="toggleAdminPassword()">
+                        <label for="showAdminPassword">Show password</label>
                     </div>
                     
                     <button type="submit" class="save-btn">Save Settings</button>
@@ -1680,8 +1838,32 @@ ob_end_clean();
     </div>
 
     <script>
+        // Load current system settings
+        function loadSystemSettings() {
+            const formData = new FormData();
+            formData.append('action', 'get_system_settings');
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const settings = data.settings;
+                    document.querySelector('input[name="admin_email"]').value = settings.admin_email || 'admin@g.batstate-u.edu.ph';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading system settings:', error);
+            });
+        }
+
         // Navigation functionality
         document.addEventListener('DOMContentLoaded', function() {
+            // Load system settings on page load
+            loadSystemSettings();
+            
             const navLinks = document.querySelectorAll('.nav-link');
             const contentSections = document.querySelectorAll('.content-section');
 
@@ -1959,15 +2141,69 @@ ob_end_clean();
         // Logout function
         function logout() {
             if (confirm('Are you sure you want to logout?')) {
-                window.location.href = '../index.php';
+                // Send logout request to clear session
+                fetch('', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=logout'
+                })
+                .then(() => {
+                    window.location.href = '../index.php';
+                })
+                .catch(() => {
+                    // Even if logout request fails, redirect to login
+                    window.location.href = '../index.php';
+                });
             }
         }
 
-        // Settings form submission
-        document.querySelector('.settings-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Settings saved successfully!');
-        });
+        // Settings form submission function
+        function updateSystemSettings(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            formData.append('action', 'update_system_settings');
+            
+            // Show loading state
+            const submitBtn = event.target.querySelector('.save-btn');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Saving...';
+            submitBtn.disabled = true;
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('System settings updated successfully!');
+                    // Optionally reload to reflect changes
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error updating system settings: ' + error.message);
+            })
+            .finally(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            });
+        }
+
+        // Toggle admin password visibility
+        function toggleAdminPassword() {
+            const checkbox = document.getElementById('showAdminPassword');
+            const passwordField = document.querySelector('input[name="admin_password"]');
+            
+            if (passwordField) {
+                passwordField.type = checkbox.checked ? 'text' : 'password';
+            }
+        }
 
         // Add event listeners for action buttons
         document.addEventListener('click', function(e) {

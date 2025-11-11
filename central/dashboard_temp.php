@@ -842,11 +842,12 @@ try {
         /* Events Management Styles */
         .events-grid {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 2rem;
             margin-bottom: 2rem;
         }
 
+        .events-left,
         .events-right {
             background: white;
             border-radius: 12px;
@@ -854,6 +855,7 @@ try {
             overflow: hidden;
         }
 
+        .input-panel,
         .upcoming-panel {
             height: 100%;
             display: flex;
@@ -865,6 +867,13 @@ try {
             overflow-y: auto;
         }
 
+        .panel-header-event {
+            background: #4285F4;
+            color: white;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+        }
+
         .panel-header-upcoming {
             background: #28a745;
             color: white;
@@ -872,6 +881,7 @@ try {
             font-weight: 600;
         }
 
+        .panel-title-event,
         .panel-title-upcoming {
             margin: 0;
             font-size: 1.1rem;
@@ -880,7 +890,53 @@ try {
             gap: 0.5rem;
         }
 
+        .event-form {
+            padding: 1.5rem;
+        }
 
+        .event-form .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .event-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .event-form input,
+        .event-form textarea,
+        .event-form select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: border-color 0.3s ease;
+        }
+
+        .event-form input::placeholder,
+        .event-form textarea::placeholder {
+            color: #999;
+            font-size: 0.9rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .event-form input:focus,
+        .event-form textarea:focus,
+        .event-form select:focus {
+            outline: none;
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .event-form textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
 
         /* Multi-select styles */
         .multi-select-container {
@@ -1340,7 +1396,8 @@ try {
             overflow-y: auto;
         }
 
-        /* Essential Modal Styles */
+
+
         .modal-header {
             display: flex;
             justify-content: space-between;
@@ -1380,7 +1437,134 @@ try {
             padding: 1.5rem;
         }
 
+        /* Search input styling */
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
         .loading-spinner {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .application-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .application-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background-color: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .student-info h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.2rem;
+        }
+
+        .student-details {
+            margin: 0.25rem 0 0 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .application-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .details-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .details-btn:hover {
+            background: #5a6268;
+        }
+
+        .approve-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .approve-btn:hover {
+            background: #218838;
+        }
+
+        .deny-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .deny-btn:hover {
+            background: #c82333;
+        }
+
+        .application-details {
+            padding: 1.5rem;
+            border-top: 1px solid #eee;
+            background: white;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .detail-section h4 {
+            margin: 0 0 1rem 0;
+            color: #333;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #ff5a5a;
+            padding-bottom: 0.5rem;
+        }
+
+        .detail-section p {
+            margin: 0.5rem 0;
+            color: #555;
+            line-height: 1.4;
+        }
+
+        .detail-section strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .empty-state {
             text-align: center;
             padding: 2rem;
             color: #666;
@@ -1595,7 +1779,7 @@ try {
                                     <small>Try a different search term or clear the search.</small>
                                 <?php else: ?>
                                     <p>No student artist profiles found.</p>
-                                    <small>Student artist profiles will appear here once available.</small>
+                                    <small>Student artists will appear here once they are registered in the system.</small>
                                     <br><br>
                                     <small style="color: #dc2626;">Debug: Total students in database: <?= $total_students ?></small>
                                 <?php endif; ?>
@@ -1676,6 +1860,134 @@ try {
 
                 <!-- Main Content Grid -->
                 <div class="events-grid">
+                    <!-- Left Side - Input New Event -->
+                    <div class="events-left">
+                        <div class="input-panel">
+                            <div class="panel-header-event">
+                                <h3 class="panel-title-event">Input New Event</h3>
+                            </div>
+                            <form id="eventForm" class="event-form">
+                                <div class="form-group">
+                                    <label for="eventTitle">Event Title*</label>
+                                    <input type="text" id="eventTitle" name="title" placeholder="Enter event title" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="eventDescription">Description*</label>
+                                    <textarea id="eventDescription" name="description" placeholder="Enter event description" required></textarea>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="startDate">Start Date*</label>
+                                        <input type="date" id="startDate" name="start_date" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="endDate">End Date*</label>
+                                        <input type="date" id="endDate" name="end_date" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="eventLocation">Location*</label>
+                                    <input type="text" id="eventLocation" name="location" placeholder="Enter event location" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="municipality">Campus</label>
+                                    <select id="municipality" name="municipality">
+                                        <option value="Pablo Borbon">Pablo Borbon</option>
+                                        <option value="Alangilan">Alangilan</option>
+                                        <option value="Lipa">Lipa</option>
+                                        <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
+                                        <option value="JPLPC Malvar">JPLPC Malvar</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="culturalGroups">Cultural Group(s) Concerned</label>
+                                    <div class="multi-select-container">
+                                        <div class="multi-select-display" id="culturalGroupsDisplay" onclick="toggleCulturalGroupsDropdown()">
+                                            <span class="placeholder">Select cultural groups...</span>
+                                            <span class="dropdown-arrow">▼</span>
+                                        </div>
+                                        <div class="multi-select-dropdown" id="culturalGroupsDropdown" style="display: none;">
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Dulaang Batangan">
+                                                <span>Dulaang Batangan</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="BatStateU Dance Company">
+                                                <span>BatStateU Dance Company</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Diwayanis Dance Theatre">
+                                                <span>Diwayanis Dance Theatre</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="BatStateU Band">
+                                                <span>BatStateU Band</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Indak Yaman Dance Varsity">
+                                                <span>Indak Yaman Dance Varsity</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Ritmo Voice">
+                                                <span>Ritmo Voice</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Sandugo Dance Group">
+                                                <span>Sandugo Dance Group</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Areglo Band">
+                                                <span>Areglo Band</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Teatro Aliwana">
+                                                <span>Teatro Aliwana</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="The Levites">
+                                                <span>The Levites</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Melophiles">
+                                                <span>Melophiles</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Sindayog">
+                                                <span>Sindayog</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="eventCategory">Category*</label>
+                                    <select id="eventCategory" name="category" required>
+                                        <option value="">Select category</option>
+                                        <option value="Training">Training</option>
+                                        <option value="Performance">Performance</option>
+                                        <option value="Competition">Competition</option>
+                                        <option value="Workshop">Workshop</option>
+                                        <option value="Cultural Event">Cultural Event</option>
+                                        <option value="Festival">Festival</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-buttons" style="display: flex; gap: 0.5rem;">
+                                    <button type="submit" class="save-event-btn">
+                                        Save Event
+                                    </button>
+                                    <button type="button" class="cancel-event-btn" onclick="cancelEdit()" style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: none;">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
 
                     <!-- Right Side - Upcoming Events -->
                     <div class="events-right">
@@ -1925,6 +2237,18 @@ try {
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
                     <h1 class="page-title">Inventory</h1>
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="add-btn" onclick="openAddItemModal()">
+                            <span>+</span>
+                            Add Item
+                        </button>
+                        <button class="add-btn" onclick="openBorrowRequests()">
+                            Borrow Requests
+                        </button>
+                        <button class="add-btn" onclick="openReturns()">
+                            Returns
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Inventory Grid -->
@@ -1993,7 +2317,7 @@ try {
 
     <!-- Student Profile Modal -->
     <div id="studentProfileModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px; width: 85%;">
+        <div class="modal-content" style="max-width: 800px; width: 90%;">
             <div class="modal-header">
                 <h2>Student Profile</h2>
                 <span class="close" onclick="closeStudentModal()">&times;</span>
@@ -2386,7 +2710,6 @@ try {
 
     <script>
 
-
         // Utility function to format dates
         function formatDate(dateString) {
             if (!dateString) return '-';
@@ -2605,7 +2928,35 @@ try {
                 
                 <div style="border-top: 1px solid #e0e0e0; padding-top: 1.5rem;">
                     <h3 style="color: #dc2626; margin-bottom: 1rem;">Cultural Group Assignment</h3>
-                    <p><strong>Current Assignment:</strong> ${currentCulturalGroup || 'Not Assigned'}</p>
+                    
+                    ${student.desired_cultural_group ? `
+                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 4px solid #17a2b8; border-radius: 4px;">
+                        <p style="margin: 0; color: #333;"><strong>Applied for:</strong> <span style="color: #17a2b8; font-weight: 600;">${student.desired_cultural_group}</span></p>
+                        <small style="color: #666; font-style: italic;">This is the cultural group the student originally wanted to join</small>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <label for="culturalGroup" style="font-weight: 600;">Current Assignment:</label>
+                        <select id="culturalGroup" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
+                            <option value="">Not Assigned</option>
+                            <option value="Dulaang Batangan" ${currentCulturalGroup === 'Dulaang Batangan' ? 'selected' : ''}>Dulaang Batangan</option>
+                            <option value="BatStateU Dance Company" ${currentCulturalGroup === 'BatStateU Dance Company' ? 'selected' : ''}>BatStateU Dance Company</option>
+                            <option value="Diwayanis Dance Theatre" ${currentCulturalGroup === 'Diwayanis Dance Theatre' ? 'selected' : ''}>Diwayanis Dance Theatre</option>
+                            <option value="BatStateU Band" ${currentCulturalGroup === 'BatStateU Band' ? 'selected' : ''}>BatStateU Band</option>
+                            <option value="Indak Yaman Dance Varsity" ${currentCulturalGroup === 'Indak Yaman Dance Varsity' ? 'selected' : ''}>Indak Yaman Dance Varsity</option>
+                            <option value="Ritmo Voice" ${currentCulturalGroup === 'Ritmo Voice' ? 'selected' : ''}>Ritmo Voice</option>
+                            <option value="Sandugo Dance Group" ${currentCulturalGroup === 'Sandugo Dance Group' ? 'selected' : ''}>Sandugo Dance Group</option>
+                            <option value="Areglo Band" ${currentCulturalGroup === 'Areglo Band' ? 'selected' : ''}>Areglo Band</option>
+                            <option value="Teatro Aliwana" ${currentCulturalGroup === 'Teatro Aliwana' ? 'selected' : ''}>Teatro Aliwana</option>
+                            <option value="The Levites" ${currentCulturalGroup === 'The Levites' ? 'selected' : ''}>The Levites</option>
+                            <option value="Melophiles" ${currentCulturalGroup === 'Melophiles' ? 'selected' : ''}>Melophiles</option>
+                            <option value="Sindayog" ${currentCulturalGroup === 'Sindayog' ? 'selected' : ''}>Sindayog</option>
+                        </select>
+                        <button onclick="updateCulturalGroup(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                            Update Assignment
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -2645,6 +2996,128 @@ try {
 
 
 
+
+                html += `
+                    <div class="application-item">
+                        <div class="application-header">
+                            <div class="student-info">
+                                <h3>${app.full_name}</h3>
+                                <p class="student-details">${app.sr_code} • ${app.email}</p>
+                            </div>
+                            <div class="application-actions">
+                                    <span id="toggle-${index}">▼</span> Details
+                                </button>
+                                    Approve
+                                </button>
+                                    Reject
+                                </button>
+                            </div>
+                        </div>
+                        <div class="application-details" id="details-${index}" style="display: none;">
+                            <div class="details-grid">
+                                <div class="detail-section">
+                                    <h4>Personal Information</h4>
+                                    <p><strong>Address:</strong> ${app.address}</p>
+                                    <p><strong>Present Address:</strong> ${app.present_address || 'Same as above'}</p>
+                                    <p><strong>Date of Birth:</strong> ${app.date_of_birth}</p>
+                                    <p><strong>Age:</strong> ${app.age}</p>
+                                    <p><strong>Gender:</strong> ${app.gender}</p>
+                                    <p><strong>Place of Birth:</strong> ${app.place_of_birth}</p>
+                                    <p><strong>Contact:</strong> ${app.contact_number}</p>
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Family Information</h4>
+                                    <p><strong>Father:</strong> ${app.father_name}</p>
+                                    <p><strong>Mother:</strong> ${app.mother_name}</p>
+                                    <p><strong>Guardian:</strong> ${app.guardian || 'N/A'}</p>
+                                    <p><strong>Guardian Contact:</strong> ${app.guardian_contact || 'N/A'}</p>
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Educational Information</h4>
+                                    <p><strong>Campus:</strong> ${app.campus}</p>
+                                    <p><strong>College:</strong> ${app.college}</p>
+                                    <p><strong>Program:</strong> ${app.program}</p>
+                                    <p><strong>Year Level:</strong> ${app.year_level}</p>
+                                    <p><strong>Units:</strong> 1st Sem: ${app.first_semester_units}, 2nd Sem: ${app.second_semester_units}</p>
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Performance Type</h4>
+                                    <p>${app.performance_type}</p>
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Consent</h4>
+                                    <p>${app.consent === 'yes' ? 'Agreed to data privacy terms' : 'Did not agree to data privacy terms'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            contentDiv.innerHTML = html;
+        }
+
+            
+            if (searchTerm === '') {
+                return;
+            }
+            
+                const fullName = app.full_name.toLowerCase();
+                const firstName = (app.first_name || '').toLowerCase();
+                const middleName = (app.middle_name || '').toLowerCase();
+                const lastName = (app.last_name || '').toLowerCase();
+                const srCode = (app.sr_code || '').toLowerCase();
+                const email = (app.email || '').toLowerCase();
+                
+                return fullName.includes(searchTerm) ||
+                       firstName.includes(searchTerm) ||
+                       middleName.includes(searchTerm) ||
+                       lastName.includes(searchTerm) ||
+                       srCode.includes(searchTerm) ||
+                       email.includes(searchTerm);
+            });
+            
+        }
+
+            const details = document.getElementById(`details-${index}`);
+            const toggle = document.getElementById(`toggle-${index}`);
+            
+            if (details.style.display === 'none') {
+                details.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                details.style.display = 'none';
+                toggle.textContent = '▼';
+            }
+        }
+
+            if (!confirm(`Are you sure you want to ${status} this application?`)) {
+                return;
+            }
+            
+            fetch('update_application_status.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    application_id: applicationId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Application ${status} successfully!`);
+                } else {
+                    alert('Error updating application: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error updating application: ' + error.message);
+            });
+        }
 
         // Search functionality for student profiles
         function initializeStudentSearch() {
