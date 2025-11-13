@@ -1368,6 +1368,307 @@ try {
                 gap: 1rem;
                 align-items: stretch;
             }
+
+            /* Mobile header improvements */
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 1rem;
+                gap: 0.75rem;
+            }
+
+            .header-left {
+                justify-content: flex-start;
+                align-items: center;
+                gap: 0.75rem;
+            }
+
+            .header-title {
+                font-size: 1.1rem;
+                margin: 0;
+            }
+
+            .header-right {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+            }
+
+            .user-info {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                background: #f8f9fa;
+                padding: 0.5rem 0.75rem;
+                border-radius: 25px;
+                color: #333;
+                font-size: 0.85rem;
+                flex: 1;
+                margin-right: 0.75rem;
+            }
+
+            .logout-btn {
+                background: #dc2626;
+                color: white;
+                border: none;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+
+            /* Mobile table improvements */
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                min-width: 600px;
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.5rem !important;
+                white-space: nowrap;
+            }
+
+            /* Mobile modal improvements */
+            .modal-content {
+                max-width: 95% !important;
+                max-height: 90vh;
+                margin: 1rem;
+                overflow-y: auto;
+            }
+
+            .modal-header {
+                padding: 1rem !important;
+                flex-wrap: wrap;
+            }
+
+            .modal-header h2 {
+                font-size: 1.25rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .modal-body {
+                padding: 1rem !important;
+            }
+
+            /* Mobile form improvements */
+            #borrowRequestsFilters,
+            #returnsFilters {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 1rem !important;
+            }
+
+            #borrowRequestsFilters > div,
+            #returnsFilters > div {
+                width: 100%;
+            }
+
+            #statusRequestFilter,
+            #statusReturnFilter,
+            #requestSearchInput,
+            #searchReturnFilter {
+                width: 100% !important;
+                min-width: auto !important;
+            }
+
+            /* Mobile button improvements */
+            .add-btn,
+            .btn,
+            button {
+                width: 100%;
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            /* Mobile stats cards */
+            .student-overview {
+                grid-template-columns: 1fr !important;
+                gap: 1rem;
+            }
+
+            .overview-right {
+                order: -1;
+            }
+
+            .stats-cards {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 1rem !important;
+            }
+
+            .stat-number {
+                font-size: 1.5rem !important;
+            }
+
+            /* Mobile charts */
+            .chart-placeholder {
+                height: 200px !important;
+            }
+
+            canvas {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+        }
+
+        /* Tablet styles */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .dashboard-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stats-cards {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .modal-content {
+                max-width: 90%;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Small mobile devices */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0.5rem !important;
+            }
+
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .stats-cards {
+                grid-template-columns: 1fr !important;
+            }
+
+            .dashboard-cards {
+                grid-template-columns: 1fr !important;
+            }
+
+            .stat-card {
+                text-align: center;
+            }
+
+            .modal-content {
+                margin: 0.5rem;
+                max-height: 95vh;
+            }
+
+            .modal-header {
+                padding: 0.75rem !important;
+            }
+
+            .modal-body {
+                padding: 0.75rem !important;
+            }
+
+            /* Very small button adjustments */
+            .close {
+                font-size: 1.5rem !important;
+                padding: 0.25rem !important;
+            }
+
+            /* Mobile navigation improvements */
+            .nav-menu {
+                gap: 0.25rem;
+                padding: 0.5rem;
+            }
+
+            .nav-link {
+                padding: 0.5rem 0.75rem !important;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Touch improvements for all screen sizes */
+        @media (pointer: coarse) {
+            /* Larger touch targets for touch devices */
+            .nav-link,
+            .add-btn,
+            .btn,
+            button,
+            .action-btn {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 0.75rem 1rem;
+            }
+
+            .close {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 0.5rem;
+            }
+
+            /* Larger select and input fields */
+            select,
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="date"],
+            textarea {
+                min-height: 44px;
+                padding: 0.75rem;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+
+            /* Better spacing for touch */
+            .sidebar .nav-item {
+                margin-bottom: 2px;
+            }
+
+            .table-container {
+                padding-bottom: 1rem;
+            }
+        }
+
+        /* High DPI/Retina display improvements */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .modal-content {
+                border-radius: 12px;
+            }
+
+            .btn,
+            .add-btn,
+            button {
+                border-radius: 8px;
+            }
+
+            /* Sharper text rendering */
+            body {
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+        }
+
+        /* Dark mode support (if system prefers dark) */
+        @media (prefers-color-scheme: dark) {
+            /* Optional: You can add dark mode styles here if needed */
+        }
+
+        /* Reduced motion for accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
 
         /* Modal Styles */
