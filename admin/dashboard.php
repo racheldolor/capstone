@@ -114,23 +114,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $source_table = $_POST['source_table'] ?? 'users';
                 
                 if ($source_table === 'student_artists') {
-                    // Update status to archived for student artists
-                    $stmt = $pdo->prepare("UPDATE student_artists SET status = 'archived' WHERE id = ?");
+                    // Update status to inactive for student artists (used as archive state)
+                    $stmt = $pdo->prepare("UPDATE student_artists SET status = 'inactive' WHERE id = ?");
                     $stmt->execute([$user_id]);
                     
                     // Log the action
                     try {
-                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_ARCHIVE', $user_id, "Student artist archived");
+                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_ARCHIVE', $user_id, "Student artist archived (set inactive)");
                     } catch (Exception $logError) {
                         // Ignore logging errors to prevent JSON corruption
                     }
                 } else {
-                    // Update status to archived for regular users
-                    $stmt = $pdo->prepare("UPDATE users SET status = 'archived' WHERE id = ?");
+                    // Update status to inactive for regular users (used as archive state)
+                    $stmt = $pdo->prepare("UPDATE users SET status = 'inactive' WHERE id = ?");
                     $stmt->execute([$user_id]);
                     
                     try {
-                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_ARCHIVE', $user_id, "User archived from $source_table");
+                        logAdminAction($pdo, $_SESSION['admin_id'] ?? 1, 'USER_ARCHIVE', $user_id, "User archived (set inactive) from $source_table");
                     } catch (Exception $logError) {
                         // Ignore logging errors
                     }
@@ -579,9 +579,9 @@ if (!empty($search)) {
     $regular_params[] = $search_param;
 }
 
-// Exclude student role from regular users table and exclude archived users
+// Exclude student role from regular users table and exclude inactive users (archived)
 $regular_where_conditions[] = "role != 'student'";
-$regular_where_conditions[] = "status != 'archived'";
+$regular_where_conditions[] = "status != 'inactive'";
 
 $regular_where_clause = 'WHERE ' . implode(' AND ', $regular_where_conditions);
 
@@ -605,8 +605,8 @@ $regular_users = $stmt->fetchAll();
 $student_where_conditions = [];
 $student_params = [];
 
-// Exclude archived student artists
-$student_where_conditions[] = "status != 'archived'";
+// Exclude inactive student artists (archived)
+$student_where_conditions[] = "status != 'inactive'";
 
 if (!empty($search)) {
     $student_where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
@@ -1608,11 +1608,11 @@ ob_end_clean();
                                 </thead>
                                 <tbody>
                                     <?php 
-                                    // Get archived users from both tables
+                                    // Get archived (inactive) users from both tables
                                     $archived_users = [];
                                     
-                                    // Get archived regular users
-                                    $archived_where_conditions = ["status = 'archived'"];
+                                    // Get archived (inactive) regular users
+                                    $archived_where_conditions = ["status = 'inactive'"];
                                     $archived_params = [];
                                     
                                     if (!empty($search)) {

@@ -28,7 +28,7 @@ try {
     }
     
     // Check if event exists and get image path for cleanup
-    $stmt = $pdo->prepare("SELECT id, image_path, title FROM events WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, event_poster, title FROM events WHERE id = ?");
     $stmt->execute([$event_id]);
     $event = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -37,45 +37,24 @@ try {
         exit;
     }
     
-    // Start transaction to ensure both event and announcements are deleted together
-    $pdo->beginTransaction();
+    // Delete the event from database
+    // Note: Related records in event_participants and event_evaluations will be automatically
+    // deleted due to ON DELETE CASCADE constraints
+    $stmt = $pdo->prepare("DELETE FROM events WHERE id = ?");
+    $result = $stmt->execute([$event_id]);
     
-    try {
-        // First, delete any announcements related to this event
-        $stmt = $pdo->prepare("DELETE FROM announcements WHERE event_id = ?");
-        $stmt->execute([$event_id]);
-        $deleted_announcements = $stmt->rowCount();
-        
-        // Then delete the event from database
-        $stmt = $pdo->prepare("DELETE FROM events WHERE id = ?");
-        $result = $stmt->execute([$event_id]);
-        
-        if ($result) {
-            // Commit the transaction
-            $pdo->commit();
-            
-            // Delete associated image file if it exists
-            if ($event['image_path'] && file_exists('../' . $event['image_path'])) {
-                unlink('../' . $event['image_path']);
-            }
-            
-            $message = 'Event "' . $event['title'] . '" deleted successfully!';
-            if ($deleted_announcements > 0) {
-                $message .= " Also deleted $deleted_announcements related announcement(s).";
-            }
-            
-            echo json_encode([
-                'success' => true, 
-                'message' => $message
-            ]);
-        } else {
-            $pdo->rollback();
-            echo json_encode(['success' => false, 'message' => 'Failed to delete event']);
+    if ($result) {
+        // Delete associated image file if it exists
+        if ($event['event_poster'] && file_exists('../' . $event['event_poster'])) {
+            @unlink('../' . $event['event_poster']);
         }
         
-    } catch (Exception $e) {
-        $pdo->rollback();
-        throw $e;
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Event "' . $event['title'] . '" deleted successfully!'
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Failed to delete event']);
     }
     
 } catch (Exception $e) {

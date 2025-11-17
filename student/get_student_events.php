@@ -52,7 +52,8 @@ try {
             e.location,
             e.category,
             e.cultural_groups,
-            ep.joined_at as joined_date,
+            ep.registration_date as joined_date,
+            ep.attendance_status,
             DATE_FORMAT(e.start_date, '%M %d, %Y') as formatted_start_date,
             DATE_FORMAT(e.end_date, '%M %d, %Y') as formatted_end_date,
             CASE 
@@ -73,6 +74,7 @@ try {
         INNER JOIN event_participants ep ON e.id = ep.event_id
         LEFT JOIN event_evaluations ev ON e.id = ev.event_id AND ev.student_id = ?
         WHERE ep.student_id = ?
+        AND ep.attendance_status != 'cancelled'
         ORDER BY e.start_date DESC
     ");
     

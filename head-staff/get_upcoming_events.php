@@ -12,12 +12,10 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
 try {
     $pdo = getDBConnection();
     
-    // Get current month and year
-    $current_month = date('Y-m');
-    $start_of_month = $current_month . '-01';
-    $end_of_month = date('Y-m-t'); // Last day of current month
+    // Get ALL upcoming events (from today onwards)
+    $limit = isset($_GET['limit']) ? max(1, intval($_GET['limit'])) : 50;
     
-    // Get events for current month only, ordered by start date
+    // Get all upcoming events ordered by start date
     $stmt = $pdo->prepare("
         SELECT 
             id,
@@ -26,21 +24,20 @@ try {
             start_date,
             end_date,
             location,
-            campus,
+            venue,
             category,
             cultural_groups,
-            image_path,
+            event_poster,
             status
         FROM events 
-        WHERE status = 'active' 
-        AND start_date >= ? 
-        AND start_date <= ?
+        WHERE status IN ('published', 'ongoing', 'draft') 
         AND start_date >= CURDATE()
         ORDER BY start_date ASC, title ASC
-        LIMIT 5
+        LIMIT :limit
     ");
     
-    $stmt->execute([$start_of_month, $end_of_month]);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
     $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Process events data

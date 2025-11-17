@@ -28,10 +28,10 @@ try {
             start_date,
             end_date,
             location,
-            campus,
+            venue,
             category,
             cultural_groups,
-            image_path,
+            event_poster,
             status,
             created_at,
             updated_at

@@ -28,17 +28,17 @@ try {
     }
     
     // Validate required fields
-    $requiredFields = ['event_id', 'q1_rating', 'q2_rating', 'q3_rating', 'q4_rating', 'q5_rating', 'q6_rating', 'q7_rating', 'q8_rating', 'q9_rating', 'comments'];
+    $requiredFields = ['event_id', 'q1_rating', 'q2_rating', 'q3_rating', 'q4_rating', 'q5_rating', 'q6_rating', 'q7_rating', 'q8_rating', 'q9_rating', 'q10_rating', 'q11_rating', 'q12_rating', 'q13_opinion', 'q14_suggestions', 'q15_comments'];
     
     foreach ($requiredFields as $field) {
-        if (!isset($input[$field]) || $input[$field] === null || ($field === 'comments' ? trim($input[$field]) === '' : $input[$field] === '')) {
-            echo json_encode(['success' => false, 'message' => "Missing required field: " . ($field === 'comments' ? 'Comments' : $field)]);
+        if (!isset($input[$field]) || $input[$field] === null || trim($input[$field]) === '') {
+            echo json_encode(['success' => false, 'message' => "Missing required field: " . $field]);
             exit();
         }
     }
     
-    // Validate rating values (1-5)
-    $ratingFields = ['q1_rating', 'q2_rating', 'q3_rating', 'q4_rating', 'q5_rating', 'q6_rating', 'q7_rating', 'q8_rating', 'q9_rating'];
+    // Validate rating values (1-5) for questions 1-12 only
+    $ratingFields = ['q1_rating', 'q2_rating', 'q3_rating', 'q4_rating', 'q5_rating', 'q6_rating', 'q7_rating', 'q8_rating', 'q9_rating', 'q10_rating', 'q11_rating', 'q12_rating'];
     
     foreach ($ratingFields as $field) {
         $rating = intval($input[$field]);
@@ -50,7 +50,9 @@ try {
     
     $eventId = intval($input['event_id']);
     $studentId = intval($_SESSION['user_id']);
-    $comments = isset($input['comments']) ? trim($input['comments']) : null;
+    $q13_opinion = trim($input['q13_opinion']);
+    $q14_suggestions = trim($input['q14_suggestions']);
+    $q15_comments = trim($input['q15_comments']);
     
     // Validate event exists and student participated
     $eventCheckQuery = "SELECT e.id, e.title, e.status, e.end_date 
@@ -87,8 +89,9 @@ try {
     // Insert evaluation
     $insertQuery = "INSERT INTO event_evaluations 
                     (event_id, student_id, q1_rating, q2_rating, q3_rating, q4_rating, q5_rating, 
-                     q6_rating, q7_rating, q8_rating, q9_rating, comments, submitted_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                     q6_rating, q7_rating, q8_rating, q9_rating, q10_rating, q11_rating, q12_rating, 
+                     q13_opinion, q14_suggestions, q15_comments, submitted_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
     
     $stmt = $pdo->prepare($insertQuery);
     $success = $stmt->execute([
@@ -103,7 +106,12 @@ try {
         intval($input['q7_rating']),
         intval($input['q8_rating']),
         intval($input['q9_rating']),
-        $comments
+        intval($input['q10_rating']),
+        intval($input['q11_rating']),
+        intval($input['q12_rating']),
+        $q13_opinion,
+        $q14_suggestions,
+        $q15_comments
     ]);
     
     if ($success) {

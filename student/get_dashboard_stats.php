@@ -29,17 +29,36 @@ try {
         $user_email = $user_data['email'] ?? null;
     }
     
-    // Count upcoming events (events this month)
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) as count 
-        FROM events 
-        WHERE status = 'active' 
-        AND start_date >= CURDATE() 
-        AND MONTH(start_date) = MONTH(CURDATE()) 
-        AND YEAR(start_date) = YEAR(CURDATE())
-    ");
-    $stmt->execute();
-    $upcoming_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    // Get student's cultural group and campus for filtering
+    $studentCulturalGroup = null;
+    $studentCampus = null;
+    if ($user_table === 'student_artists') {
+        $stmt = $pdo->prepare("SELECT cultural_group, campus FROM student_artists WHERE id = ?");
+        $stmt->execute([$student_id]);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
+        $studentCulturalGroup = $student['cultural_group'] ?? null;
+        $studentCampus = $student['campus'] ?? null;
+    }
+    
+    // Count upcoming events (filtered by cultural group and campus)
+    if ($studentCulturalGroup && $studentCampus) {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as count 
+            FROM events 
+            WHERE status IN ('published', 'ongoing', 'draft')
+            AND start_date >= CURDATE() 
+            AND MONTH(start_date) = MONTH(CURDATE()) 
+            AND YEAR(start_date) = YEAR(CURDATE())
+            AND (cultural_groups LIKE ? OR cultural_groups LIKE ? OR cultural_groups = '[]')
+            AND (venue = ? OR venue IS NULL OR venue = '')
+        ");
+        $groupPattern1 = '%\"' . $studentCulturalGroup . '\"%';
+        $groupPattern2 = '%' . $studentCulturalGroup . '%';
+        $stmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
+        $upcoming_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    } else {
+        $upcoming_events = 0;
+    }
     
     // Count currently borrowed costumes for this student
     $stmt = $pdo->prepare("
@@ -78,40 +97,26 @@ try {
         $performance_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
     }
     
-    // Get student's cultural group for announcements filtering
-    $studentCulturalGroup = null;
-    if ($user_table === 'student_artists') {
-        $stmt = $pdo->prepare("SELECT cultural_group FROM student_artists WHERE id = ?");
-        $stmt->execute([$student_id]);
-        $student = $stmt->fetch(PDO::FETCH_ASSOC);
-        $studentCulturalGroup = $student['cultural_group'] ?? null;
-    }
-    
-    // Count new announcements (posted in last 7 days, excluding finished events, for student's cultural group)
-    if ($studentCulturalGroup) {
+    // Count new announcements (filtered by cultural group and campus)
+    if ($studentCulturalGroup && $studentCampus) {
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as count 
             FROM announcements a
-            LEFT JOIN events e ON a.event_id = e.id
             WHERE a.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            AND (a.target_groups LIKE ? OR a.target_groups LIKE ?)
-            AND (a.event_id IS NULL OR e.end_date >= CURDATE())
+            AND (
+                (a.target_cultural_group LIKE ? OR a.target_cultural_group LIKE ? OR a.target_cultural_group = 'all')
+                OR (a.target_audience = 'all' OR a.target_audience = 'students')
+            )
+            AND (a.target_campus = 'all' OR a.target_campus = ? OR a.target_campus IS NULL)
+            AND a.is_active = 1
+            AND a.is_published = 1
         ");
-        $groupPattern1 = '%"' . $studentCulturalGroup . '"%';
+        $groupPattern1 = '%\"' . $studentCulturalGroup . '\"%';
         $groupPattern2 = '%' . $studentCulturalGroup . '%';
-        $stmt->execute([$groupPattern1, $groupPattern2]);
+        $stmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
         $new_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
     } else {
-        // Fallback for students without cultural group
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) as count 
-            FROM announcements a
-            LEFT JOIN events e ON a.event_id = e.id
-            WHERE a.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            AND (a.event_id IS NULL OR e.end_date >= CURDATE())
-        ");
-        $stmt->execute();
-        $new_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+        $new_announcements = 0;
     }
     
     echo json_encode([

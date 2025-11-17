@@ -12,8 +12,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['user_table'] !== 'student_artis
 try {
     $pdo = getDBConnection();
     
-    // Get student's cultural group
-    $studentStmt = $pdo->prepare("SELECT cultural_group FROM student_artists WHERE id = ?");
+    // Get student's cultural group and campus
+    $studentStmt = $pdo->prepare("SELECT cultural_group, campus FROM student_artists WHERE id = ?");
     $studentStmt->execute([$_SESSION['user_id']]);
     $student = $studentStmt->fetch(PDO::FETCH_ASSOC);
     
@@ -23,28 +23,77 @@ try {
     }
     
     $studentCulturalGroup = $student['cultural_group'];
+    $studentCampus = $student['campus'];
     
-    // Get announcements for this student's cultural group, excluding finished events
+    // Get announcements filtered by cultural group and campus
     $announcementsStmt = $pdo->prepare("
-        SELECT a.*, e.start_date, e.end_date, e.location, e.category
+        SELECT a.*
         FROM announcements a
-        LEFT JOIN events e ON a.event_id = e.id
-        WHERE (a.target_groups LIKE ? OR a.target_groups LIKE ?)
-        AND (a.event_id IS NULL OR e.end_date >= CURDATE())
-        ORDER BY a.created_at DESC
-        LIMIT 10
+        WHERE (
+            (a.target_cultural_group LIKE ? OR a.target_cultural_group LIKE ? OR a.target_cultural_group = 'all')
+            OR (a.target_audience = 'all' OR a.target_audience = 'students')
+        )
+        AND (a.target_campus = 'all' OR a.target_campus = ? OR a.target_campus IS NULL)
+        AND a.is_active = 1
+        AND a.is_published = 1
+        AND (a.expiry_date IS NULL OR a.expiry_date >= CURDATE())
+        ORDER BY a.is_pinned DESC, a.created_at DESC
+        LIMIT 20
     ");
     
     $groupPattern1 = '%"' . $studentCulturalGroup . '"%';
     $groupPattern2 = '%' . $studentCulturalGroup . '%';
     
-    $announcementsStmt->execute([$groupPattern1, $groupPattern2]);
+    $announcementsStmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
     $announcements = $announcementsStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Also get event announcements (upcoming and ongoing events for student's group and campus)
+    $eventsStmt = $pdo->prepare("
+        SELECT 
+            id,
+            CONCAT('New Event: ', title) as title,
+            CONCAT(
+                'Event: ', title, '\n',
+                'Date: ', DATE_FORMAT(start_date, '%M %d, %Y'), 
+                CASE WHEN start_date != end_date THEN CONCAT(' - ', DATE_FORMAT(end_date, '%M %d, %Y')) ELSE '' END, '\n',
+                'Location: ', location, '\n',
+                'Category: ', COALESCE(category, 'Event'), '\n\n',
+                description
+            ) as content,
+            created_at,
+            0 as is_pinned,
+            'event' as announcement_type
+        FROM events
+        WHERE (cultural_groups LIKE ? OR cultural_groups LIKE ? OR cultural_groups = '[]')
+        AND (venue = ? OR venue IS NULL OR venue = '')
+        AND end_date >= CURDATE()
+        AND status IN ('published', 'ongoing')
+        ORDER BY created_at DESC
+        LIMIT 10
+    ");
+    
+    $eventsStmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
+    $eventAnnouncements = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Merge announcements and event announcements
+    $allAnnouncements = array_merge($announcements, $eventAnnouncements);
+    
+    // Sort by pinned first, then by date
+    usort($allAnnouncements, function($a, $b) {
+        if ($a['is_pinned'] != $b['is_pinned']) {
+            return $b['is_pinned'] - $a['is_pinned'];
+        }
+        return strtotime($b['created_at']) - strtotime($a['created_at']);
+    });
+    
+    // Limit to 20 total
+    $allAnnouncements = array_slice($allAnnouncements, 0, 20);
     
     echo json_encode([
         'success' => true,
-        'announcements' => $announcements,
-        'student_group' => $studentCulturalGroup
+        'announcements' => $allAnnouncements,
+        'student_group' => $studentCulturalGroup,
+        'student_campus' => $studentCampus
     ]);
     
 } catch (Exception $e) {

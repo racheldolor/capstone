@@ -109,7 +109,8 @@ function calculateStatistics($evaluations, $pdo, $eventId = null) {
         $ratings = [
             $evaluation['q1_rating'], $evaluation['q2_rating'], $evaluation['q3_rating'],
             $evaluation['q4_rating'], $evaluation['q5_rating'], $evaluation['q6_rating'],
-            $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating']
+            $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating'],
+            $evaluation['q10_rating'], $evaluation['q11_rating'], $evaluation['q12_rating']
         ];
         
         foreach ($ratings as $rating) {
@@ -176,7 +177,8 @@ function getRatingDistribution($evaluations) {
         $ratings = [
             $evaluation['q1_rating'], $evaluation['q2_rating'], $evaluation['q3_rating'],
             $evaluation['q4_rating'], $evaluation['q5_rating'], $evaluation['q6_rating'],
-            $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating']
+            $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating'],
+            $evaluation['q10_rating'], $evaluation['q11_rating'], $evaluation['q12_rating']
         ];
         
         foreach ($ratings as $rating) {
@@ -196,15 +198,18 @@ function getRatingDistribution($evaluations) {
 
 function getQuestionScores($evaluations) {
     $questions = [
-        'q1' => 'The goals of the presentation were clear.',
-        'q2' => 'Effectiveness of the Activity.',
-        'q3' => 'Methods and Procedure of the Activity.',
-        'q4' => 'Time allotment of the activity.',
-        'q5' => 'Relevance of the activity to University Vision, Mission and Objectives.',
-        'q6' => 'Registration.',
-        'q7' => 'Objectives of the activity were achieved.',
-        'q8' => 'Venue.',
-        'q9' => 'Technical Support Services.'
+        'q1' => 'Overall rating of seminar/training',
+        'q2' => 'Appropriateness of time and resources',
+        'q3' => 'Objectives and expectations achieved',
+        'q4' => 'Session activities relevance',
+        'q5' => 'Sufficient time for discussion',
+        'q6' => 'Materials and tasks usefulness',
+        'q7' => 'Trainer knowledge and insights',
+        'q8' => 'Trainer explanation quality',
+        'q9' => 'Learning environment',
+        'q10' => 'Time management',
+        'q11' => 'Trainer responsiveness to needs',
+        'q12' => 'Venue/platform conduciveness'
     ];
     
     $questionScores = [];
@@ -256,7 +261,8 @@ function getTrendsData($evaluations) {
             $ratings = [
                 $evaluation['q1_rating'], $evaluation['q2_rating'], $evaluation['q3_rating'],
                 $evaluation['q4_rating'], $evaluation['q5_rating'], $evaluation['q6_rating'],
-                $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating']
+                $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating'],
+                $evaluation['q10_rating'], $evaluation['q11_rating'], $evaluation['q12_rating']
             ];
             
             foreach ($ratings as $rating) {
@@ -346,11 +352,25 @@ function generateInsights($evaluations, $statistics) {
 function getCommentsAnalysis($evaluations) {
     $positiveComments = [];
     $improvementComments = [];
+    $allComments = [];
     
     foreach ($evaluations as $evaluation) {
-        if (!empty($evaluation['comments'])) {
+        // Collect all text responses (q13, q14, q15)
+        $textResponses = [];
+        if (!empty($evaluation['q13_opinion'])) {
+            $textResponses[] = ['type' => 'Opinion', 'text' => $evaluation['q13_opinion']];
+        }
+        if (!empty($evaluation['q14_suggestions'])) {
+            $textResponses[] = ['type' => 'Suggestions', 'text' => $evaluation['q14_suggestions']];
+        }
+        if (!empty($evaluation['q15_comments'])) {
+            $textResponses[] = ['type' => 'Comments', 'text' => $evaluation['q15_comments']];
+        }
+        
+        foreach ($textResponses as $response) {
             $comment = [
-                'text' => $evaluation['comments'],
+                'type' => $response['type'],
+                'text' => $response['text'],
                 'event_title' => $evaluation['event_title'],
                 'date' => date('M j, Y', strtotime($evaluation['start_date'])),
                 'rating_context' => calculateCommentRating($evaluation)
@@ -364,16 +384,20 @@ function getCommentsAnalysis($evaluations) {
             } elseif ($avgRating <= 3.0) {
                 $improvementComments[] = $comment;
             }
+            
+            $allComments[] = $comment;
         }
     }
     
     // Limit to most recent 10 comments each
     $positiveComments = array_slice($positiveComments, 0, 10);
     $improvementComments = array_slice($improvementComments, 0, 10);
+    $allComments = array_slice($allComments, 0, 20);
     
     return [
         'positive' => $positiveComments,
-        'improvement' => $improvementComments
+        'improvement' => $improvementComments,
+        'all' => $allComments
     ];
 }
 
@@ -381,7 +405,8 @@ function calculateCommentRating($evaluation) {
     $ratings = [
         $evaluation['q1_rating'], $evaluation['q2_rating'], $evaluation['q3_rating'],
         $evaluation['q4_rating'], $evaluation['q5_rating'], $evaluation['q6_rating'],
-        $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating']
+        $evaluation['q7_rating'], $evaluation['q8_rating'], $evaluation['q9_rating'],
+        $evaluation['q10_rating'], $evaluation['q11_rating'], $evaluation['q12_rating']
     ];
     
     $validRatings = array_filter($ratings, function($r) { return $r !== null; });

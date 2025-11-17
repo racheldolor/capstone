@@ -18,14 +18,31 @@ try {
     $offset = ($page - 1) * $limit;
     
     // Get filter parameters
-    $status_filter = $_GET['status'] ?? 'active';
+    $status_filter = $_GET['status'] ?? '';
     $category_filter = $_GET['category'] ?? '';
     $campus_filter = $_GET['campus'] ?? '';
     $month_filter = $_GET['month'] ?? '';
     
     // Build WHERE clause
-    $where_conditions = ["status = ?"];
-    $params = [$status_filter];
+    $where_conditions = [];
+    $params = [];
+    
+    // Apply status filter
+    if (!empty($status_filter)) {
+        if ($status_filter === 'active') {
+            $where_conditions[] = "status IN ('published', 'ongoing')";
+        } elseif ($status_filter === 'completed') {
+            $where_conditions[] = "status = 'completed'";
+        } elseif ($status_filter === 'cancelled') {
+            $where_conditions[] = "status = 'cancelled'";
+        } else {
+            $where_conditions[] = "status = ?";
+            $params[] = $status_filter;
+        }
+    } else {
+        // Default: show all statuses
+        $where_conditions[] = "1=1";
+    }
     
     if (!empty($category_filter)) {
         $where_conditions[] = "category = ?";
@@ -33,7 +50,7 @@ try {
     }
     
     if (!empty($campus_filter)) {
-        $where_conditions[] = "campus = ?";
+        $where_conditions[] = "venue = ?";
         $params[] = $campus_filter;
     }
     
@@ -58,15 +75,15 @@ try {
             start_date,
             end_date,
             location,
-            campus,
+            venue,
             category,
             cultural_groups,
-            image_path,
+            event_poster,
             status,
             created_at
         FROM events 
         WHERE $where_clause
-        ORDER BY start_date ASC, title ASC
+        ORDER BY start_date DESC, title ASC
         LIMIT $limit OFFSET $offset
     ");
     

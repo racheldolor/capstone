@@ -15,10 +15,18 @@ $student_id = $_SESSION['user_id'];
 
 try {
     $stmt = $pdo->prepare("
-        SELECT id, title, description, date_received, file_path, uploaded_at
+        SELECT 
+            id, 
+            certificate_name as title, 
+            description, 
+            issued_date as date_received, 
+            certificate_file as file_path, 
+            created_at as uploaded_at,
+            certificate_type,
+            certificate_number
         FROM student_certificates 
         WHERE student_id = ?
-        ORDER BY date_received DESC, uploaded_at DESC
+        ORDER BY issued_date DESC, created_at DESC
     ");
     
     $stmt->execute([$student_id]);

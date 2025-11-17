@@ -2,98 +2,90 @@
 session_start();
 require_once 'config/database.php';
 
+// Server-side login handling (process modal form here instead of login.php)
 $error_message = '';
-$success_message = '';
-
-// Handle login form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_POST['password'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['password'])) {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
-    
-    if (!empty($email) && !empty($password)) {
+    if ($email !== '' && $password !== '') {
+        // Hardcoded admin credential (per request)
+        if ($email === 'admin@g.batstate-u.edu.ph' && $password === 'imongmama') {
+            $_SESSION['user_id'] = 0;
+            $_SESSION['user_email'] = $email;
+            $_SESSION['user_name'] = 'Administrator';
+            $_SESSION['user_role'] = 'admin';
+            $_SESSION['logged_in'] = true;
+            header('Location: admin/dashboard.php');
+            exit();
+        }
+
         try {
             $pdo = getDBConnection();
             
-            // First, check if user exists in the users table
+            // First, check the users table (for admin, staff, head, central)
             $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, role, status FROM users WHERE email = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
-
+            $user_table = 'users'; // Track which table the user comes from
             
             // If not found in users table, check student_artists table
             if (!$user) {
-                $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status FROM student_artists WHERE email = ?");
+                $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status, sr_code FROM student_artists WHERE email = ?");
                 $stmt->execute([$email]);
                 $student = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($student) {
-                    // Set role as 'student' for student_artists table users
+                    // Convert student data to user format
                     $user = $student;
                     $user['role'] = 'student';
+                    $user_table = 'student_artists';
                 }
             }
             
             if ($user) {
-                // Check if account is active
                 if ($user['status'] !== 'active') {
                     $error_message = 'Your account is ' . $user['status'] . '. Please contact the administrator.';
-                }
-                // Verify password
-                else if (password_verify($password, $user['password'])) {
-                    // Update last login - determine which table to update
-                    if (isset($student)) {
-                        // For student_artists table, check if last_login column exists and add if needed
-                        try {
-                            $stmt = $pdo->prepare("SELECT last_login FROM student_artists LIMIT 1");
-                            $stmt->execute();
-                        } catch (PDOException $e) {
-                            // Column doesn't exist, add it
-                            $pdo->exec("ALTER TABLE student_artists ADD COLUMN last_login DATETIME DEFAULT NULL");
-                        }
-                        
-                        // Update student_artists table
+                } elseif (password_verify($password, $user['password'])) {
+                    // Update last login based on which table
+                    if ($user_table === 'student_artists') {
                         $stmt = $pdo->prepare("UPDATE student_artists SET last_login = NOW() WHERE id = ?");
+                        $stmt->execute([$user['id']]);
                     } else {
-                        // Update users table
                         $stmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+                        $stmt->execute([$user['id']]);
                     }
-                    $stmt->execute([$user['id']]);
-                    
-                    // Set session variables
+
+                    // Set session
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_email'] = $user['email'];
                     $_SESSION['user_name'] = trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'] . ' ' : '') . $user['last_name']);
                     $_SESSION['user_role'] = $user['role'];
+                    $_SESSION['user_table'] = $user_table; // Store which table the user is from
                     $_SESSION['logged_in'] = true;
                     
-                    // Add table source for reference
-                    $_SESSION['user_table'] = isset($student) ? 'student_artists' : 'users';
-                    
-                    // Redirect based on role
+                    // For students, also store SR code if available
+                    if ($user['role'] === 'student' && isset($user['sr_code'])) {
+                        $_SESSION['sr_code'] = $user['sr_code'];
+                    }
+
+                    // Redirect by role
                     switch ($user['role']) {
                         case 'head':
-                            header('Location: head-staff/dashboard.php');
-                            break;
-                        case 'central':
-                            header('Location: central/dashboard.php');
-                            break;
-                        case 'student':
-                            header('Location: student/dashboard.php');
-                            break;
                         case 'staff':
                             header('Location: head-staff/dashboard.php');
-                            break;
-                        case 'admin':
-                            header('Location: admin/dashboard.php');
-                            break;
+                            exit();
+                        case 'central':
+                            header('Location: central/dashboard.php');
+                            exit();
+                        case 'student':
+                            header('Location: student/dashboard.php');
+                            exit();
                         default:
-                            // Unknown role, redirect to login
-                            header('Location: index.php?error=invalid_role');
+                            header('Location: admin/dashboard.php');
+                            exit();
                     }
-                    exit();
                 } else {
-                    error_log("Password verification failed for user: " . $user['email']);
                     $error_message = 'Invalid email or password.';
                 }
             } else {
@@ -106,410 +98,317 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
         $error_message = 'Please fill in all fields.';
     }
 }
+
+// Determine primary CTA based on session
+$cta_url = 'login.php';
+$cta_label = 'Sign In';
+if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_role'])) {
+    switch ($_SESSION['user_role']) {
+        case 'head':
+        case 'staff':
+            $cta_url = 'head-staff/dashboard.php';
+            break;
+        case 'central':
+            $cta_url = 'central/dashboard.php';
+            break;
+        case 'student':
+            $cta_url = 'student/dashboard.php';
+            break;
+        default:
+            $cta_url = 'admin/dashboard.php';
+    }
+    $cta_label = 'Go to Dashboard';
+}
 ?>
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log In - Culture and Arts - BatStateU TNEU</title>
+    <title>Culture and Arts - BatStateU TNEU</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/OCA Logo.png">
+    <meta name="description" content="Culture and Arts Management System of BatStateU TNEU — manage student artists, events, groups, and reports.">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root{
+            --primary:#dc2626; /* BatStateU red tone */
+            --primary-2:#b91c1c;
+            --text:#1f2937;
+            --muted:#6b7280;
+            --bg:#f8fafc;
+            --card:#ffffff;
         }
 
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem 1rem;
-        }
+        /* Global font to match modal */
+        html, body { font-family: 'Montserrat', sans-serif; color: var(--text); }
+        button, input, select, textarea { font-family: inherit; }
 
-        .login-container {
-            width: 100%;
-            max-width: 500px;
-        }
+        /* Links - remove default underlines for a cleaner look */
+        a{ text-decoration: none; color: inherit; }
+        a:hover, a:focus{ text-decoration: none; }
 
-        .login-card {
-            background: #fff;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-            overflow: hidden;
-            animation: slideUp 0.8s ease-out;
-        }
+        /* Top nav */
+        .nav{ position:sticky; top:0; z-index:50; background:rgba(255,255,255,0.9); backdrop-filter: blur(8px); border-bottom:1px solid #e5e7eb; }
+        /* Make nav span full width with a small safe padding */
+        .nav-inner{ max-width:none; width:100%; margin:0; display:flex; align-items:center; justify-content:space-between; padding:0.65rem 1rem; }
+        .brand{ display:flex; align-items:center; gap:0.75rem; font-weight:700; }
+        .brand img{ width:40px; height:40px; border-radius:50%; }
+        .nav-links{ display:flex; gap:1rem; align-items:center; }
+        .btn{ display:inline-flex; align-items:center; justify-content:center; border:none; cursor:pointer; font-weight:600; border-radius:10px; padding:0.7rem 1.1rem; transition: all .2s ease; }
+        .btn-primary{ background:linear-gradient(135deg,var(--primary),var(--primary-2)); color:#fff; }
+        .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 10px 20px rgba(220,38,38,.25);} 
+        .btn-ghost{ background:transparent; color:var(--text); }
+        .btn-ghost:hover{ background:#f3f4f6; }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* Hero banner (collage-style) */
+        .hero{ position:relative; overflow:hidden; }
+        .hero::before{
+            content:""; position:absolute; inset:0;
+            background: 
+                linear-gradient(180deg, rgba(0,0,0,0.30), rgba(0,0,0,0.30)),
+                url('assets/main.jpg');
+            background-size: cover; background-position: center; background-repeat: no-repeat;
+            z-index:0;
         }
+        /* Full-width hero with slight side padding */
+        .hero-inner{ max-width:none; width:100%; margin:0; padding:3rem 1rem; display:flex; align-items:center; justify-content:center; height:340px; position:relative; z-index:1; }
+        .hero-logo{ width:120px; height:120px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 20px 40px rgba(0,0,0,.2); overflow:hidden; }
+        .hero-logo img{ width:100%; height:100%; object-fit:cover; border-radius:50%; }
 
-        .login-header {
-            background: linear-gradient(135deg, #ff5a5a, #ff7a6b);
-            padding: 2.5rem 2rem;
-            text-align: center;
-            color: white;
-        }
+        /* Sections */
+        .section{ padding:2rem 1rem; }
+        .container{ max-width:1100px; margin:0 auto; }
+        .section h2{ font-size:1.6rem; margin-bottom:1rem; text-align:center; }
+        .muted{ color:var(--muted); }
+        .grid{ display:grid; gap:1.25rem; }
+        .campus-grid{ grid-template-columns: repeat(5, 1fr); }
+        .campus-card{ background:#fff; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.08); overflow:hidden; transition:transform .2s ease, box-shadow .2s ease; cursor:pointer; }
+        .campus-card:focus-visible{ outline:3px solid var(--primary); outline-offset:2px; }
+        .campus-card:hover{ transform:translateY(-4px) scale(1.03); box-shadow:0 16px 40px rgba(0,0,0,.12); }
+        .thumb{ width:100%; aspect-ratio: 4/3; background:#f2f2f2; background-size:cover; background-position:center; }
+        .thumb.malvar{ background-image:linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url('assets/4malvar-1024x683.jpg'); }
+        .thumb.nasugbu{ background-image:linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url('assets/nasugbu-campus-768x512.jpg'); }
+        .thumb.pablo{ background-image:linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url('assets/1pabloborbon-1536x1024.jpg'); }
+        .thumb.alangilan{ background-image:linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url('assets/alangilan-768x512.jpg'); }
+        .thumb.lipa{ background-image:linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url('assets/5lipa-scaled-1024x683.jpg'); }
+        .campus-name{ text-align:center; font-weight:800; color:var(--primary); padding:.75rem .5rem 1rem; }
 
-        .logo-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.5rem;
-        }
+        /* Footer */
+        footer{ padding:2rem 1rem; border-top:1px solid #e5e7eb; background:#fff; }
+    .footer-inner{ max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap; text-align:center; }
+        .small{ font-size:.9rem; color:var(--muted); }
 
-        .logo {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin: 0;
-        }
-
-        .subtitle {
-            font-size: 1rem;
-            font-weight: 500;
-            opacity: 0.9;
-            margin: 0;
-        }
-
-        .login-body {
-            padding: 2.5rem 2rem;
-        }
-
-        .form-title {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #2a3550;
-            margin-bottom: 0.5rem;
-            text-align: center;
-        }
-
-        .form-description {
-            color: #666;
-            text-align: center;
-            margin-bottom: 2rem;
-            font-size: 0.95rem;
-        }
-
-        .login-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-
-        .form-label {
-            font-weight: 600;
-            color: #2a3550;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .form-input {
-            padding: 0.875rem 1rem;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-family: inherit;
-            transition: all 0.3s ease;
-            background: #f8f9fa;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #ff5a5a;
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(255, 90, 90, 0.1);
-        }
-
-        .form-input:valid {
-            border-color: #28a745;
-        }
-
-        .form-input.error {
-            border-color: #dc3545;
-        }
-
-        .error-message {
-            color: #dc3545;
-            font-size: 0.8rem;
-            margin-top: 0.25rem;
-            min-height: 1rem;
-        }
-
-        .error-message-box {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            border: 1px solid #f5c6cb;
-            font-size: 0.9rem;
-        }
-
-        .success-message-box {
-            background: #d4edda;
-            color: #155724;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            border: 1px solid #c3e6cb;
-            font-size: 0.9rem;
-        }
-
-        .show-password-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: -1.2rem;
-            font-size: 0.9rem;
-        }
-
-        .show-password-container input[type="checkbox"] {
-            cursor: pointer;
-            accent-color: #ff5a5a;
-        }
-
-        .show-password-container label {
-            cursor: pointer;
-            color: #666;
-            font-weight: normal;
-        }
-
-        .login-btn {
-            background: linear-gradient(135deg, #ff5a5a, #ff7a6b);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .login-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 90, 90, 0.3);
-        }
-
-        .login-btn:hover::before {
-            left: 100%;
-        }
-
-        .login-btn:active {
-            transform: translateY(0);
-        }
-
-        .login-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .signin-link {
-            text-align: center;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e1e5e9;
-        }
-
-        .signin-link p {
-            color: #666;
-            font-size: 0.95rem;
-        }
-
-        .link {
-            color: #ff5a5a;
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.3s ease;
-        }
-
-        .link:hover {
-            color: #ff3333;
-            text-decoration: underline;
-        }
-
-        /* Success Message */
-        .success-message {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            text-align: center;
-            font-weight: 500;
-        }
-
-        /* Loading State */
-        .login-btn.loading {
-            pointer-events: none;
-        }
-
-        .login-btn.loading::after {
-            content: '';
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            margin: auto;
-            border: 2px solid transparent;
-            border-top-color: #ffffff;
-            border-radius: 50%;
-            animation: button-loading-spinner 1s ease infinite;
-        }
-
-        @keyframes button-loading-spinner {
-            from {
-                transform: rotate(0turn);
-            }
-            to {
-                transform: rotate(1turn);
-            }
-        }
-
-        /* Responsive Design */
-        @media (max-width: 600px) {
-            .login-container {
-                padding: 1rem;
-            }
-            
-            .login-card {
-                border-radius: 15px;
-            }
-            
-            .login-header {
-                padding: 2rem 1.5rem;
-            }
-            
-            .login-body {
-                padding: 2rem 1.5rem;
-            }
-            
-            .title {
-                font-size: 1.5rem;
-            }
-            
-            .form-title {
-                font-size: 1.7rem;
-            }
-        }
-
-        @media (max-width: 400px) {
-            body {
-                padding: 1rem 0.5rem;
-            }
-            
-            .login-header {
-                padding: 1.5rem 1rem;
-            }
-            
-            .login-body {
-                padding: 1.5rem 1rem;
-            }
-        }
+        /* Responsive */
+        @media (max-width: 1100px){ .campus-grid{ grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 700px){ .campus-grid{ grid-template-columns: repeat(2, 1fr); } .hero-inner{ height:260px; } }
+        @media (max-width: 480px){ .campus-grid{ grid-template-columns: 1fr; } .nav-inner{padding:.6rem .8rem;} .nav-links{gap:.5rem;} }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="logo-section">
-                    <img src="assets/OCA Logo.png" alt="BatstateU Logo" class="logo">
-                    <h1 class="title">Culture and Arts</h1>
-                    <p class="subtitle">BatStateU TNEU</p>
-                </div>
+    <!-- NAV -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a class="brand" href="./" aria-label="Culture and Arts Home">
+                <img src="assets/OCA Logo.png" alt="BatStateU Culture and Arts logo">
+                <span>Culture & Arts • BatStateU TNEU</span>
+            </a>
+            <div class="nav-links">
+                <a class="btn btn-primary" href="login.php" onclick="openLoginModal(event)">Log In</a>
             </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero" aria-label="Office of Culture and Arts">
+        <div class="hero-inner">
+            <div class="hero-logo">
+                <img src="assets/OCA Logo.png" alt="BatStateU Culture & Arts Logo">
+            </div>
+        </div>
+    </section>
+
+    <!-- CAMPUSES STRIP -->
+    <section class="section" aria-label="Campuses">
+        <div class="container">
+            <h2>BatStateU Campuses</h2>
+            <div class="grid campus-grid" style="margin-top:1rem;">
+                <a class="campus-card" href="#" onclick="openCampusModal(event,'malvar')" aria-label="Malvar campus information">
+                    <div class="thumb malvar" role="img" aria-label="Malvar campus"></div>
+                    <div class="campus-name">Malvar</div>
+                </a>
+                <a class="campus-card" href="#" onclick="openCampusModal(event,'nasugbu')" aria-label="Nasugbu campus information">
+                    <div class="thumb nasugbu" role="img" aria-label="Nasugbu campus"></div>
+                    <div class="campus-name">Nasugbu</div>
+                </a>
+                <a class="campus-card" href="#" onclick="openCampusModal(event,'pablo')" aria-label="Pablo Borbon campus information">
+                    <div class="thumb pablo" role="img" aria-label="Pablo Borbon campus"></div>
+                    <div class="campus-name">Pablo Borbon</div>
+                </a>
+                <a class="campus-card" href="#" onclick="openCampusModal(event,'alangilan')" aria-label="Alangilan campus information">
+                    <div class="thumb alangilan" role="img" aria-label="Alangilan campus"></div>
+                    <div class="campus-name">Alangilan</div>
+                </a>
+                <a class="campus-card" href="#" onclick="openCampusModal(event,'lipa')" aria-label="Lipa campus information">
+                    <div class="thumb lipa" role="img" aria-label="Lipa campus"></div>
+                    <div class="campus-name">Lipa</div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Login Modal (uses same markup, styles, and behavior as login.php) -->
+    <div id="loginModal" class="login-modal" aria-hidden="true" style="display:none; position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+            <div style="width:100%; max-width:520px; margin:1rem;">
             
-            <div class="login-body">
-                <h2 class="form-title">Login</h2>
-                <p class="form-description">Enter your email and password</p>
-                
-                <?php if (!empty($error_message)): ?>
-                    <div class="error-message-box">
-                        <?= htmlspecialchars($error_message) ?>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($success_message)): ?>
-                    <div class="success-message-box">
-                        <?= htmlspecialchars($success_message) ?>
-                    </div>
-                <?php endif; ?>
-                
-                <form class="login-form" id="loginForm" method="POST" action="">
-                    <div class="form-group">
-                        <label for="email" class="form-label">Email Address</label>
-                        <input type="email" id="email" name="email" class="form-input" required value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
-                        <span class="error-message" id="emailError"></span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" id="password" name="password" class="form-input" required>
-                        <span class="error-message" id="passwordError"></span>
+
+            <div class="modal-login-card">
+                <div class="login-card" style="width:100%;">
+
+                    <!-- Header to match standalone login page design -->
+                    <div class="login-header">
+                        <div class="logo-section">
+                            <img src="assets/OCA Logo.png" alt="BatStateU Culture & Arts Logo" class="logo">
+                            <h1 class="title">Culture and Arts</h1>
+                            <p class="subtitle">BatStateU TNEU</p>
+                        </div>
                     </div>
 
-                    <div class="show-password-container">
-                        <input type="checkbox" id="showPassword" onchange="toggleAllPasswords()">
-                        <label for="showPassword">Show Password</label>
-                    </div>
-                    
-                    <button type="submit" class="login-btn">Login</button>
-                </form>
-                
-                <div class="signin-link">
-                    <p>Change password? <a href="change-password.php" class="link">Update Here</a></p>
-                    <br>
-                    <p>Interested in becoming a Student Performer? <a href="student/performer-profile-form.php" class="link">Register Here</a></p>
+                    <div class="login-body" style="padding:1.25rem 1.25rem;">
+                        <button type="button" aria-label="Close login" class="close-btn" onclick="closeLoginModal()">&times;</button>
+                        <h2 class="form-title">Login</h2>
+                        <p class="form-description">Use your BatStateU account to continue.</p>
+                        <?php if (!empty($error_message)): ?>
+                            <div class="error-message-box">
+                                <?= htmlspecialchars($error_message) ?>
+                            </div>
+                        <?php endif; ?>
 
+                        <form class="login-form" id="loginForm" method="POST" action="">
+                            <div class="form-group">
+                                <label for="email" class="form-label">Email Address</label>
+                                <input type="email" id="email" name="email" class="form-input" required value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
+                                <span class="error-message" id="emailError"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" id="password" name="password" class="form-input" required>
+                                <span class="error-message" id="passwordError"></span>
+                            </div>
+
+                            <div class="show-password-container">
+                                <input type="checkbox" id="showPassword" onchange="toggleAllPasswords()">
+                                <label for="showPassword">Show Password</label>
+                            </div>
+
+                            <button type="submit" class="login-btn">Login</button>
+                        </form>
+
+                        <div class="signin-link">
+                            <p>Change password? <a href="change-password.php" class="link">Update here</a></p>
+                            <p>Interested in becoming a Student Performer? <a href="student/performer-profile-form.php" class="link">Register here</a></p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    
+
+    <!-- Campus Info Modal -->
+    <div id="campusModal" class="campus-modal" aria-hidden="true" style="display:none; position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div class="modal-campus-card" style="width:100%; max-width:720px; margin:1rem;">
+            <div class="campus-hero" id="campusHero" aria-hidden="true"></div>
+            <button type="button" aria-label="Close campus info" class="close-btn" onclick="closeCampusModal()">&times;</button>
+            <div class="campus-body">
+                <h3 class="campus-title" id="campusTitle"></h3>
+                <p class="campus-desc" id="campusDesc"></p>
+            </div>
+        </div>
+    </div>
+
+            <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .modal-login-card { font-family: 'Montserrat', sans-serif; }
+        .modal-login-card .login-container { width: 100%; max-width: 500px; margin: 0 auto; }
+        .modal-login-card .login-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
+            overflow: hidden;
+            animation: slideUp 0.6s ease-out;
+            position: relative;
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: translateY(0);} }
+        .modal-login-card .login-header { background: linear-gradient(135deg, #ff5a5a, #ff7a6b); padding: 1.5rem 1.25rem; text-align: center; color: white; }
+        .modal-login-card .logo-section { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+        .modal-login-card .logo { width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); }
+        .modal-login-card .title { font-size: 1.45rem; font-weight: 700; }
+        .modal-login-card .subtitle { font-size: 0.9rem; font-weight: 500; opacity: 0.9; }
+        .modal-login-card .login-body { padding: 1.25rem 1.25rem; }
+        .modal-login-card .form-title { font-size: 1.4rem; font-weight: 700; color: #2a3550; margin-bottom: 0.25rem; text-align: center; }
+        .modal-login-card .form-description { color: #666; text-align: center; margin-bottom: 1rem; font-size: 0.92rem; }
+        .modal-login-card .login-form { display: flex; flex-direction: column; gap: 1rem; }
+        .modal-login-card .form-group { display: flex; flex-direction: column; }
+        .modal-login-card .form-label { font-weight: 600; color: #2a3550; margin-bottom: 0.35rem; font-size: 0.9rem; }
+        .modal-login-card .form-input { padding: 0.7rem 0.9rem; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 0.95rem; background: #f8f9fa; transition: all 0.3s ease; }
+        .modal-login-card .form-input:focus { outline: none; border-color: #ff5a5a; background: #fff; box-shadow: 0 0 0 3px rgba(255, 90, 90, 0.1); }
+        .modal-login-card .form-input.error { border-color: #dc3545; }
+        .modal-login-card .error-message { color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; min-height: 1rem; }
+        .modal-login-card .error-message-box { background: #f8d7da; color: #721c24; padding: 0.85rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #f5c6cb; font-size: 0.9rem; }
+        .modal-login-card .success-message-box { background: #d4edda; color: #155724; padding: 0.85rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #c3e6cb; font-size: 0.9rem; }
+        .modal-login-card .show-password-container { display: flex; align-items: center; gap: 0.5rem; margin-top: -0.8rem; font-size: 0.9rem; }
+        .modal-login-card .login-btn { background: linear-gradient(135deg, #ff5a5a, #ff7a6b); color: white; border: none; border-radius: 10px; padding: 0.8rem 1.25rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; margin-top: 0.75rem; position: relative; overflow: hidden; }
+        .modal-login-card .login-btn::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.5s ease; }
+        .modal-login-card .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255, 90, 90, 0.3); }
+        .modal-login-card .login-btn:hover::before { left: 100%; }
+        .modal-login-card .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .modal-login-card .close-btn { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border: none; border-radius: 10px; background: rgba(255,255,255,0.9); color: #7a1a1a; font-size: 20px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+        .modal-login-card .close-btn:hover { background: #ffffff; }
+        .modal-login-card button, .modal-login-card input, .modal-login-card select, .modal-login-card textarea { font-family: inherit; }
+        .modal-login-card .signin-link { text-align: center; margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid #e1e5e9; }
+        .modal-login-card .link { color: #ff5a5a; text-decoration: none; font-weight: 600; }
+        @media (max-width: 600px) { .modal-login-card .login-container{padding:0.75rem;} .modal-login-card .title{font-size:1.35rem;} .modal-login-card .form-title{font-size:1.3rem;} }
+            </style>
+
+            <style>
+        /* Campus info modal styles */
+        .modal-campus-card{ background:#fff; border-radius:16px; box-shadow:0 16px 48px rgba(0,0,0,.14); overflow:hidden; position:relative; animation: slideUp 0.4s ease-out; }
+        .campus-hero{ height:180px; background:#e5e7eb center/cover no-repeat; position:relative; }
+        .campus-body{ padding:1.25rem 1.25rem 1.5rem; }
+        .campus-title{ font-size:1.4rem; font-weight:800; color:#1f2937; margin:0 0 .5rem; text-align:left; }
+        .campus-desc{ color:#4b5563; line-height:1.6; font-size:.98rem; }
+        .campus-modal .close-btn{ position:absolute; top:10px; right:10px; width:34px; height:34px; border:none; border-radius:10px; background:rgba(255,255,255,.95); color:#7a1a1a; font-size:20px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.12); cursor:pointer; }
+        .campus-modal .close-btn:hover{ background:#fff; }
+            </style>
+
     <script>
+        // Modal controls
+        function openLoginModal(e) {
+            if (e) e.preventDefault();
+            var modal = document.getElementById('loginModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                modal.setAttribute('aria-hidden','false');
+                try { document.body.style.overflow = 'hidden'; } catch (err) {}
+            }
+            setTimeout(function(){ var inp = document.querySelector('#loginForm input[name="email"]'); if(inp) inp.focus(); }, 100);
+        }
+        function closeLoginModal() {
+            var modal = document.getElementById('loginModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden','true');
+                try { document.body.style.overflow = ''; } catch (err) {}
+            }
+        }
+        // Close on Escape and on backdrop click
+        document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeLoginModal(); });
+        document.addEventListener('click', function(e){ var modal = document.getElementById('loginModal'); if (!modal) return; if (modal.style.display !== 'none' && e.target === modal) closeLoginModal(); });
+
+        // Mirror the exact LoginForm behavior from login.php
         class LoginForm {
             constructor() {
                 this.form = document.getElementById('loginForm');
@@ -521,137 +420,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
                     email: document.getElementById('emailError'),
                     password: document.getElementById('passwordError')
                 };
-                this.submitBtn = this.form.querySelector('.login-btn');
-                
-                this.init();
+                this.submitBtn = this.form ? this.form.querySelector('.login-btn') : null;
+                if (this.form) this.init();
             }
-
-            init() {
-                this.setupEventListeners();
-            }
-
+            init() { this.setupEventListeners(); }
             setupEventListeners() {
-                // Form submission
+                if (!this.form) return;
                 this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-                
-                // Real-time validation
                 Object.keys(this.inputs).forEach(key => {
                     const input = this.inputs[key];
                     if (input) {
                         input.addEventListener('blur', () => this.validateField(key));
-                        input.addEventListener('input', () => {
-                            this.clearError(key);
-                        });
+                        input.addEventListener('input', () => { this.clearError(key); });
                     }
                 });
             }
-
             validateField(fieldName) {
                 const input = this.inputs[fieldName];
                 const value = input.value.trim();
-                
-                switch (fieldName) {
-                    case 'email':
-                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                        if (!value) {
-                            this.showError(fieldName, 'Email address is required');
-                            return false;
-                        } else if (!emailRegex.test(value)) {
-                            this.showError(fieldName, 'Please enter a valid email address');
-                            return false;
-                        }
-                        break;
-                        
-                    case 'password':
-                        if (!value) {
-                            this.showError(fieldName, 'Password is required');
-                            return false;
-                        }
-                        break;
+                if (fieldName === 'email') {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!value) return this.showError(fieldName, 'Email address is required'), false;
+                    if (!emailRegex.test(value)) return this.showError(fieldName, 'Enter a valid email'), false;
                 }
-                
-                this.clearError(fieldName);
-                return true;
-            }
-
-            showError(fieldName, message) {
-                const errorElement = this.errors[fieldName];
-                if (errorElement) {
-                    errorElement.textContent = message;
-                    this.inputs[fieldName].classList.add('error');
+                if (fieldName === 'password') {
+                    if (!value) return this.showError(fieldName, 'Password is required'), false;
                 }
+                this.clearError(fieldName); return true;
             }
-
-            clearError(fieldName) {
-                const errorElement = this.errors[fieldName];
-                if (errorElement) {
-                    errorElement.textContent = '';
-                    this.inputs[fieldName].classList.remove('error');
-                }
-            }
-
-            validateForm() {
-                let isValid = true;
-                
-                Object.keys(this.inputs).forEach(fieldName => {
-                    if (!this.validateField(fieldName)) {
-                        isValid = false;
-                    }
-                });
-                
-                return isValid;
-            }
-
-            async handleSubmit(e) {
-                // Don't prevent default - let PHP handle the form submission
-                // Just validate the form before submission
-                if (!this.validateForm()) {
-                    e.preventDefault();
-                    return;
-                }
-                
-                // Show loading state
-                this.setLoading(true);
-                
-                // Form will submit naturally to PHP
-            }
-
-            setLoading(isLoading) {
-                if (isLoading) {
-                    this.submitBtn.textContent = 'Logging in...';
-                    this.submitBtn.classList.add('loading');
-                    this.submitBtn.disabled = true;
-                } else {
-                    this.submitBtn.textContent = 'Login';
-                    this.submitBtn.classList.remove('loading');
-                    this.submitBtn.disabled = false;
-                }
-            }
-
-            clearAllErrors() {
-                Object.keys(this.errors).forEach(fieldName => {
-                    this.clearError(fieldName);
-                });
-            }
+            showError(fieldName, message) { const errorElement = this.errors[fieldName]; if (errorElement) { errorElement.textContent = message; this.inputs[fieldName].classList.add('error'); } }
+            clearError(fieldName) { const errorElement = this.errors[fieldName]; if (errorElement) { errorElement.textContent = ''; this.inputs[fieldName].classList.remove('error'); } }
+            validateForm() { return ['email','password'].every(name => this.validateField(name)); }
+            async handleSubmit(e) { if (!this.validateForm()) { e.preventDefault(); return; } this.setLoading(true); }
+            setLoading(isLoading) { if (this.submitBtn == null) return; if (isLoading) { this.submitBtn.textContent = 'Logging in...'; this.submitBtn.classList.add('loading'); this.submitBtn.disabled = true; } }
         }
 
-        // Show/hide password function
-        function toggleAllPasswords() {
-            const checkbox = document.getElementById('showPassword');
-            const passwordField = document.getElementById('password');
-            
-            if (passwordField) {
-                passwordField.type = checkbox.checked ? 'text' : 'password';
-            }
-        }
+        function toggleAllPasswords() { const checkbox = document.getElementById('showPassword'); const passwordField = document.getElementById('password'); if (passwordField) { passwordField.type = checkbox.checked ? 'text' : 'password'; } }
 
-        // Initialize the login form when the page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new LoginForm();
+        // Campus modal content
+        const CAMPUS_INFO = {
+            pablo: {
+                title: 'Pablo Borbon',
+                image: 'assets/1pabloborbon-1536x1024.jpg',
+                desc: `The university’s first campus in Batangas City, BatStateU-Pablo Borbon spans 5.96 hectares and accommodates nearly 17,000 students under the College of Accountancy, Business, Economics and International Hospitality Management (CABEIHM); College of Health Sciences; College of Arts and Sciences; College of Law; College of Teacher Education; College of Criminal Justice Education and Integrated School. Recently added is the newly established College of Medicine. Quite close to the city’s CBD, it provides opportunities to reinforce relations with the business community and to prepare students to become the business leaders of tomorrow. Teacher Education, as well as Development Communication, has been recognized by CHED as Centers of Development. It is also home to the central administration where the University President and other key officials hold office.`
+            },
+            alangilan: {
+                title: 'Alangilan',
+                image: 'assets/alangilan-768x512.jpg',
+                desc: `Embodying the university campus of the future, BatStateU-Alangilan boasts a 5.62-hectare campus with a rich history of excellence in engineering and technology education, which has produced around 200 topnotchers in engineering and is a consistent top-performing school in mechanical engineering over the years. It is home to over 17,000 students under the College of Engineering, College of Architecture, Fine Arts and Design, College of Engineering Technology, and College of Informatics and Computing Sciences.`
+            },
+            lipa: {
+                title: 'Lipa',
+                image: 'assets/5lipa-scaled-1024x683.jpg',
+                desc: `Established in 2000, BatStateU-Lipa is the fastest-growing campus located in Lipa City, catering to over 4,000 students enrolled in business, management, communication, and psychology programs. Business and management students study under the College of Accountancy, Business, Economics, and International Hospitality Management (CABEIHM), while those taking communication and psychology are part of the College of Arts and Sciences—both shaping future professionals in a fast-evolving academic landscape.`
+            },
+            nasugbu: {
+                title: 'Nasugbu',
+                image: 'assets/nasugbu-campus-768x512.jpg',
+                desc: `Located in the coastal town of Nasugbu, BatStateU-ARASOF Nasugbu focuses on offering fisheries and aquatic sciences, hotel and restaurant management, hospitality management, and business-related courses. It provides a picturesque learning environment for its 6,000 students on a 4.2-hectare campus.`
+            },
+            malvar: {
+                title: 'Malvar',
+                image: 'assets/4malvar-1024x683.jpg',
+                desc: `Integrated into the university in 2001, BatStateU-JPLPC Malvar specializes in industrial technology programs and plays a key role in the urbanization and industrial development of Malvar. Situated on a 3.26-hectare campus, it serves over 6,000 students from various parts of Batangas. The campus features modern facilities and buildings, with most programs offered under the College of Industrial Technology.`
+            }
+        };
+
+        function openCampusModal(e, key){ if(e) e.preventDefault(); const m = document.getElementById('campusModal'); if(!m) return; const info = CAMPUS_INFO[key]; if(!info) return; document.getElementById('campusTitle').textContent = info.title; document.getElementById('campusDesc').textContent = info.desc; const hero = document.getElementById('campusHero'); if(hero) hero.style.backgroundImage = `linear-gradient(0deg, rgba(0,0,0,0.25), rgba(0,0,0,0)), url('${info.image}')`; m.style.display = 'flex'; m.setAttribute('aria-hidden','false'); try { document.body.style.overflow = 'hidden'; } catch(err){} }
+        function closeCampusModal(){ const m = document.getElementById('campusModal'); if(!m) return; m.style.display='none'; m.setAttribute('aria-hidden','true'); try { document.body.style.overflow = ''; } catch(err){} }
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeCampusModal(); });
+        document.addEventListener('click', function(e){ const m=document.getElementById('campusModal'); if(!m) return; if(m.style.display!=='none' && e.target===m) closeCampusModal(); });
+
+        document.addEventListener('DOMContentLoaded', () => { 
+            new LoginForm(); 
+            <?php if (!empty($error_message)): ?>
+            // Open modal automatically if server-side login failed
+            openLoginModal();
+            <?php endif; ?>
         });
-
-        // Export for potential use in other scripts
-        window.LoginForm = LoginForm;
     </script>
 </body>
 </html>

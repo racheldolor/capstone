@@ -67,7 +67,7 @@ try {
         // Get items needing attention (poor condition or maintenance)
         $attentionStmt = $pdo->prepare("
             SELECT 
-                name as item_name,
+                item_name,
                 category,
                 condition_status,
                 status,

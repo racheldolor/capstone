@@ -12,8 +12,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['user_table'] !== 'student_artis
 try {
     $pdo = getDBConnection();
     
-    // Get student's cultural group
-    $studentStmt = $pdo->prepare("SELECT cultural_group FROM student_artists WHERE id = ?");
+    // Get student's cultural group and campus
+    $studentStmt = $pdo->prepare("SELECT cultural_group, campus FROM student_artists WHERE id = ?");
     $studentStmt->execute([$_SESSION['user_id']]);
     $student = $studentStmt->fetch(PDO::FETCH_ASSOC);
     
@@ -23,33 +23,33 @@ try {
     }
     
     $studentCulturalGroup = $student['cultural_group'];
+    $studentCampus = $student['campus'];
     
-    // Get events for this student's cultural group, including participation status
+    // Get events filtered by cultural group and campus, including participation status
     $eventsStmt = $pdo->prepare("
         SELECT e.*, 
-               ep.student_id IS NOT NULL as has_joined,
-               ep.joined_at,
+               (ep.student_id IS NOT NULL AND ep.attendance_status != 'cancelled') as has_joined,
+               ep.registration_date as joined_at,
+               ep.attendance_status,
                CASE 
-                   WHEN e.start_date <= CURDATE() THEN 'started'
                    WHEN e.end_date < CURDATE() THEN 'ended'
+                   WHEN e.start_date <= CURDATE() AND e.end_date >= CURDATE() THEN 'ongoing'
                    ELSE 'upcoming'
                END as event_status
         FROM events e
         LEFT JOIN event_participants ep ON e.id = ep.event_id AND ep.student_id = ?
-        WHERE (e.cultural_groups LIKE ? OR e.cultural_groups LIKE ?)
-        AND (
-            (e.start_date >= CURDATE()) OR 
-            (ep.student_id IS NOT NULL AND e.end_date >= CURDATE())
-        )
-        AND e.status = 'active'
+        WHERE (e.cultural_groups LIKE ? OR e.cultural_groups LIKE ? OR e.cultural_groups = '[]')
+        AND (e.venue = ? OR e.venue IS NULL OR e.venue = '')
+        AND e.end_date >= CURDATE()
+        AND e.status IN ('published', 'ongoing')
         ORDER BY e.start_date ASC
-        LIMIT 20
+        LIMIT 50
     ");
     
     $groupPattern1 = '%"' . $studentCulturalGroup . '"%';
     $groupPattern2 = '%' . $studentCulturalGroup . '%';
     
-    $eventsStmt->execute([$_SESSION['user_id'], $groupPattern1, $groupPattern2]);
+    $eventsStmt->execute([$_SESSION['user_id'], $groupPattern1, $groupPattern2, $studentCampus]);
     $events = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Format events for display
@@ -67,7 +67,8 @@ try {
     echo json_encode([
         'success' => true,
         'events' => $events,
-        'student_group' => $studentCulturalGroup
+        'student_group' => $studentCulturalGroup,
+        'student_campus' => $studentCampus
     ]);
     
 } catch (Exception $e) {

@@ -390,6 +390,7 @@ try {
             background: #dc2626;
             color: white;
             padding: 1rem 1.5rem;
+            margin: -1px -1px 0 -1px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -631,10 +632,9 @@ try {
             text-align: left;
         }
 
-        /* Remove bottom padding from borrowed costumes panel header */
+        /* Ensure borrowed costumes panel header extends fully */
         #costume-borrowing .content-panel .panel-header {
-            padding-bottom: 0;
-            margin-bottom: 0;
+            margin: -1px -1px 0 -1px;
         }
 
         .borrowed-costumes-table {
@@ -1142,7 +1142,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">1. The goals of the presentation were clear.</div>
+                                    <div style="font-weight: 500;">1. Overall, how would you rate the seminar/training?</div>
                                     <div style="text-align: center;"><input type="radio" name="q1" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q1" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q1" value="3" required></div>
@@ -1151,7 +1151,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">2. Effectiveness of the Activity.</div>
+                                    <div style="font-weight: 500;">2. How would you rate the appropriateness of time and the proper use of resources provided?</div>
                                     <div style="text-align: center;"><input type="radio" name="q2" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q2" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q2" value="3" required></div>
@@ -1160,7 +1160,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">3. Methods and Procedure of the Activity (Orderliness and sequencing of the activity).</div>
+                                    <div style="font-weight: 500;">3. Objectives and expectations were clearly communicated and achieved.</div>
                                     <div style="text-align: center;"><input type="radio" name="q3" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q3" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q3" value="3" required></div>
@@ -1169,7 +1169,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">4. Time allotment of the activity.</div>
+                                    <div style="font-weight: 500;">4. Session activities were appropriate and relevant to the achievement of the learning objectives.</div>
                                     <div style="text-align: center;"><input type="radio" name="q4" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q4" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q4" value="3" required></div>
@@ -1178,7 +1178,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">5. Relevance of the activity to University Vision, Mission and Objectives.</div>
+                                    <div style="font-weight: 500;">5. Sufficient time was allotted for group discussion and comments.</div>
                                     <div style="text-align: center;"><input type="radio" name="q5" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q5" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q5" value="3" required></div>
@@ -1187,7 +1187,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">6. Registration (system and procedure, organization and orderliness, services of the committee).</div>
+                                    <div style="font-weight: 500;">6. Materials and task were useful.</div>
                                     <div style="text-align: center;"><input type="radio" name="q6" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q6" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q6" value="3" required></div>
@@ -1196,7 +1196,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">7. Objectives of the activity were achieved.</div>
+                                    <div style="font-weight: 500;">7. The resource person/trainer displayed thorough knowledge of, and provided relevant insights on the topic/s discussed.</div>
                                     <div style="text-align: center;"><input type="radio" name="q7" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q7" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q7" value="3" required></div>
@@ -1205,7 +1205,7 @@ try {
                                 </div>
 
                                 <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500;">8. Venue (facilities, equipment, multimedia etc.).</div>
+                                    <div style="font-weight: 500;">8. The resource person/trainer thoroughly explained and processed the learning activities throughout the training.</div>
                                     <div style="text-align: center;"><input type="radio" name="q8" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q8" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q8" value="3" required></div>
@@ -1213,20 +1213,59 @@ try {
                                     <div style="text-align: center;"><input type="radio" name="q8" value="5" required></div>
                                 </div>
 
-                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 1rem;">
-                                    <div style="font-weight: 500;">9. Technical Support Services (Audio/ Visual setup).</div>
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">9. The resource person/trainer created a good learning environment, sustained the attention of the participants, and encouraged their participation in the training duration.</div>
                                     <div style="text-align: center;"><input type="radio" name="q9" value="1" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q9" value="2" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q9" value="3" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q9" value="4" required></div>
                                     <div style="text-align: center;"><input type="radio" name="q9" value="5" required></div>
                                 </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">10. The resource person/trainer used the time well, including some adjustments in the training schedule, if needed.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q10" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q10" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q10" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q10" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q10" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 500;">11. The resource person/trainer demonstrated keenness to the participants' needs and other requirements related to the training.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q11" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q11" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q11" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q11" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q11" value="5" required></div>
+                                </div>
+
+                                <div class="evaluation-question" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 1rem;">
+                                    <div style="font-weight: 500;">12. The venue or platform used was conducive for learning.</div>
+                                    <div style="text-align: center;"><input type="radio" name="q12" value="1" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q12" value="2" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q12" value="3" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q12" value="4" required></div>
+                                    <div style="text-align: center;"><input type="radio" name="q12" value="5" required></div>
+                                </div>
                             </div>
 
-                            <!-- Comments Section -->
+                            <!-- Open-Ended Questions Section -->
                             <div style="margin-bottom: 2rem;">
-                                <label for="evaluationComments" style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: #333; font-size: 1.1rem;">Comments and Suggestions of the Activity Conducted:</label>
-                                <textarea id="evaluationComments" name="comments" rows="4" style="width: 100%; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit; resize: vertical;" placeholder="Please share your thoughts, suggestions, or additional feedback about the event..."></textarea>
+                                <div style="margin-bottom: 1.5rem;">
+                                    <label for="q13_opinion" style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: #333; font-size: 1rem;">13. Was the training helpful for you in the practice of your profession? Why or why not?</label>
+                                    <textarea id="q13_opinion" name="q13_opinion" rows="3" required style="width: 100%; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit; resize: vertical;" placeholder="Please share your opinion..."></textarea>
+                                </div>
+
+                                <div style="margin-bottom: 1.5rem;">
+                                    <label for="q14_suggestions" style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: #333; font-size: 1rem;">14. What aspect of the training has been helpful to you? What other topics would you suggest for future trainings?</label>
+                                    <textarea id="q14_suggestions" name="q14_suggestions" rows="3" required style="width: 100%; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit; resize: vertical;" placeholder="Please share helpful aspects and your suggestions..."></textarea>
+                                </div>
+
+                                <div style="margin-bottom: 1.5rem;">
+                                    <label for="q15_comments" style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: #333; font-size: 1rem;">15. Comments/Recommendations/Complaints:</label>
+                                    <textarea id="q15_comments" name="q15_comments" rows="4" required style="width: 100%; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; font-family: inherit; resize: vertical;" placeholder="Please share your thoughts, suggestions, or additional feedback..."></textarea>
+                                </div>
                             </div>
 
                             <!-- Hidden field for event ID -->
@@ -1462,14 +1501,18 @@ try {
             let html = '<div class="announcements-list">';
             announcements.forEach(announcement => {
                 const createdDate = new Date(announcement.created_at).toLocaleDateString();
+                const content = announcement.content || announcement.message || 'No content';
+                const isPinned = announcement.is_pinned == 1;
+                
                 html += `
-                    <div class="announcement-item" style="border-bottom: 1px solid #e0e0e0; padding: 1rem 0;">
+                    <div class="announcement-item" style="border-bottom: 1px solid #e0e0e0; padding: 1rem 0; ${isPinned ? 'background-color: #fff9e6; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;' : ''}">
+                        ${isPinned ? '<div style="color: #dc2626; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">📌 PINNED</div>' : ''}
                         <div class="announcement-header" style="margin-bottom: 0.5rem;">
                             <h4 style="color: #dc2626; margin: 0; font-size: 1.1rem;">${announcement.title}</h4>
                             <small style="color: #666;">${createdDate}</small>
                         </div>
-                        <div class="announcement-content" style="white-space: pre-line; line-height: 1.5;">
-                            ${announcement.message}
+                        <div class="announcement-content" style="white-space: pre-line; line-height: 1.5; color: #333;">
+                            ${content}
                         </div>
                     </div>
                 `;
@@ -1515,78 +1558,66 @@ try {
                 });
         }
 
-        // Display events
+        // Display events (show all upcoming events - joined or not, hide when they start)
         function displayEvents(events) {
             const eventsList = document.getElementById('eventsList');
             
-            if (events.length === 0) {
+            // Filter to show only upcoming events (not yet started), regardless of join status
+            const availableEvents = events.filter(event => event.event_status === 'upcoming');
+            
+            if (availableEvents.length === 0) {
                 eventsList.innerHTML = `
                     <div class="empty-state">
-                        <p>No upcoming events</p>
-                        <small>Events you're participating in will appear here</small>
+                        <p>No upcoming events available</p>
+                        <small>Events available for your cultural group and campus will appear here</small>
                     </div>
                 `;
                 return;
             }
 
             let html = '<div class="events-grid" style="display: grid; gap: 1rem;">';
-            events.forEach(event => {
+            availableEvents.forEach(event => {
                 const dateRange = event.is_multi_day 
                     ? `${event.formatted_start_date} - ${event.formatted_end_date}`
                     : event.formatted_start_date;
                 
-                // Determine button text and style based on participation status
-                let joinButtonHtml = '';
-                if (event.show_join_button) {
-                    if (event.has_joined) {
-                        joinButtonHtml = `
-                            <button class="action-btn secondary" onclick="leaveEvent(${event.id})" 
-                                    style="background: #6c757d; margin-left: auto;">
-                                Leave Event
-                            </button>
-                        `;
-                    } else if (event.can_join) {
-                        joinButtonHtml = `
-                            <button class="action-btn" onclick="joinEvent(${event.id})" 
-                                    style="margin-left: auto;">
-                                Join Event
-                            </button>
-                        `;
-                    }
-                }
+                const culturalGroups = Array.isArray(event.cultural_groups_array) && event.cultural_groups_array.length > 0
+                    ? event.cultural_groups_array.join(', ')
+                    : 'All groups';
                 
-                // Show participation status
-                let participationStatusHtml = '';
+                // Show join status badge
+                let statusBadge = '';
+                let actionButton = '';
+                
                 if (event.has_joined) {
-                    participationStatusHtml = `
-                        <div style="display: flex; align-items: center; gap: 0.5rem; color: #28a745; font-weight: 600; margin-top: 0.5rem;">
-                            <span>✓</span>
-                            <span>You have joined this event</span>
-                            ${event.joined_at_formatted ? `<small style="color: #666; font-weight: normal;">(Joined on ${event.joined_at_formatted})</small>` : ''}
-                        </div>
-                    `;
+                    statusBadge = '<span style="background: #28a745; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">✓ JOINED</span>';
+                } else {
+                    statusBadge = '<span style="background: #007bff; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">UPCOMING</span>';
+                    actionButton = `<button class="action-btn" onclick="joinEvent(${event.id})" style="margin-left: auto; white-space: nowrap;">Join Event</button>`;
                 }
                 
                 html += `
                     <div class="event-card" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; background: white;">
-                        <div class="event-header" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div class="event-header" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
                             <div style="flex: 1;">
-                                <h3 style="color: #dc2626; margin: 0 0 0.5rem 0;">${event.title}</h3>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <h3 style="color: #dc2626; margin: 0;">${event.title}</h3>
+                                    ${statusBadge}
+                                </div>
                                 <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; color: #666;">
-                                    <span><strong>Date:</strong> ${dateRange}</span>
-                                    <span><strong>Location:</strong> ${event.location}</span>
-                                    <span><strong>Category:</strong> ${event.category}</span>
+                                    <span>📅 ${dateRange}</span>
+                                    <span>📍 ${event.location}</span>
+                                    <span>🎭 ${event.category || 'Event'}</span>
                                 </div>
                             </div>
-                            ${joinButtonHtml}
+                            ${actionButton}
                         </div>
-                        <div class="event-description" style="margin-bottom: 1rem; line-height: 1.5;">
-                            ${event.description}
+                        <div class="event-description" style="margin-bottom: 1rem; line-height: 1.5; color: #333;">
+                            ${event.description || 'No description available'}
                         </div>
-                        <div class="event-groups" style="font-size: 0.9rem; color: #666;">
-                            <strong>Cultural Groups:</strong> ${event.cultural_groups_array.join(', ')}
+                        <div class="event-groups" style="font-size: 0.9rem; color: #666; border-top: 1px solid #e0e0e0; padding-top: 0.75rem;">
+                            <strong>For:</strong> ${culturalGroups}
                         </div>
-                        ${participationStatusHtml}
                     </div>
                 `;
             });
@@ -1827,6 +1858,8 @@ try {
                     alert('Successfully joined the event!');
                     // Reload events to update the display
                     loadUpcomingEvents();
+                    // Reload dashboard stats and panels
+                    loadDashboardStats();
                 } else {
                     alert('Error joining event: ' + data.message);
                     button.disabled = false;
@@ -2298,6 +2331,8 @@ try {
                 .then(data => {
                     if (data.success) {
                         updateDashboardCards(data.stats);
+                        loadDashboardAnnouncements();
+                        loadDashboardEvents();
                     } else {
                         console.error('Dashboard stats error:', data.message);
                     }
@@ -2316,6 +2351,81 @@ try {
                 cards[2].textContent = stats.total_performances;
                 cards[3].textContent = stats.borrowed_costumes;
             }
+        }
+
+        // Load recent announcements for dashboard
+        function loadDashboardAnnouncements() {
+            fetch('get_announcements.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.announcements && data.announcements.length > 0) {
+                        const panel = document.querySelector('#dashboard .content-panel:nth-child(1) .panel-content');
+                        const recentAnnouncements = data.announcements.slice(0, 3);
+                        
+                        let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+                        recentAnnouncements.forEach(announcement => {
+                            const content = announcement.content || announcement.message || 'No content';
+                            const shortContent = content.length > 100 ? content.substring(0, 100) + '...' : content;
+                            const date = new Date(announcement.created_at).toLocaleDateString();
+                            
+                            html += `
+                                <div style="border-left: 3px solid #dc2626; padding-left: 0.75rem;">
+                                    <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">${announcement.title}</div>
+                                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem;">${shortContent}</div>
+                                    <div style="font-size: 0.75rem; color: #999;">${date}</div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        panel.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading dashboard announcements:', error);
+                });
+        }
+
+        // Load upcoming events for dashboard (only events student has JOINED and not yet ended)
+        function loadDashboardEvents() {
+            fetch('get_events.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.events && data.events.length > 0) {
+                        const panel = document.querySelector('#dashboard .content-panel:nth-child(2) .panel-content');
+                        // Filter for events that student HAS JOINED and haven't ended yet
+                        const joinedEvents = data.events.filter(e => 
+                            e.has_joined && e.event_status !== 'ended'
+                        ).slice(0, 2);
+                        
+                        if (joinedEvents.length > 0) {
+                            let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+                            joinedEvents.forEach(event => {
+                                const culturalGroups = Array.isArray(event.cultural_groups_array) 
+                                    ? event.cultural_groups_array.join(', ') 
+                                    : 'All groups';
+                                html += `
+                                    <div style="border-left: 3px solid #dc2626; padding-left: 0.75rem;">
+                                        <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">${event.title}</div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem;">
+                                            📅 ${event.formatted_start_date}
+                                        </div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem;">
+                                            📍 ${event.location || 'TBA'}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: #999;">
+                                            ${culturalGroups}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            html += '</div>';
+                            panel.innerHTML = html;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading dashboard events:', error);
+                });
         }
 
         // Load stats when dashboard is loaded
@@ -2372,20 +2482,35 @@ try {
                 q7_rating: formData.get('q7'),
                 q8_rating: formData.get('q8'),
                 q9_rating: formData.get('q9'),
-                comments: formData.get('comments')
+                q10_rating: formData.get('q10'),
+                q11_rating: formData.get('q11'),
+                q12_rating: formData.get('q12'),
+                q13_opinion: formData.get('q13_opinion'),
+                q14_suggestions: formData.get('q14_suggestions'),
+                q15_comments: formData.get('q15_comments')
             };
 
-            // Validate that all questions are answered
-            for (let i = 1; i <= 9; i++) {
+            // Validate that all Likert scale questions (1-12) are answered
+            for (let i = 1; i <= 12; i++) {
                 if (!evaluationData[`q${i}_rating`]) {
                     alert(`Please answer question ${i} before submitting.`);
                     return;
                 }
             }
             
-            // Validate that comments are filled
-            if (!evaluationData.comments || evaluationData.comments.trim() === '') {
-                alert('Please provide your comments before submitting.');
+            // Validate open-ended questions
+            if (!evaluationData.q13_opinion || evaluationData.q13_opinion.trim() === '') {
+                alert('Please answer question 13 (Was the training helpful for you in the practice of your profession?).');
+                return;
+            }
+            
+            if (!evaluationData.q14_suggestions || evaluationData.q14_suggestions.trim() === '') {
+                alert('Please answer question 14 (What aspect of the training has been helpful to you?).');
+                return;
+            }
+            
+            if (!evaluationData.q15_comments || evaluationData.q15_comments.trim() === '') {
+                alert('Please provide your comments/recommendations/complaints in question 15.');
                 return;
             }
 

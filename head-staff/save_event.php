@@ -26,7 +26,7 @@ try {
     $location = $_POST['location'] ?? '';
     $campus = $_POST['municipality'] ?? '';
     $category = $_POST['category'] ?? '';
-    $cultural_groups = $_POST['cultural_groups'] ?? [];
+    $cultural_groups = isset($_POST['cultural_groups']) && is_array($_POST['cultural_groups']) ? $_POST['cultural_groups'] : [];
     
     // Validate required fields
     if (empty($title) || empty($description) || empty($start_date) || empty($end_date) || empty($location) || empty($category)) {
@@ -60,27 +60,14 @@ try {
     ";
     $pdo->exec($createTableSQL);
     
-    // Create announcements table if it doesn't exist
-    $createAnnouncementsTableSQL = "
-        CREATE TABLE IF NOT EXISTS announcements (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,
-            message TEXT NOT NULL,
-            event_id INT,
-            target_groups TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL
-        )
-    ";
-    $pdo->exec($createAnnouncementsTableSQL);
-    
     // Convert cultural groups array to JSON
-    $cultural_groups_json = json_encode($cultural_groups);
+    // Ensure we always have a valid array (empty or with values)
+    $cultural_groups_json = json_encode(is_array($cultural_groups) ? $cultural_groups : []);
     
     // Insert event into database
     $stmt = $pdo->prepare("
-        INSERT INTO events (title, description, start_date, end_date, location, campus, category, cultural_groups, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO events (title, description, start_date, end_date, location, venue, category, cultural_groups, status, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)
     ");
     
     $result = $stmt->execute([
@@ -89,7 +76,7 @@ try {
         $start_date,
         $end_date,
         $location,
-        $campus,
+        $location, // venue is same as location
         $category,
         $cultural_groups_json,
         $_SESSION['user_id'] ?? null
@@ -98,35 +85,9 @@ try {
     if ($result) {
         $event_id = $pdo->lastInsertId();
         
-        // Create announcement for students in concerned cultural groups
-        if (!empty($cultural_groups)) {
-            $announcement_title = "New Event: " . $title;
-            $announcement_message = "A new event has been scheduled for your cultural group.\n\n";
-            $announcement_message .= "Event: " . $title . "\n";
-            $announcement_message .= "Date: " . date('F j, Y', strtotime($start_date));
-            if ($start_date !== $end_date) {
-                $announcement_message .= " - " . date('F j, Y', strtotime($end_date));
-            }
-            $announcement_message .= "\nLocation: " . $location . "\n";
-            $announcement_message .= "Category: " . $category . "\n\n";
-            $announcement_message .= "Please check the Events & Trainings section for full details.";
-            
-            $announcementStmt = $pdo->prepare("
-                INSERT INTO announcements (title, message, event_id, target_groups) 
-                VALUES (?, ?, ?, ?)
-            ");
-            
-            $announcementStmt->execute([
-                $announcement_title,
-                $announcement_message,
-                $event_id,
-                $cultural_groups_json
-            ]);
-        }
-        
         echo json_encode([
             'success' => true, 
-            'message' => 'Event saved successfully and notifications sent to concerned students!',
+            'message' => 'Event saved successfully!',
             'event_id' => $event_id
         ]);
     } else {

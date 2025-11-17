@@ -84,7 +84,7 @@ try {
     $pdo->exec($createTableSQL);
 
     // Insert the new item
-    $sql = "INSERT INTO inventory (name, category, condition_status, status, description) 
+    $sql = "INSERT INTO inventory (item_name, category, condition_status, status, description) 
             VALUES (:name, :category, :condition_status, :status, :description)";
     
     $stmt = $pdo->prepare($sql);

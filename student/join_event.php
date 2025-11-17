@@ -39,7 +39,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT id, title, start_date, end_date, status 
         FROM events 
-        WHERE id = ? AND status = 'active'
+        WHERE id = ? AND status IN ('published', 'ongoing', 'draft')
     ");
     $stmt->execute([$event_id]);
     $event = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -62,11 +62,11 @@ try {
         // Try to join the event
         try {
             $stmt = $pdo->prepare("
-                INSERT INTO event_participants (event_id, student_id, status) 
-                VALUES (?, ?, 'joined')
+                INSERT INTO event_participants (event_id, student_id, attendance_status, registration_date) 
+                VALUES (?, ?, 'registered', CURRENT_TIMESTAMP)
                 ON DUPLICATE KEY UPDATE 
-                status = 'joined', 
-                joined_at = CURRENT_TIMESTAMP,
+                attendance_status = 'registered', 
+                registration_date = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
             ");
             $stmt->execute([$event_id, $student_id]);
@@ -78,15 +78,18 @@ try {
             ]);
             
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Failed to join event']);
+            error_log("Join event error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Failed to join event: ' . $e->getMessage()]);
         }
         
     } else if ($action === 'leave') {
         // Leave the event (mark as cancelled)
         $stmt = $pdo->prepare("
             UPDATE event_participants 
-            SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-            WHERE event_id = ? AND student_id = ?
+            SET attendance_status = 'cancelled', 
+                cancelled_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE event_id = ? AND student_id = ? AND attendance_status != 'cancelled'
         ");
         $result = $stmt->execute([$event_id, $student_id]);
         

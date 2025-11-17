@@ -25,7 +25,7 @@ try {
     
     // Get certificate info before deleting (to remove file)
     $stmt = $pdo->prepare("
-        SELECT file_path 
+        SELECT certificate_file as file_path 
         FROM student_certificates 
         WHERE id = ? AND student_id = ?
     ");

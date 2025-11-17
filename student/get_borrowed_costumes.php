@@ -27,18 +27,20 @@ try {
     $stmt = $pdo->prepare("
         SELECT 
             br.id,
-            br.requester_name,
-            br.email,
-            br.equipment_categories,
+            br.student_name,
+            br.student_email,
+            br.item_category,
             br.dates_of_use,
-            br.estimated_return_date,
+            br.end_date as estimated_return_date,
             br.due_date,
-            br.approved_items,
+            br.quantity_approved,
+            br.item_name,
+            br.item_id,
             br.created_at,
-            br.reviewed_at,
+            br.approved_date as reviewed_at,
             br.status,
             br.current_status,
-            br.review_notes
+            br.approval_notes as review_notes
         FROM borrowing_requests br
         WHERE br.student_id = ? 
         ORDER BY br.created_at DESC
@@ -50,67 +52,45 @@ try {
     $all_requests = [];
 
     foreach ($requests as $request) {
-        if ($request['status'] === 'approved' && $request['approved_items']) {
-            // For approved requests, show the specific approved items
-            $approved_items = json_decode($request['approved_items'], true);
+        if ($request['status'] === 'approved' || $request['status'] === 'borrowed') {
+            // Get item details from inventory
+            $item_stmt = $pdo->prepare("
+                SELECT item_name, category, condition_status, status 
+                FROM inventory 
+                WHERE id = ?
+            ");
+            $item_stmt->execute([$request['item_id']]);
+            $item_details = $item_stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($approved_items && is_array($approved_items)) {
-                foreach ($approved_items as $item) {
-                    // Get additional item details from inventory
-                    $item_stmt = $pdo->prepare("
-                        SELECT name, category, condition_status, status 
-                        FROM inventory 
-                        WHERE id = ?
-                    ");
-                    $item_stmt->execute([$item['id']]);
-                    $item_details = $item_stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($item_details) {
-                        $all_requests[] = [
-                            'id' => $request['id'], // Add the borrowing request ID
-                            'request_id' => $request['id'],
-                            'item_id' => $item['id'],
-                            'item_name' => $item_details['name'],
-                            'item_type' => $item['type'],
-                            'category' => $item_details['category'],
-                            'condition' => $item_details['condition_status'],
-                            'current_status' => $request['current_status'] ?? 'active',
-                            'dates_of_use' => $request['dates_of_use'],
-                            'estimated_return_date' => $request['estimated_return_date'],
-                            'request_date' => $request['created_at'],
-                            'approved_date' => $request['reviewed_at'],
-                            'due_date' => $request['due_date'] ?? $request['estimated_return_date'],
-                            'status' => $request['status'],
-                            'review_notes' => $request['review_notes'],
-                            'display_type' => 'approved_item'
-                        ];
-                    }
-                }
+            if ($item_details) {
+                $all_requests[] = [
+                    'id' => $request['id'],
+                    'request_id' => $request['id'],
+                    'item_id' => $request['item_id'],
+                    'item_name' => $request['item_name'],
+                    'item_type' => $request['item_category'],
+                    'category' => $item_details['category'],
+                    'condition' => $item_details['condition_status'],
+                    'current_status' => $request['current_status'] ?? 'active',
+                    'dates_of_use' => $request['dates_of_use'],
+                    'estimated_return_date' => $request['estimated_return_date'],
+                    'request_date' => $request['created_at'],
+                    'approved_date' => $request['reviewed_at'],
+                    'due_date' => $request['due_date'] ?? $request['estimated_return_date'],
+                    'status' => $request['status'],
+                    'review_notes' => $request['review_notes'],
+                    'display_type' => 'approved_item'
+                ];
             }
         } else {
-            // For pending/rejected requests, show the requested categories
-            $equipment_categories = json_decode($request['equipment_categories'], true);
-            $requested_items = [];
-            
-            if ($equipment_categories && is_array($equipment_categories)) {
-                foreach ($equipment_categories as $category => $items) {
-                    if ($items) {
-                        if (is_array($items)) {
-                            $requested_items = array_merge($requested_items, $items);
-                        } else {
-                            $requested_items[] = $items;
-                        }
-                    }
-                }
-            }
-            
+            // For pending/rejected requests
             $all_requests[] = [
-                'id' => $request['id'], // Add the borrowing request ID
+                'id' => $request['id'],
                 'request_id' => $request['id'],
-                'item_id' => null,
-                'item_name' => !empty($requested_items) ? implode(', ', $requested_items) : 'Various items requested',
-                'item_type' => 'request',
-                'category' => 'mixed',
+                'item_id' => $request['item_id'],
+                'item_name' => $request['item_name'] ?? 'Requested item',
+                'item_type' => $request['item_category'] ?? 'request',
+                'category' => $request['item_category'] ?? 'mixed',
                 'condition' => null,
                 'current_status' => $request['current_status'] ?? null,
                 'dates_of_use' => $request['dates_of_use'],

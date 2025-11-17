@@ -3771,9 +3771,9 @@ try {
                 html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.9rem;">';
                 html += '<div><strong>Date:</strong> ' + event.start_date_formatted + ' - ' + event.end_date_formatted + '</div>';
                 html += '<div><strong>Location:</strong> ' + event.location + '</div>';
-                html += '<div><strong>Category:</strong> ' + event.category + '</div>';
-                if (event.campus) {
-                    html += '<div><strong>Campus:</strong> ' + event.campus + '</div>';
+                html += '<div><strong>Category:</strong> ' + (event.category || 'N/A') + '</div>';
+                if (event.venue) {
+                    html += '<div><strong>Campus:</strong> ' + event.venue + '</div>';
                 }
                 html += '<div><strong>Cultural Groups:</strong> ' + culturalGroups + '</div>';
                 html += '<div><strong>Created:</strong> ' + event.created_at_formatted + '</div>';
@@ -3878,7 +3878,7 @@ try {
             document.getElementById('startDate').value = event.start_date_formatted;
             document.getElementById('endDate').value = event.end_date_formatted;
             document.getElementById('eventLocation').value = event.location;
-            document.getElementById('municipality').value = event.campus || '';
+            document.getElementById('municipality').value = event.venue || '';
             document.getElementById('eventCategory').value = event.category;
             
             // Handle cultural groups

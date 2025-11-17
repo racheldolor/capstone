@@ -23,7 +23,7 @@ try {
     // Build base query for available items (status = 'available')
     $costumeQuery = "SELECT 
                         id, 
-                        name, 
+                        item_name as name, 
                         condition_status as `condition`, 
                         status,
                         'costume' as type
@@ -32,7 +32,7 @@ try {
     
     $equipmentQuery = "SELECT 
                          id, 
-                         name, 
+                         item_name as name, 
                          condition_status as `condition`, 
                          status,
                          'equipment' as type
@@ -44,8 +44,8 @@ try {
 
     // Add search filter if provided
     if (!empty($search)) {
-        $costumeQuery .= " AND name LIKE :search";
-        $equipmentQuery .= " AND name LIKE :search";
+        $costumeQuery .= " AND item_name LIKE :search";
+        $equipmentQuery .= " AND item_name LIKE :search";
         $costumeParams['search'] = "%$search%";
         $equipmentParams['search'] = "%$search%";
     }
@@ -54,8 +54,8 @@ try {
     $costumeQuery .= " AND (category != 'equipment' OR category IS NULL)";
 
     // Order results
-    $costumeQuery .= " ORDER BY name ASC";
-    $equipmentQuery .= " ORDER BY name ASC";
+    $costumeQuery .= " ORDER BY item_name ASC";
+    $equipmentQuery .= " ORDER BY item_name ASC";
 
     $costumes = [];
     $equipment = [];

@@ -115,8 +115,8 @@ try {
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ");
                     
-                    // Generate default password (student can change later)
-                    $defaultPassword = password_hash('student123', PASSWORD_DEFAULT);
+                    // Generate default password using SR code (student can change later)
+                    $defaultPassword = password_hash($application['sr_code'], PASSWORD_DEFAULT);
                     
                     // Use existing name fields if available, otherwise split full_name
                     $firstName = $application['first_name'];

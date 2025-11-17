@@ -71,13 +71,29 @@ try {
         exit();
     }
     
-    // Save to database
+    // Save to database - using correct column names from student_certificates table
     $stmt = $pdo->prepare("
-        INSERT INTO student_certificates (student_id, title, description, date_received, file_path, uploaded_at) 
-        VALUES (?, ?, ?, ?, ?, NOW())
+        INSERT INTO student_certificates 
+        (student_id, certificate_type, certificate_name, certificate_title, issued_date, 
+         certificate_file, description) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
     
-    $stmt->execute([$student_id, $title, $description, $date_received, $relative_path]);
+    $certificate_type = 'achievement'; // Default type
+    
+    if (!$stmt->execute([
+        $student_id, 
+        $certificate_type,
+        $title,  // certificate_name
+        $title,  // certificate_title
+        $date_received,  // issued_date
+        $relative_path,  // certificate_file
+        $description
+    ])) {
+        $errorInfo = $stmt->errorInfo();
+        error_log("Certificate upload SQL error: " . print_r($errorInfo, true));
+        throw new Exception("Database insert failed: " . $errorInfo[2]);
+    }
     
     echo json_encode([
         'success' => true, 
@@ -92,6 +108,6 @@ try {
     }
     
     error_log("Certificate upload error: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'Database error occurred']);
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }
 ?>
