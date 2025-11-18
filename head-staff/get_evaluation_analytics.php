@@ -293,6 +293,11 @@ function getTrendsData($evaluations) {
 }
 
 function generateInsights($evaluations, $statistics) {
+    // Return null if no evaluations exist
+    if (empty($evaluations) || $statistics['total_evaluations'] === 0) {
+        return null;
+    }
+    
     $insights = [];
     
     // Overall performance insight

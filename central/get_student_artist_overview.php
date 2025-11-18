@@ -33,14 +33,19 @@ try {
         SELECT 
             COUNT(DISTINCT ep.event_id) as events_with_participation,
             COUNT(DISTINCT ep.student_id) as students_participated,
-            COUNT(*) as total_participations,
-            100 as participation_rate
+            COUNT(*) as total_participations
         FROM event_participants ep
         INNER JOIN student_artists sa ON ep.student_id = sa.id
         WHERE sa.status = 'active'
     ");
     $participationStmt->execute();
     $participation = $participationStmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Calculate participation rate based on actual data
+    $totalActiveStudents = (int)$stats['active_students'];
+    $studentsParticipated = (int)$participation['students_participated'];
+    $participationRate = $totalActiveStudents > 0 ? round(($studentsParticipated / $totalActiveStudents) * 100) : 0;
+    $participation['participation_rate'] = $participationRate;
     
     // Get recent participation activity (last 30 days)
     $recentStmt = $pdo->prepare("

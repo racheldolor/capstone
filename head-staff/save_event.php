@@ -40,31 +40,11 @@ try {
         exit;
     }
     
-    // Create events table if it doesn't exist
-    $createTableSQL = "
-        CREATE TABLE IF NOT EXISTS events (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,
-            description TEXT NOT NULL,
-            start_date DATE NOT NULL,
-            end_date DATE NOT NULL,
-            location VARCHAR(255) NOT NULL,
-            campus VARCHAR(100),
-            category VARCHAR(100) NOT NULL,
-            cultural_groups TEXT,
-            created_by INT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            status ENUM('active', 'cancelled', 'completed') DEFAULT 'active'
-        )
-    ";
-    $pdo->exec($createTableSQL);
-    
     // Convert cultural groups array to JSON
     // Ensure we always have a valid array (empty or with values)
     $cultural_groups_json = json_encode(is_array($cultural_groups) ? $cultural_groups : []);
     
-    // Insert event into database
+    // Insert event into database - using venue field to store campus info
     $stmt = $pdo->prepare("
         INSERT INTO events (title, description, start_date, end_date, location, venue, category, cultural_groups, status, created_by) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)
@@ -76,7 +56,7 @@ try {
         $start_date,
         $end_date,
         $location,
-        $location, // venue is same as location
+        $campus, // store campus in venue field
         $category,
         $cultural_groups_json,
         $_SESSION['user_id'] ?? null
@@ -96,6 +76,6 @@ try {
     
 } catch (Exception $e) {
     error_log("Error saving event: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'An error occurred while saving the event']);
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }
 ?>

@@ -73,13 +73,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim($_POST['email'] ?? '');
         $address = trim($_POST['address'] ?? '');
         
-        // Equipment categories
-        $equipment_categories = [];
-        if (!empty($_POST['costumes'])) $equipment_categories['costumes'] = $_POST['costumes'];
-        if (!empty($_POST['equipment'])) $equipment_categories['equipment'] = $_POST['equipment'];
-        if (!empty($_POST['instruments'])) $equipment_categories['instruments'] = $_POST['instruments'];
-        if (!empty($_POST['props'])) $equipment_categories['props'] = $_POST['props'];
-        if (!empty($_POST['others'])) $equipment_categories['others'] = $_POST['others'];
+        // Equipment categories with specifications
+        $equipment_details = [];
+        $selected_categories = $_POST['equipment_types'] ?? [];
+        
+        // Debug: Log what we received
+        error_log("Selected categories: " . print_r($selected_categories, true));
+        error_log("All POST data: " . print_r($_POST, true));
+        
+        foreach ($selected_categories as $category) {
+            $specification_field = $category; // costumes, equipment, instruments, props, others
+            $specification = trim($_POST[$specification_field] ?? '');
+            
+            error_log("Category: $category, Specification: '$specification'");
+            
+            if (!empty($specification)) {
+                $equipment_details[] = ucfirst($category) . ': ' . $specification;
+            } else {
+                $equipment_details[] = ucfirst($category);
+            }
+        }
+        
+        // Create item name from selected categories and their specifications
+        $item_name = !empty($equipment_details) ? implode('; ', $equipment_details) : 'General Equipment Request';
+        
+        error_log("Final item_name: " . $item_name);
         
         $date_of_request = $_POST['date_of_request'] ?? date('Y-m-d');
         $dates_of_use = trim($_POST['dates_of_use'] ?? '');
@@ -92,33 +110,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Please fill in all required fields.');
         }
 
-        if (empty($equipment_categories)) {
+        if (empty($equipment_details)) {
             throw new Exception('Please select at least one equipment category.');
         }
 
         // Insert borrowing request
+        // Get a valid item_id from inventory (or create a general placeholder)
+        $item_check = $pdo->query("SELECT id FROM inventory LIMIT 1");
+        $existing_item = $item_check->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existing_item) {
+            $default_item_id = $existing_item['id'];
+        } else {
+            // Create a general placeholder item if no inventory items exist
+            $placeholder_stmt = $pdo->prepare("
+                INSERT IGNORE INTO inventory (item_name, category, quantity, status) 
+                VALUES ('General Equipment Request', 'General', 1, 'available')
+            ");
+            $placeholder_stmt->execute();
+            $default_item_id = $pdo->lastInsertId() ?: 1;
+        }
+        
         $stmt = $pdo->prepare("
             INSERT INTO borrowing_requests (
-                student_id, campus, requester_name, college_office, 
-                contact_number, email, address, equipment_categories, 
-                date_of_request, dates_of_use, times_of_use, estimated_return_date, purpose
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                student_id, student_campus, student_name, student_email,
+                student_contact, item_id, item_name, purpose, start_date, end_date, 
+                dates_of_use, venue, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
         
         $result = $stmt->execute([
             $student_id,
             $campus,
             $requester_name,
-            $college_office,
-            $contact_number,
             $email,
-            $address,
-            json_encode($equipment_categories),
+            $contact_number,
+            $default_item_id,
+            $item_name,
+            $purpose,
             $date_of_request,
-            $dates_of_use,
-            $times_of_use,
             $estimated_return_date,
-            $purpose
+            $dates_of_use,
+            $college_office
         ]);
 
         if ($result) {
@@ -648,11 +681,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                 </div>
                                 <div class="specification-inputs">
-                                    <input type="text" name="costumes" placeholder="Specify costumes..." disabled>
-                                    <input type="text" name="equipment" placeholder="Specify equipment/gadget..." disabled>
-                                    <input type="text" name="instruments" placeholder="Specify instruments..." disabled>
-                                    <input type="text" name="props" placeholder="Specify props..." disabled>
-                                    <input type="text" name="others" placeholder="Specify others..." disabled>
+                                    <input type="text" name="costumes" placeholder="Specify costumes..." readonly style="background: #f5f5f5; color: #999;">
+                                    <input type="text" name="equipment" placeholder="Specify equipment/gadget..." readonly style="background: #f5f5f5; color: #999;">
+                                    <input type="text" name="instruments" placeholder="Specify instruments..." readonly style="background: #f5f5f5; color: #999;">
+                                    <input type="text" name="props" placeholder="Specify props..." readonly style="background: #f5f5f5; color: #999;">
+                                    <input type="text" name="others" placeholder="Specify others..." readonly style="background: #f5f5f5; color: #999;">
                                 </div>
                             </div>
                         </div>
@@ -758,7 +791,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     const value = this.value;
                     const input = inputs[value];
                     if (input) {
-                        input.disabled = !this.checked;
+                        input.readOnly = !this.checked;
+                        input.style.backgroundColor = this.checked ? '#fff' : '#f5f5f5';
+                        input.style.color = this.checked ? '#333' : '#999';
                         if (!this.checked) {
                             input.value = '';
                         }

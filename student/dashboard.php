@@ -137,14 +137,53 @@ try {
     
     $total_performances = $performance_count;
     
-    // Count new announcements (posted in last 7 days)
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) as count 
-        FROM announcements 
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-    ");
-    $stmt->execute();
-    $total_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+    // Count announcements (including events as announcements - matching get_announcements.php logic)
+    // Get student's cultural group and campus for filtering
+    $studentStmt = $pdo->prepare("SELECT cultural_group, campus FROM student_artists WHERE id = ?");
+    $studentStmt->execute([$_SESSION['user_id']]);
+    $student = $studentStmt->fetch(PDO::FETCH_ASSOC);
+    
+    $total_announcements = 0;
+    
+    if ($student) {
+        $studentCulturalGroup = $student['cultural_group'];
+        $studentCampus = $student['campus'];
+        
+        // Count regular announcements (active, published, not expired)
+        $announcementsStmt = $pdo->prepare("
+            SELECT COUNT(*) as count
+            FROM announcements a
+            WHERE (
+                (a.target_cultural_group LIKE ? OR a.target_cultural_group LIKE ? OR a.target_cultural_group = 'all')
+                OR (a.target_audience = 'all' OR a.target_audience = 'students')
+            )
+            AND (a.target_campus = 'all' OR a.target_campus = ? OR a.target_campus IS NULL)
+            AND a.is_active = 1
+            AND a.is_published = 1
+            AND (a.expiry_date IS NULL OR a.expiry_date >= CURDATE())
+        ");
+        
+        $groupPattern1 = '%"' . $studentCulturalGroup . '"%';
+        $groupPattern2 = '%' . $studentCulturalGroup . '%';
+        
+        $announcementsStmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
+        $announcementCount = $announcementsStmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+        
+        // Count event announcements (upcoming and ongoing events)
+        $eventsStmt = $pdo->prepare("
+            SELECT COUNT(*) as count
+            FROM events
+            WHERE (cultural_groups LIKE ? OR cultural_groups LIKE ? OR cultural_groups = '[]')
+            AND (venue = ? OR venue IS NULL OR venue = '')
+            AND end_date >= CURDATE()
+            AND status IN ('published', 'ongoing')
+        ");
+        
+        $eventsStmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
+        $eventCount = $eventsStmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+        
+        $total_announcements = $announcementCount + $eventCount;
+    }
     
 } catch (Exception $e) {
     error_log("Dashboard stats error: " . $e->getMessage());

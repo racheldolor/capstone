@@ -18,10 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 try {
     $pdo = getDBConnection();
     
-    // Debug: Log all POST data
-    error_log("UPDATE EVENT - POST DATA: " . print_r($_POST, true));
-    error_log("UPDATE EVENT - FILES DATA: " . print_r($_FILES, true));
-    
     // Get form data
     $event_id = $_POST['event_id'] ?? '';
     $title = $_POST['title'] ?? '';
@@ -29,21 +25,9 @@ try {
     $start_date = $_POST['start_date'] ?? '';
     $end_date = $_POST['end_date'] ?? '';
     $location = $_POST['location'] ?? '';
-    $venue = $_POST['municipality'] ?? ''; // municipality field maps to venue column
+    $campus = $_POST['municipality'] ?? '';
     $category = $_POST['category'] ?? '';
-    $cultural_groups = isset($_POST['cultural_groups']) && is_array($_POST['cultural_groups']) ? $_POST['cultural_groups'] : [];
-    
-    // Debug: Log extracted values
-    error_log("UPDATE EVENT - Extracted values:");
-    error_log("  Event ID: $event_id");
-    error_log("  Title: $title");
-    error_log("  Description: $description");
-    error_log("  Start Date: $start_date");
-    error_log("  End Date: $end_date");
-    error_log("  Location: $location");
-    error_log("  Venue: $venue");
-    error_log("  Category: $category");
-    error_log("  Cultural Groups: " . print_r($cultural_groups, true));
+    $cultural_groups = $_POST['cultural_groups'] ?? [];
     
     // Validate required fields
     if (empty($event_id) || empty($title) || empty($description) || empty($start_date) || empty($end_date) || empty($location) || empty($category)) {
@@ -89,19 +73,9 @@ try {
     }
     
     // Convert cultural groups array to JSON
-    // Ensure we always have a valid array (empty or with values)
-    $cultural_groups_json = json_encode(is_array($cultural_groups) ? $cultural_groups : []);
+    $cultural_groups_json = json_encode($cultural_groups);
     
-    // Debug: Log final values before update
-    error_log("UPDATE EVENT - About to execute UPDATE with:");
-    error_log("  Event ID: $event_id");
-    error_log("  Title: $title");
-    error_log("  Venue: $venue");
-    error_log("  Category: $category");
-    error_log("  Cultural Groups JSON: $cultural_groups_json");
-    error_log("  Event Poster: $event_poster");
-    
-    // Update event in database
+    // Update event in database - using venue field to store campus info
     $stmt = $pdo->prepare("
         UPDATE events 
         SET title = ?, description = ?, start_date = ?, end_date = ?, location = ?, 
@@ -115,33 +89,24 @@ try {
         $start_date,
         $end_date,
         $location,
-        $venue,
+        $campus,
         $category,
         $cultural_groups_json,
         $event_poster,
         $event_id
     ]);
     
-    $rowsAffected = $stmt->rowCount();
-    error_log("UPDATE EVENT - Rows affected: $rowsAffected");
-    
     if ($result) {
-        // Log successful update
-        error_log("Event updated successfully: ID=$event_id, Title=$title, Rows=$rowsAffected");
         echo json_encode([
             'success' => true, 
-            'message' => 'Event updated successfully!',
-            'event_id' => $event_id,
-            'rows_affected' => $rowsAffected
+            'message' => 'Event updated successfully!'
         ]);
     } else {
-        $errorInfo = $stmt->errorInfo();
-        error_log("Failed to update event: " . print_r($errorInfo, true));
-        echo json_encode(['success' => false, 'message' => 'Failed to update event: ' . $errorInfo[2]]);
+        echo json_encode(['success' => false, 'message' => 'Failed to update event']);
     }
     
 } catch (Exception $e) {
     error_log("Error updating event: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'An error occurred while updating the event']);
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }
 ?>

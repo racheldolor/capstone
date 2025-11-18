@@ -3634,7 +3634,7 @@ try {
             let html = '';
             costumes.forEach(costume => {
                 html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + costume.name + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(costume.condition_status) + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(costume.status) + '</div>';
                 html += '</div>';
@@ -3652,7 +3652,7 @@ try {
             let html = '';
             equipment.forEach(item => {
                 html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + item.name + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(item.condition_status) + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(item.status) + '</div>';
                 html += '</div>';
@@ -3788,10 +3788,6 @@ try {
                 } else {
                     html += '<div style="font-size: 0.8rem; color: #666;">' + Math.abs(event.days_difference) + ' day(s) ago</div>';
                 }
-                html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
-                html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
-                html += '<button onclick="deleteEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>';
-                html += '</div>';
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
@@ -4153,14 +4149,6 @@ try {
                         ${event.days_until === 0 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Today!</div>' : 
                           event.days_until === 1 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Tomorrow</div>' :
                           `<div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">In ${event.days_until} day(s)</div>`}
-                        <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                            <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
-                                Edit
-                            </button>
-                            <button onclick="deleteEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}'); " style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
-                                Delete
-                            </button>
-                        </div>
                     </div>
                 `;
             });
@@ -4248,10 +4236,10 @@ try {
                         <div style="padding: 0 0.5rem;">
                             <input type="checkbox" value="${costume.id}" 
                                    ${isSelected ? 'checked' : ''}
-                                   onchange="toggleItemSelection('costume', ${costume.id}, '${costume.name}', this.checked)">
+                                   onchange="toggleItemSelection('costume', ${costume.id}, '${costume.item_name || costume.name || 'Unnamed Item'}', this.checked)">
                         </div>
                         <div style="padding: 0 0.5rem; font-weight: 500;">
-                            ${costume.name}
+                            ${costume.item_name || costume.name || 'Unnamed Item'}
                         </div>
                         <div style="padding: 0 0.5rem;">
                             <span class="condition-badge condition-${costume.condition}">${costume.condition}</span>
@@ -4287,10 +4275,10 @@ try {
                         <div style="padding: 0 0.5rem;">
                             <input type="checkbox" value="${equipment.id}" 
                                    ${isSelected ? 'checked' : ''}
-                                   onchange="toggleItemSelection('equipment', ${equipment.id}, '${equipment.name}', this.checked)">
+                                   onchange="toggleItemSelection('equipment', ${equipment.id}, '${equipment.item_name || equipment.name || 'Unnamed Item'}', this.checked)">
                         </div>
                         <div style="padding: 0 0.5rem; font-weight: 500;">
-                            ${equipment.name}
+                            ${equipment.item_name || equipment.name || 'Unnamed Item'}
                         </div>
                         <div style="padding: 0 0.5rem;">
                             <span class="condition-badge condition-${equipment.condition}">${equipment.condition}</span>
@@ -4340,7 +4328,7 @@ try {
                 
                 if (costume) {
                     checkbox.checked = selectAll.checked;
-                    toggleItemSelection('costume', id, costume.name, selectAll.checked);
+                    toggleItemSelection('costume', id, costume.item_name || costume.name || 'Unnamed Item', selectAll.checked);
                 }
             });
         }
@@ -4355,7 +4343,7 @@ try {
                 
                 if (equipment) {
                     checkbox.checked = selectAll.checked;
-                    toggleItemSelection('equipment', id, equipment.name, selectAll.checked);
+                    toggleItemSelection('equipment', id, equipment.item_name || equipment.name || 'Unnamed Item', selectAll.checked);
                 }
             });
         }
@@ -5577,14 +5565,15 @@ try {
                 
                 let html = '';
                 participants.forEach((participant, index) => {
-                    const academicInfo = [participant.program, participant.year_level, participant.campus].filter(Boolean).join(' • ');
+                    const academicInfo = [participant.display_program, participant.display_year, participant.display_campus].filter(Boolean).join(' • ');
                     
                     html += `
                         <tr style="border-bottom: 1px solid #e0e0e0; ${index % 2 === 0 ? 'background: #f8f9fa;' : ''}">
                             <td style="padding: 1rem; vertical-align: top;">
                                 <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">${participant.full_name}</div>
-                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem;">${participant.sr_code || 'N/A'}</div>
-                                <div style="color: #666; font-size: 0.8rem;">${participant.email}</div>
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem;">${participant.display_sr_code || 'N/A'}</div>
+                                <div style="color: #666; font-size: 0.8rem;">${participant.display_email || 'N/A'}</div>
+                                ${participant.display_contact ? `<div style="color: #666; font-size: 0.8rem;">📞 ${participant.display_contact}</div>` : ''}
                             </td>
                             <td style="padding: 1rem; vertical-align: top;">
                                 <div style="color: #333; font-weight: 500;">${participant.cultural_group || 'Not specified'}</div>
@@ -5594,7 +5583,7 @@ try {
                                 ${participant.college ? `<div style="color: #666; font-size: 0.8rem;">${participant.college}</div>` : ''}
                             </td>
                             <td style="padding: 1rem; vertical-align: top;">
-                                <div style="color: #333; font-size: 0.9rem;">${participant.formatted_joined_date}</div>
+                                <div style="color: #333; font-size: 0.9rem;">${participant.formatted_registration_date}</div>
                             </td>
                         </tr>
                     `;

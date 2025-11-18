@@ -72,7 +72,7 @@ try {
     $createTableSQL = "
         CREATE TABLE IF NOT EXISTS inventory (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
             category ENUM('costume', 'equipment') NOT NULL,
             condition_status ENUM('good', 'worn-out', 'bad') NOT NULL,
             status ENUM('available', 'borrowed') DEFAULT 'available',
@@ -85,11 +85,11 @@ try {
 
     // Insert the new item
     $sql = "INSERT INTO inventory (item_name, category, condition_status, status, description) 
-            VALUES (:name, :category, :condition_status, :status, :description)";
+            VALUES (:item_name, :category, :condition_status, :status, :description)";
     
     $stmt = $pdo->prepare($sql);
     $result = $stmt->execute([
-        ':name' => trim($input['name']),
+        ':item_name' => trim($input['name']),
         ':category' => $input['category'],
         ':condition_status' => $input['condition'],
         ':status' => 'available', // Always set to available as requested

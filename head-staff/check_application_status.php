@@ -96,7 +96,7 @@ try {
             
         case 'approved':
             $statusMessage = 'Congratulations! Your application has been approved';
-            $nextSteps = 'You will receive an email with your login credentials and next steps to join the cultural group.';
+            $nextSteps = 'You can now log in to your account using your email and your SR-code as the default password. You are free to change your password through the login page.';
             $statusColor = '#28a745'; // Green
             break;
             

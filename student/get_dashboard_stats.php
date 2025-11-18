@@ -97,24 +97,42 @@ try {
         $performance_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
     }
     
-    // Count new announcements (filtered by cultural group and campus)
+    // Count announcements (including events as announcements - matching get_announcements.php logic)
     if ($studentCulturalGroup && $studentCampus) {
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) as count 
+        $groupPattern1 = '%\"' . $studentCulturalGroup . '\"%';
+        $groupPattern2 = '%' . $studentCulturalGroup . '%';
+        
+        // Count regular announcements (active, published, not expired)
+        $announcementsStmt = $pdo->prepare("
+            SELECT COUNT(*) as count
             FROM announcements a
-            WHERE a.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            AND (
+            WHERE (
                 (a.target_cultural_group LIKE ? OR a.target_cultural_group LIKE ? OR a.target_cultural_group = 'all')
                 OR (a.target_audience = 'all' OR a.target_audience = 'students')
             )
             AND (a.target_campus = 'all' OR a.target_campus = ? OR a.target_campus IS NULL)
             AND a.is_active = 1
             AND a.is_published = 1
+            AND (a.expiry_date IS NULL OR a.expiry_date >= CURDATE())
         ");
-        $groupPattern1 = '%\"' . $studentCulturalGroup . '\"%';
-        $groupPattern2 = '%' . $studentCulturalGroup . '%';
-        $stmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
-        $new_announcements = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+        
+        $announcementsStmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
+        $announcementCount = $announcementsStmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+        
+        // Count event announcements (upcoming and ongoing events)
+        $eventsStmt = $pdo->prepare("
+            SELECT COUNT(*) as count
+            FROM events
+            WHERE (cultural_groups LIKE ? OR cultural_groups LIKE ? OR cultural_groups = '[]')
+            AND (venue = ? OR venue IS NULL OR venue = '')
+            AND end_date >= CURDATE()
+            AND status IN ('published', 'ongoing')
+        ");
+        
+        $eventsStmt->execute([$groupPattern1, $groupPattern2, $studentCampus]);
+        $eventCount = $eventsStmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
+        
+        $new_announcements = $announcementCount + $eventCount;
     } else {
         $new_announcements = 0;
     }

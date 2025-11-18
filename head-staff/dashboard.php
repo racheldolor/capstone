@@ -2090,8 +2090,6 @@ try {
                                 <?php else: ?>
                                     <p>No student artist profiles found.</p>
                                     <small>Click "View Applications" to approve new student artists.</small>
-                                    <br><br>
-                                    <small style="color: #dc2626;">Debug: Total students in database: <?= $total_students ?></small>
                                 <?php endif; ?>
                             </div>
                         <?php else: ?>
@@ -4092,9 +4090,9 @@ try {
             
             let html = '';
             requests.forEach(request => {
-                // Format equipment categories
-                let equipmentList = '';
-                if (request.equipment_categories) {
+                // Use item_name from the database, or fallback to equipment_categories for older requests
+                let equipmentList = request.item_name || '';
+                if (!equipmentList && request.equipment_categories) {
                     const categories = [];
                     for (const [category, items] of Object.entries(request.equipment_categories)) {
                         if (items) {
@@ -4112,13 +4110,13 @@ try {
                 html += `
                     <tr>
                         <td style="padding: 0.75rem;">
-                            <div style="font-weight: 600;">${request.student_name || request.requester_name}</div>
-                            <div style="font-size: 0.8rem; color: #666;">${request.email}</div>
-                            <div style="font-size: 0.8rem; color: #666;">${request.student_campus || request.campus || ''}</div>
+                            <div style="font-weight: 600;">${request.student_name || 'Unknown Student'}</div>
+                            <div style="font-size: 0.8rem; color: #666;">${request.student_email || ''}</div>
+                            <div style="font-size: 0.8rem; color: #666;">${request.student_campus || ''}</div>
                             <div style="font-size: 0.8rem; color: #666;">${request.created_at_formatted || ''}</div>
                         </td>
                         <td style="padding: 0.75rem;">
-                            <div style="font-size: 0.85rem; max-width: 200px;">${equipmentList}</div>
+                            <div style="font-size: 0.85rem; max-width: 200px;">${equipmentList || 'Equipment request details not specified'}</div>
                         </td>
                         <td style="padding: 0.75rem;">
                             <div style="font-size: 0.85rem;">${request.dates_of_use || 'Not specified'}</div>
@@ -4526,7 +4524,7 @@ try {
             let html = '';
             costumes.forEach(costume => {
                 html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + costume.name + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(costume.condition_status) + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(costume.status) + '</div>';
                 html += '</div>';
@@ -4544,7 +4542,7 @@ try {
             let html = '';
             equipment.forEach(item => {
                 html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + item.name + '</div>';
+                html += '<div style="padding: 0 0.5rem;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(item.condition_status) + '</div>';
                 html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(item.status) + '</div>';
                 html += '</div>';
@@ -5332,6 +5330,7 @@ try {
                         alert('Request approved successfully!');
                         closeItemSelectionModal();
                         loadBorrowRequests(); // Refresh the requests list
+                        loadInventoryItems(); // Refresh inventory to show items as "borrowed"
                     } else {
                         const errorMessage = data.message || data.error || 'Unknown error occurred';
                         alert('Error approving request: ' + errorMessage);
@@ -5396,7 +5395,15 @@ try {
                 `;
             } else {
                 let html = `
-                    <table style="width: 100%; border-collapse: collapse; background: white; margin: 0;">
+                    <table style="width: 100%; border-collapse: collapse; background: white; margin: 0; table-layout: fixed;">
+                        <colgroup>
+                            <col style="width: 25%;">
+                            <col style="width: 20%;">
+                            <col style="width: 18%;">
+                            <col style="width: 15%;">
+                            <col style="width: 12%;">
+                            <col style="width: 10%;">
+                        </colgroup>
                         <thead style="background: #dc2626; color: white;">
                             <tr>
                                 <th style="padding: 1rem; text-align: left; font-weight: 600; font-style: normal;">Event Details</th>
@@ -5421,31 +5428,33 @@ try {
                     
                     html += `
                         <tr style="border-bottom: 1px solid #e0e0e0;">
-                            <td style="padding: 1rem; vertical-align: top;">
-                                <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem; font-style: normal;">${event.title}</div>
-                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem; font-style: normal; font-weight: 500;">${event.category}</div>
-                                <div style="color: #888; font-size: 0.8rem; font-style: normal; font-weight: normal;">Created: ${event.formatted_created_date}</div>
+                            <td style="padding: 1rem; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;">
+                                <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem; font-style: normal; line-height: 1.3;">${event.title}</div>
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem; font-style: normal; font-weight: 500; line-height: 1.3;">${event.category}</div>
+                                <div style="color: #888; font-size: 0.8rem; font-style: normal; font-weight: normal; line-height: 1.3;">Created: ${event.formatted_created_date}</div>
                             </td>
-                            <td style="padding: 1rem; vertical-align: top;">
-                                <div style="color: #333; margin-bottom: 0.25rem; font-style: normal;">${dateRange}</div>
-                                <div style="color: #666; font-size: 0.9rem; font-style: normal;">${event.location}</div>
+                            <td style="padding: 1rem; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;">
+                                <div style="color: #333; margin-bottom: 0.25rem; font-style: normal; line-height: 1.3;">${dateRange}</div>
+                                <div style="color: #666; font-size: 0.9rem; font-style: normal; line-height: 1.3;">${event.location}</div>
                             </td>
-                            <td style="padding: 1rem; vertical-align: top;">
-                                <div style="color: #333; font-size: 0.9rem; font-style: normal;">${culturalGroups}${moreGroups}</div>
+                            <td style="padding: 1rem; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;">
+                                <div style="color: #333; font-size: 0.9rem; font-style: normal; line-height: 1.3;">${culturalGroups}${moreGroups}</div>
                             </td>
                             <td style="padding: 1rem; text-align: center; vertical-align: top;">
-                                <span style="background: ${event.participants_count > 0 ? '#28a745' : '#6c757d'}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; font-style: normal;">
+                                <span style="background: ${event.participants_count > 0 ? '#28a745' : '#6c757d'}; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; font-style: normal; display: inline-block; min-width: fit-content; white-space: nowrap;">
                                     ${event.participants_count} participant(s)
                                 </span>
                             </td>
                             <td style="padding: 1rem; text-align: center; vertical-align: top;">
                                 ${statusBadge}
                             </td>
-                            <td style="padding: 1rem; text-align: center; vertical-align: top;">
-                                <button onclick="viewEventParticipants(${event.id})" 
-                                        style="background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
-                                    View Participants
-                                </button>
+                            <td style="padding: 0.5rem; text-align: center; vertical-align: top;">
+                                <div style="margin-top: 0.5rem;">
+                                    <button onclick="viewEventParticipants(${event.id})" 
+                                            style="background: #007bff; color: white; border: none; padding: 0.3rem 0.4rem; border-radius: 4px; cursor: pointer; font-size: 0.65rem; font-weight: 600; white-space: nowrap; width: 100%; line-height: 1.2;">
+                                        View Participants
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -6469,14 +6478,15 @@ try {
                 
                 let html = '';
                 participants.forEach((participant, index) => {
-                    const academicInfo = [participant.program, participant.year_level, participant.campus].filter(Boolean).join(' • ');
+                    const academicInfo = [participant.display_program, participant.display_year, participant.display_campus].filter(Boolean).join(' • ');
                     
                     html += `
                         <tr style="border-bottom: 1px solid #e0e0e0; ${index % 2 === 0 ? 'background: #f8f9fa;' : ''}">
                             <td style="padding: 1rem; vertical-align: top;">
                                 <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">${participant.full_name}</div>
-                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem;">${participant.sr_code || 'N/A'}</div>
-                                <div style="color: #666; font-size: 0.8rem;">${participant.email}</div>
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem;">${participant.display_sr_code || 'N/A'}</div>
+                                <div style="color: #666; font-size: 0.8rem;">${participant.display_email || 'N/A'}</div>
+                                ${participant.display_contact ? `<div style="color: #666; font-size: 0.8rem;">📞 ${participant.display_contact}</div>` : ''}
                             </td>
                             <td style="padding: 1rem; vertical-align: top;">
                                 <div style="color: #333; font-weight: 500;">${participant.cultural_group || 'Not specified'}</div>
@@ -6486,7 +6496,7 @@ try {
                                 ${participant.college ? `<div style="color: #666; font-size: 0.8rem;">${participant.college}</div>` : ''}
                             </td>
                             <td style="padding: 1rem; vertical-align: top;">
-                                <div style="color: #333; font-size: 0.9rem;">${participant.formatted_joined_date}</div>
+                                <div style="color: #333; font-size: 0.9rem;">${participant.formatted_registration_date}</div>
                             </td>
                         </tr>
                     `;

@@ -68,7 +68,7 @@ try {
             $placeholders = implode(',', array_fill(0, count($item_ids), '?'));
             
             $stmt = $pdo->prepare("
-                SELECT id, name, status 
+                SELECT id, item_name, status 
                 FROM inventory 
                 WHERE id IN ($placeholders) AND status = 'available'
             ");
@@ -107,16 +107,16 @@ try {
             WHERE id = ?
         ");
 
-        // Set due date to estimated return date if approving
+        // Set due date to end_date if approving
         $due_date = null;
         $current_status = null;
         if ($status === 'approved') {
-            // Get the estimated return date from the request
-            $temp_stmt = $pdo->prepare("SELECT estimated_return_date FROM borrowing_requests WHERE id = ?");
+            // Get the end_date from the request
+            $temp_stmt = $pdo->prepare("SELECT end_date FROM borrowing_requests WHERE id = ?");
             $temp_stmt->execute([$request_id]);
             $temp_request = $temp_stmt->fetch(PDO::FETCH_ASSOC);
             
-            $due_date = $temp_request['estimated_return_date'] ?? null;
+            $due_date = $temp_request['end_date'] ?? null;
             $current_status = 'active';
         }
 
@@ -144,9 +144,9 @@ try {
         }
 
         // Create a detailed log message
-        $log_message = "Requester: {$request['requester_name']}, Status: $status";
+        $log_message = "Requester: {$request['student_name']}, Status: $status";
         if ($status === 'approved' && !empty($selected_items)) {
-            $item_names = array_map(function($item) { return $item['name']; }, $selected_items);
+            $item_names = array_map(function($item) { return $item['item_name'] ?? $item['name']; }, $selected_items);
             $log_message .= ", Approved items: " . implode(', ', $item_names);
         }
 
