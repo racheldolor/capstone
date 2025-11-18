@@ -35,18 +35,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $raw_password = $_POST['password'];
                 $sr_code = !empty($_POST['sr_code']) ? trim($_POST['sr_code']) : null;
                 
-                // Basic password validation (admin can set any password format)
-                if (empty($raw_password)) {
-                    echo json_encode(['success' => false, 'message' => 'Password is required']);
-                    exit();
-                }
-                
-                $password = password_hash($raw_password, PASSWORD_DEFAULT);
-                
-                // If role is student, SR code is required
-                if ($role === 'student' && empty($sr_code)) {
-                    echo json_encode(['success' => false, 'message' => 'SR Code is required for student accounts']);
-                    exit();
+                // For students, use SR-code as password; for others, use provided password
+                if ($role === 'student') {
+                    if (empty($sr_code)) {
+                        echo json_encode(['success' => false, 'message' => 'SR Code is required for student accounts']);
+                        exit();
+                    }
+                    // Use SR-code as the password for students
+                    $password = password_hash($sr_code, PASSWORD_DEFAULT);
+                } else {
+                    // Basic password validation for non-students
+                    if (empty($raw_password)) {
+                        echo json_encode(['success' => false, 'message' => 'Password is required']);
+                        exit();
+                    }
+                    $password = password_hash($raw_password, PASSWORD_DEFAULT);
                 }
                 
                 // Insert into appropriate table based on role
