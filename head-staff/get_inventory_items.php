@@ -46,13 +46,41 @@ try {
         exit;
     }
 
-    // Fetch costumes
-    $costumesSQL = "SELECT * FROM inventory WHERE category = 'costume' ORDER BY created_at DESC";
+    // Fetch costumes with borrower information
+    $costumesSQL = "
+        SELECT 
+            i.*,
+            br.student_name as borrower_name,
+            br.start_date as borrow_date,
+            br.end_date as return_due_date,
+            br.student_email as borrower_email,
+            br.student_course as borrower_course
+        FROM inventory i
+        LEFT JOIN borrowing_requests br ON i.id = br.item_id 
+            AND br.status IN ('approved', 'borrowed') 
+            AND br.current_status = 'active'
+        WHERE i.category = 'costume' 
+        ORDER BY i.created_at DESC
+    ";
     $costumesStmt = $pdo->query($costumesSQL);
     $costumes = $costumesStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch equipment
-    $equipmentSQL = "SELECT * FROM inventory WHERE category = 'equipment' ORDER BY created_at DESC";
+    // Fetch equipment with borrower information
+    $equipmentSQL = "
+        SELECT 
+            i.*,
+            br.student_name as borrower_name,
+            br.start_date as borrow_date,
+            br.end_date as return_due_date,
+            br.student_email as borrower_email,
+            br.student_course as borrower_course
+        FROM inventory i
+        LEFT JOIN borrowing_requests br ON i.id = br.item_id 
+            AND br.status IN ('approved', 'borrowed') 
+            AND br.current_status = 'active'
+        WHERE i.category = 'equipment' 
+        ORDER BY i.created_at DESC
+    ";
     $equipmentStmt = $pdo->query($equipmentSQL);
     $equipment = $equipmentStmt->fetchAll(PDO::FETCH_ASSOC);
 

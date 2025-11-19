@@ -47,9 +47,12 @@ try {
         
         // Determine event status based on dates
         $today = date('Y-m-d');
-        if ($event['start_date'] > $today) {
+        $event_start = date('Y-m-d', strtotime($event['start_date']));
+        $event_end = date('Y-m-d', strtotime($event['end_date']));
+        
+        if ($event_start > $today) {
             $event['date_status'] = 'upcoming';
-        } elseif ($event['end_date'] < $today) {
+        } elseif ($event_end < $today) {
             $event['date_status'] = 'completed';
         } else {
             $event['date_status'] = 'ongoing';

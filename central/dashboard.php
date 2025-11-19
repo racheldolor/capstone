@@ -2356,9 +2356,13 @@ try {
                     <p>Loading participants...</p>
                 </div>
                 <div id="participantsContent" style="display: none;">
-                    <div class="participants-summary" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="participants-summary" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                         <h4 style="margin: 0; color: #333;">Participants List</h4>
-                        <span id="participantsCount" style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">0 participants</span>
+                        <div style="display: flex; align-items: center; gap: 1rem; flex: 1; justify-content: flex-end;">
+                            <input type="text" id="participantsSearchInput" placeholder="Search by name, email, or SR Code..." 
+                                   style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; flex: 1; max-width: 300px; font-size: 0.9rem;">
+                            <span id="participantsCount" style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">0 participants</span>
+                        </div>
                     </div>
                     <div class="table-container">
                         <table id="participantsTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -5513,8 +5517,16 @@ try {
                 });
         }
 
+        // Store all participants globally for filtering
+        let allParticipantsData = [];
+        let currentEvent = null;
+
         // Display event participants
         function displayEventParticipants(event, participants) {
+            // Store data globally
+            currentEvent = event;
+            allParticipantsData = participants;
+            
             // Update modal title and event details
             document.getElementById('participantsModalTitle').textContent = `Participants - ${event.title}`;
             
@@ -5543,6 +5555,38 @@ try {
                 </div>
             `;
             
+            // Setup search functionality
+            const searchInput = document.getElementById('participantsSearchInput');
+            searchInput.value = '';
+            searchInput.onkeyup = function() {
+                filterParticipants(this.value);
+            };
+            
+            // Display all participants initially
+            renderParticipantsTable(participants);
+        }
+        
+        // Filter participants based on search
+        function filterParticipants(searchTerm) {
+            const term = searchTerm.toLowerCase().trim();
+            
+            if (!term) {
+                renderParticipantsTable(allParticipantsData);
+                return;
+            }
+            
+            const filtered = allParticipantsData.filter(p => {
+                return (p.full_name && p.full_name.toLowerCase().includes(term)) ||
+                       (p.display_sr_code && p.display_sr_code.toLowerCase().includes(term)) ||
+                       (p.display_email && p.display_email.toLowerCase().includes(term)) ||
+                       (p.cultural_group && p.cultural_group.toLowerCase().includes(term));
+            });
+            
+            renderParticipantsTable(filtered);
+        }
+        
+        // Render participants table
+        function renderParticipantsTable(participants) {
             // Update participants count
             document.getElementById('participantsCount').textContent = `${participants.length} participant(s)`;
             
@@ -5555,9 +5599,26 @@ try {
             tableBody.innerHTML = '';
             
             if (participants.length === 0) {
-                participantsSummary.style.display = 'none';
-                tableContainer.style.display = 'none';
-                noParticipantsMsg.style.display = 'block';
+                const searchInput = document.getElementById('participantsSearchInput');
+                if (searchInput.value.trim()) {
+                    // Show "no results" for search
+                    tableContainer.style.display = 'block';
+                    participantsSummary.style.display = 'flex';
+                    noParticipantsMsg.style.display = 'none';
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="padding: 3rem; text-align: center; color: #666;">
+                                <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">No participants found</p>
+                                <small>Try a different search term</small>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    // No participants at all
+                    participantsSummary.style.display = 'none';
+                    tableContainer.style.display = 'none';
+                    noParticipantsMsg.style.display = 'block';
+                }
             } else {
                 participantsSummary.style.display = 'flex';
                 tableContainer.style.display = 'block';
@@ -5616,6 +5677,11 @@ try {
             document.getElementById('eventDetailsContent').innerHTML = '';
             document.getElementById('participantsTableBody').innerHTML = '';
             document.getElementById('participantsCount').textContent = '0 participants';
+            document.getElementById('participantsSearchInput').value = '';
+            
+            // Reset global data
+            allParticipantsData = [];
+            currentEvent = null;
             
             // Reset display states
             document.getElementById('participantsLoading').style.display = 'none';

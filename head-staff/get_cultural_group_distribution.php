@@ -14,6 +14,9 @@ header('Content-Type: application/json');
 try {
     $pdo = getDBConnection();
     
+    // Get search parameter
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    
     // Define all available cultural groups
     $allGroups = [
         'Dulaang Batangan',
@@ -30,8 +33,20 @@ try {
         'Sindayog'
     ];
     
-    // Get actual student counts for each group
-    $stmt = $pdo->prepare("
+    // Build WHERE clause for search
+    $whereConditions = ["status = 'active'"];
+    $params = [];
+    
+    if (!empty($search)) {
+        $whereConditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
+        $searchParam = "%$search%";
+        $params = array_fill(0, 5, $searchParam);
+    }
+    
+    $whereClause = implode(' AND ', $whereConditions);
+    
+    // Get actual student counts for each group with search filter
+    $sql = "
         SELECT 
             CASE 
                 WHEN cultural_group IS NULL OR cultural_group = '' THEN 'Not Assigned'
@@ -39,13 +54,14 @@ try {
             END as group_name,
             COUNT(*) as count
         FROM student_artists 
-        WHERE status = 'active'
+        WHERE $whereClause
         GROUP BY CASE 
             WHEN cultural_group IS NULL OR cultural_group = '' THEN 'Not Assigned'
             ELSE cultural_group
         END
-    ");
-    $stmt->execute();
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $actualCounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Create associative array for easy lookup
@@ -68,16 +84,18 @@ try {
         return $b['count'] - $a['count'];
     });
     
-    // Get total count
-    $totalStmt = $pdo->prepare("SELECT COUNT(*) as total FROM student_artists WHERE status = 'active'");
-    $totalStmt->execute();
+    // Get total count with search filter
+    $totalSql = "SELECT COUNT(*) as total FROM student_artists WHERE $whereClause";
+    $totalStmt = $pdo->prepare($totalSql);
+    $totalStmt->execute($params);
     $total = $totalStmt->fetch(PDO::FETCH_ASSOC)['total'];
     
     // Prepare response
     $response = [
         'success' => true,
         'groupDistribution' => $groupData,
-        'totalStudents' => $total
+        'totalStudents' => $total,
+        'searchApplied' => !empty($search)
     ];
     
     echo json_encode($response);

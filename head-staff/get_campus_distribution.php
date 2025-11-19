@@ -14,30 +14,49 @@ header('Content-Type: application/json');
 try {
     $pdo = getDBConnection();
     
-    // Get campus distribution
-    $stmt = $pdo->prepare("
+    // Get search parameter
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    
+    // Build WHERE clause for search
+    $whereConditions = ["status = 'active'", "campus IS NOT NULL"];
+    $params = [];
+    
+    if (!empty($search)) {
+        $whereConditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
+        $searchParam = "%$search%";
+        $params = array_fill(0, 5, $searchParam);
+    }
+    
+    $whereClause = implode(' AND ', $whereConditions);
+    
+    // Get campus distribution with search filter
+    $sql = "
         SELECT 
             campus,
             COUNT(*) as count,
-            ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM student_artists WHERE status = 'active')), 1) as percentage
+            ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM student_artists WHERE $whereClause)), 1) as percentage
         FROM student_artists 
-        WHERE status = 'active' AND campus IS NOT NULL
+        WHERE $whereClause
         GROUP BY campus 
         ORDER BY count DESC
-    ");
-    $stmt->execute();
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge($params, $params)); // params twice for subquery
     $campusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get total count
-    $totalStmt = $pdo->prepare("SELECT COUNT(*) as total FROM student_artists WHERE status = 'active'");
-    $totalStmt->execute();
+    // Get total count with search filter
+    $totalSql = "SELECT COUNT(*) as total FROM student_artists WHERE $whereClause";
+    $totalStmt = $pdo->prepare($totalSql);
+    $totalStmt->execute($params);
     $total = $totalStmt->fetch(PDO::FETCH_ASSOC)['total'];
     
     // Prepare response
     $response = [
         'success' => true,
         'campusDistribution' => $campusData,
-        'totalStudents' => $total
+        'totalStudents' => $total,
+        'searchApplied' => !empty($search)
     ];
     
     echo json_encode($response);
@@ -46,7 +65,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to fetch campus distribution data'
+        'error' => 'Failed to fetch campus distribution data: ' . $e->getMessage()
     ]);
 }
 ?>

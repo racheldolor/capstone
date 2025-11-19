@@ -57,9 +57,9 @@ try {
             DATE_FORMAT(e.start_date, '%M %d, %Y') as formatted_start_date,
             DATE_FORMAT(e.end_date, '%M %d, %Y') as formatted_end_date,
             CASE 
-                WHEN e.start_date > NOW() THEN 'upcoming'
-                WHEN e.start_date <= NOW() AND e.end_date >= NOW() THEN 'ongoing'
-                WHEN e.end_date < NOW() THEN 'completed'
+                WHEN DATE(e.start_date) > CURDATE() THEN 'upcoming'
+                WHEN DATE(e.start_date) <= CURDATE() AND DATE(e.end_date) >= CURDATE() THEN 'ongoing'
+                WHEN DATE(e.end_date) < CURDATE() THEN 'completed'
                 ELSE 'unknown'
             END as date_status,
             CASE 

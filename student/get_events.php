@@ -32,8 +32,8 @@ try {
                ep.registration_date as joined_at,
                ep.attendance_status,
                CASE 
-                   WHEN e.end_date < CURDATE() THEN 'ended'
-                   WHEN e.start_date <= CURDATE() AND e.end_date >= CURDATE() THEN 'ongoing'
+                   WHEN DATE(e.end_date) < CURDATE() THEN 'ended'
+                   WHEN DATE(e.start_date) <= CURDATE() AND DATE(e.end_date) >= CURDATE() THEN 'ongoing'
                    ELSE 'upcoming'
                END as event_status
         FROM events e

@@ -1369,6 +1369,21 @@ try {
                 align-items: stretch;
             }
 
+            /* Inventory grid stacks on mobile */
+            .inventory-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            /* Inventory table headers adjust for mobile */
+            .table-header-row {
+                grid-template-columns: minmax(120px, 1fr) 60px 80px 80px minmax(120px, 1fr) !important;
+                font-size: 0.75rem !important;
+            }
+
+            .header-col {
+                padding: 0 0.25rem !important;
+            }
+
             /* Mobile header improvements */
             .header {
                 flex-direction: column;
@@ -1541,6 +1556,12 @@ try {
 
             table {
                 font-size: 0.9rem;
+            }
+
+            /* Inventory tables on tablet */
+            .table-header-row {
+                grid-template-columns: minmax(150px, 2fr) 70px 90px 90px minmax(150px, 1fr) !important;
+                font-size: 0.8rem !important;
             }
         }
 
@@ -2570,10 +2591,12 @@ try {
                             <div class="inventory-table-container">
                                 <div class="table-section">
                                     <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: 1fr 120px 120px;">
+                                        <div class="table-header-row" style="grid-template-columns: minmax(150px, 2fr) minmax(60px, 80px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 200px);">
                                             <div class="header-col">NAME</div>
+                                            <div class="header-col">QTY</div>
                                             <div class="header-col">CONDITION</div>
                                             <div class="header-col">STATUS</div>
+                                            <div class="header-col">BORROWER INFO</div>
                                         </div>
                                     </div>
                                     
@@ -2598,10 +2621,12 @@ try {
                             <div class="inventory-table-container">
                                 <div class="table-section">
                                     <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: 1fr 120px 120px;">
+                                        <div class="table-header-row" style="grid-template-columns: minmax(150px, 2fr) minmax(60px, 100px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 220px);">
                                             <div class="header-col">NAME</div>
+                                            <div class="header-col">QTY</div>
                                             <div class="header-col">CONDITION</div>
                                             <div class="header-col">STATUS</div>
+                                            <div class="header-col">BORROWER INFO</div>
                                         </div>
                                     </div>
                                     
@@ -3021,9 +3046,13 @@ try {
                     <p>Loading participants...</p>
                 </div>
                 <div id="participantsContent" style="display: none;">
-                    <div class="participants-summary" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="participants-summary" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                         <h4 style="margin: 0; color: #333;">Participants List</h4>
-                        <span id="participantsCount" style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">0 participants</span>
+                        <div style="display: flex; align-items: center; gap: 1rem; flex: 1; justify-content: flex-end;">
+                            <input type="text" id="participantsSearchInput" placeholder="Search by name, email, or SR Code..." 
+                                   style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; flex: 1; max-width: 300px; font-size: 0.9rem;">
+                            <span id="participantsCount" style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">0 participants</span>
+                        </div>
                     </div>
                     <div class="table-container">
                         <table id="participantsTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -3540,10 +3569,18 @@ try {
         function initializeStudentSearch() {
             const searchInput = document.getElementById('studentSearch');
             if (searchInput) {
+                let searchTimeout;
                 searchInput.addEventListener('input', function(e) {
-                    const searchTerm = e.target.value.toLowerCase();
-                    // Search functionality will be implemented with backend integration
-                    console.log('Searching for:', searchTerm);
+                    const searchTerm = e.target.value.trim();
+                    
+                    // Debounce search to avoid too many requests
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        console.log('Searching for:', searchTerm);
+                        // Reload charts with search filter
+                        loadCampusDistribution(searchTerm);
+                        loadCulturalGroupDistribution(searchTerm);
+                    }, 300);
                 });
             }
         }
@@ -3559,9 +3596,10 @@ try {
         });
 
         // Campus Distribution Functions
-        function loadCampusDistribution() {
-            console.log('Loading campus distribution...');
-            fetch('get_campus_distribution.php')
+        function loadCampusDistribution(searchTerm = '') {
+            console.log('Loading campus distribution with search:', searchTerm);
+            const url = searchTerm ? `get_campus_distribution.php?search=${encodeURIComponent(searchTerm)}` : 'get_campus_distribution.php';
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Campus distribution response:', data);
@@ -3705,9 +3743,10 @@ try {
         }
 
         // Cultural Group Distribution Functions
-        function loadCulturalGroupDistribution() {
-            console.log('Loading cultural group distribution...');
-            fetch('get_cultural_group_distribution.php')
+        function loadCulturalGroupDistribution(searchTerm = '') {
+            console.log('Loading cultural group distribution with search:', searchTerm);
+            const url = searchTerm ? `get_cultural_group_distribution.php?search=${encodeURIComponent(searchTerm)}` : 'get_cultural_group_distribution.php';
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Cultural group distribution response:', data);
@@ -4523,10 +4562,12 @@ try {
             
             let html = '';
             costumes.forEach(costume => {
-                html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(costume.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '<div class="table-row" style="display: grid; grid-template-columns: minmax(150px, 2fr) minmax(60px, 80px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 200px); padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div style="padding: 0 0.5rem; font-weight: 500;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getConditionBadge(costume.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(costume) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
@@ -4541,30 +4582,52 @@ try {
             
             let html = '';
             equipment.forEach(item => {
-                html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(item.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '<div class="table-row" style="display: grid; grid-template-columns: minmax(150px, 2fr) minmax(60px, 100px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 220px); padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div style="padding: 0 0.5rem; font-weight: 500;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getConditionBadge(item.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(item) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
         }
 
+        function getBorrowerInfo(item) {
+            if (item.status === 'borrowed' && item.borrower_name) {
+                const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                return `<div style="line-height: 1.4;">
+                    <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${item.borrower_name}</div>
+                    <div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>
+                </div>`;
+            } else if (item.status === 'borrowed') {
+                return '<span style="color: #666; font-style: italic;">Borrowed</span>';
+            }
+            return '<span style="color: #aaa; text-align: center; display: block;">-</span>';
+        }
+
         function getConditionBadge(condition) {
             const badges = {
+                'excellent': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Excellent</span>',
                 'good': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Good</span>',
+                'fair': '<span style="background: #ffc107; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Fair</span>',
+                'poor': '<span style="background: #fd7e14; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Poor</span>',
                 'worn-out': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Worn-out</span>',
+                'damaged': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Damaged</span>',
                 'bad': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Bad</span>'
             };
-            return badges[condition] || condition;
+            return badges[condition] || `<span style="color: #666; font-size: 0.8rem;">${condition || 'Unknown'}</span>`;
         }
 
         function getInventoryStatusBadge(status) {
             const badges = {
-                'available': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Available</span>',
-                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Borrowed</span>'
+                'available': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Available</span>',
+                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Borrowed</span>',
+                'maintenance': '<span style="background: #fd7e14; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Maintenance</span>',
+                'reserved': '<span style="background: #17a2b8; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Reserved</span>',
+                'retired': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Retired</span>'
             };
-            return badges[status] || status;
+            return badges[status] || `<span style="color: #666; font-size: 0.8rem;">${status || 'Unknown'}</span>`;
         }
 
         // Load inventory items when costume inventory section is activated
@@ -6426,8 +6489,16 @@ try {
                 });
         }
 
+        // Store all participants globally for filtering
+        let allParticipantsData = [];
+        let currentEvent = null;
+
         // Display event participants
         function displayEventParticipants(event, participants) {
+            // Store data globally
+            currentEvent = event;
+            allParticipantsData = participants;
+            
             // Update modal title and event details
             document.getElementById('participantsModalTitle').textContent = `Participants - ${event.title}`;
             
@@ -6456,6 +6527,38 @@ try {
                 </div>
             `;
             
+            // Setup search functionality
+            const searchInput = document.getElementById('participantsSearchInput');
+            searchInput.value = '';
+            searchInput.onkeyup = function() {
+                filterParticipants(this.value);
+            };
+            
+            // Display all participants initially
+            renderParticipantsTable(participants);
+        }
+        
+        // Filter participants based on search
+        function filterParticipants(searchTerm) {
+            const term = searchTerm.toLowerCase().trim();
+            
+            if (!term) {
+                renderParticipantsTable(allParticipantsData);
+                return;
+            }
+            
+            const filtered = allParticipantsData.filter(p => {
+                return (p.full_name && p.full_name.toLowerCase().includes(term)) ||
+                       (p.display_sr_code && p.display_sr_code.toLowerCase().includes(term)) ||
+                       (p.display_email && p.display_email.toLowerCase().includes(term)) ||
+                       (p.cultural_group && p.cultural_group.toLowerCase().includes(term));
+            });
+            
+            renderParticipantsTable(filtered);
+        }
+        
+        // Render participants table
+        function renderParticipantsTable(participants) {
             // Update participants count
             document.getElementById('participantsCount').textContent = `${participants.length} participant(s)`;
             
@@ -6468,9 +6571,26 @@ try {
             tableBody.innerHTML = '';
             
             if (participants.length === 0) {
-                participantsSummary.style.display = 'none';
-                tableContainer.style.display = 'none';
-                noParticipantsMsg.style.display = 'block';
+                const searchInput = document.getElementById('participantsSearchInput');
+                if (searchInput.value.trim()) {
+                    // Show "no results" for search
+                    tableContainer.style.display = 'block';
+                    participantsSummary.style.display = 'flex';
+                    noParticipantsMsg.style.display = 'none';
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="padding: 3rem; text-align: center; color: #666;">
+                                <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">No participants found</p>
+                                <small>Try a different search term</small>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    // No participants at all
+                    participantsSummary.style.display = 'none';
+                    tableContainer.style.display = 'none';
+                    noParticipantsMsg.style.display = 'block';
+                }
             } else {
                 participantsSummary.style.display = 'flex';
                 tableContainer.style.display = 'block';
@@ -6529,6 +6649,11 @@ try {
             document.getElementById('eventDetailsContent').innerHTML = '';
             document.getElementById('participantsTableBody').innerHTML = '';
             document.getElementById('participantsCount').textContent = '0 participants';
+            document.getElementById('participantsSearchInput').value = '';
+            
+            // Reset global data
+            allParticipantsData = [];
+            currentEvent = null;
             
             // Reset display states
             document.getElementById('participantsLoading').style.display = 'none';
