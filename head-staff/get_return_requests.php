@@ -113,8 +113,7 @@ try {
             sa.sr_code,
             sa.email,
             CONCAT(sa.first_name, ' ', sa.last_name) as student_name,
-            br.created_at as request_date,
-            br.estimated_return_date as due_date
+            br.created_at as request_date
         FROM return_requests rr
         JOIN student_artists sa ON rr.student_id = sa.id
         LEFT JOIN borrowing_requests br ON rr.borrowing_request_id = br.id

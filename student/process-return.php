@@ -48,10 +48,10 @@ try {
     $pdo->beginTransaction();
     
     try {
-        // Prepare the insert statement for return requests
+        // Prepare the insert statement for return requests (include quantity_returned)
         $stmt = $pdo->prepare("
-            INSERT INTO return_requests (borrowing_request_id, student_id, item_id, item_name, condition_notes, status, requested_at)
-            VALUES (?, ?, ?, ?, ?, 'pending', NOW())
+            INSERT INTO return_requests (borrowing_request_id, student_id, item_id, item_name, quantity_returned, condition_notes, status, requested_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
         ");
         
         $processed_borrowing_requests = [];
@@ -78,12 +78,21 @@ try {
                 $processed_borrowing_requests[] = $item_data['borrowing_request_id'];
             }
             
-            // Insert return request for this item
+            // Determine quantity to return (default to 1)
+            $qty = 1;
+            if (isset($item_data['quantity'])) {
+                $qty = max(1, intval($item_data['quantity']));
+            } elseif (isset($item_data['qty'])) {
+                $qty = max(1, intval($item_data['qty']));
+            }
+
+            // Insert return request for this item, including quantity
             $stmt->execute([
                 $item_data['borrowing_request_id'],
                 $student_id,
                 $item_data['id'],
                 $item_data['name'],
+                $qty,
                 $condition_text
             ]);
         }

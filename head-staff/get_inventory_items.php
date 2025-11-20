@@ -46,43 +46,73 @@ try {
         exit;
     }
 
-    // Fetch costumes with borrower information
-    $costumesSQL = "
-        SELECT 
-            i.*,
-            br.student_name as borrower_name,
-            br.start_date as borrow_date,
-            br.end_date as return_due_date,
-            br.student_email as borrower_email,
-            br.student_course as borrower_course
-        FROM inventory i
-        LEFT JOIN borrowing_requests br ON i.id = br.item_id 
-            AND br.status IN ('approved', 'borrowed') 
-            AND br.current_status = 'active'
-        WHERE i.category = 'costume' 
-        ORDER BY i.created_at DESC
-    ";
+    // Fetch costumes
+    $costumesSQL = "SELECT * FROM inventory WHERE category = 'costume' ORDER BY created_at DESC";
     $costumesStmt = $pdo->query($costumesSQL);
     $costumes = $costumesStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // For each costume, fetch all active borrowers
+    foreach ($costumes as &$costume) {
+        $borrowersSQL = "
+            SELECT 
+                br.student_name,
+                br.start_date as borrow_date,
+                br.end_date as return_due_date,
+                br.student_email,
+                br.student_course
+            FROM borrowing_requests br
+            WHERE br.item_id = ? 
+                AND br.status IN ('approved', 'borrowed') 
+                AND br.current_status IN ('active', 'pending_return')
+            ORDER BY br.start_date DESC
+        ";
+        $borrowersStmt = $pdo->prepare($borrowersSQL);
+        $borrowersStmt->execute([$costume['id']]);
+        $costume['borrowers'] = $borrowersStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // For backward compatibility, set single borrower fields if there's at least one
+        if (!empty($costume['borrowers'])) {
+            $costume['borrower_name'] = $costume['borrowers'][0]['student_name'];
+            $costume['borrow_date'] = $costume['borrowers'][0]['borrow_date'];
+            $costume['return_due_date'] = $costume['borrowers'][0]['return_due_date'];
+            $costume['borrower_email'] = $costume['borrowers'][0]['student_email'];
+            $costume['borrower_course'] = $costume['borrowers'][0]['student_course'];
+        }
+    }
 
-    // Fetch equipment with borrower information
-    $equipmentSQL = "
-        SELECT 
-            i.*,
-            br.student_name as borrower_name,
-            br.start_date as borrow_date,
-            br.end_date as return_due_date,
-            br.student_email as borrower_email,
-            br.student_course as borrower_course
-        FROM inventory i
-        LEFT JOIN borrowing_requests br ON i.id = br.item_id 
-            AND br.status IN ('approved', 'borrowed') 
-            AND br.current_status = 'active'
-        WHERE i.category = 'equipment' 
-        ORDER BY i.created_at DESC
-    ";
+    // Fetch equipment
+    $equipmentSQL = "SELECT * FROM inventory WHERE category = 'equipment' ORDER BY created_at DESC";
     $equipmentStmt = $pdo->query($equipmentSQL);
     $equipment = $equipmentStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // For each equipment, fetch all active borrowers
+    foreach ($equipment as &$item) {
+        $borrowersSQL = "
+            SELECT 
+                br.student_name,
+                br.start_date as borrow_date,
+                br.end_date as return_due_date,
+                br.student_email,
+                br.student_course
+            FROM borrowing_requests br
+            WHERE br.item_id = ? 
+                AND br.status IN ('approved', 'borrowed') 
+                AND br.current_status IN ('active', 'pending_return')
+            ORDER BY br.start_date DESC
+        ";
+        $borrowersStmt = $pdo->prepare($borrowersSQL);
+        $borrowersStmt->execute([$item['id']]);
+        $item['borrowers'] = $borrowersStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // For backward compatibility, set single borrower fields if there's at least one
+        if (!empty($item['borrowers'])) {
+            $item['borrower_name'] = $item['borrowers'][0]['student_name'];
+            $item['borrow_date'] = $item['borrowers'][0]['borrow_date'];
+            $item['return_due_date'] = $item['borrowers'][0]['return_due_date'];
+            $item['borrower_email'] = $item['borrowers'][0]['student_email'];
+            $item['borrower_course'] = $item['borrowers'][0]['student_course'];
+        }
+    }
 
     ob_clean();
     echo json_encode([

@@ -49,7 +49,8 @@ try {
                 // Add borrowing request ID to each item for tracking
                 $item['borrowing_request_id'] = $request['id'];
                 $item['request_date'] = $request['created_at'];
-                $item['due_date'] = $request['estimated_return_date'] ?? null;
+                // Prefer end_date (set by head/staff) or due_date, fallback to estimated_return_date
+                $item['due_date'] = $request['end_date'] ?? $request['due_date'] ?? $request['estimated_return_date'] ?? null;
                 $all_approved_items[] = $item;
             }
             
@@ -57,7 +58,7 @@ try {
             $borrowing_request_details[] = [
                 'id' => $request['id'],
                 'created_at' => $request['created_at'],
-                'estimated_return_date' => $request['estimated_return_date'] ?? null
+                'end_date' => $request['end_date'] ?? $request['due_date'] ?? $request['estimated_return_date'] ?? null
             ];
         }
     }
@@ -400,26 +401,8 @@ try {
                                 ?>" readonly>
                             </div>
                             <div class="input-group">
-                                <label>Due Date Range</label>
-                                <input type="text" value="<?php
-                                    if (count($borrowing_request_details) > 1) {
-                                        $due_dates = array_filter(array_column($borrowing_request_details, 'estimated_return_date'));
-                                        if (!empty($due_dates)) {
-                                            $earliest_due = min($due_dates);
-                                            $latest_due = max($due_dates);
-                                            if ($earliest_due === $latest_due) {
-                                                echo date('M j, Y', strtotime($earliest_due));
-                                            } else {
-                                                echo date('M j, Y', strtotime($earliest_due)) . ' - ' . date('M j, Y', strtotime($latest_due));
-                                            }
-                                        } else {
-                                            echo 'Not specified';
-                                        }
-                                    } else {
-                                        echo isset($borrowing_request['estimated_return_date']) ? 
-                                            date('F j, Y', strtotime($borrowing_request['estimated_return_date'])) : 'Not specified';
-                                    }
-                                ?>" readonly>
+                                <label>Due Date</label>
+                                <input type="text" id="dueDateInput" value="Not specified" readonly>
                             </div>
                         </div>
                     </div>
@@ -431,25 +414,39 @@ try {
                             <label>Select Approved Items to Return</label>
                             <div class="checkbox-group">
                                 <?php if (!empty($approved_items)): ?>
-                                    <?php foreach ($approved_items as $index => $item): ?>
+                                    <?php foreach ($approved_items as $index => $item): 
+                                        // determine quantity available in the item metadata
+                                        $item_qty = $item['quantity'] ?? $item['qty'] ?? 1;
+                                        $item_due = $item['due_date'] ?? $item['estimated_return_date'] ?? null;
+                                        $checkbox_value = json_encode([
+                                            'id' => $item['id'],
+                                            'name' => $item['name'],
+                                            'borrowing_request_id' => $item['borrowing_request_id'],
+                                            'due_date' => $item_due,
+                                            'quantity' => $item_qty
+                                        ]);
+                                    ?>
                                         <div class="checkbox-item">
                                             <input type="checkbox" 
                                                    id="item_<?= $index ?>" 
                                                    name="selected_items[]" 
-                                                   value="<?= htmlspecialchars(json_encode([
-                                                       'id' => $item['id'],
-                                                       'name' => $item['name'],
-                                                       'borrowing_request_id' => $item['borrowing_request_id']
-                                                   ])) ?>" 
+                                                   value="<?= htmlspecialchars($checkbox_value) ?>" 
                                                    checked>
                                             <span class="checkmark"></span>
                                             <label for="item_<?= $index ?>" class="checkbox-label">
                                                 <?= htmlspecialchars($item['name']) ?>
-                                                <?php if (count($borrowing_request_details) > 1): ?>
+                                                <?php if ($item_due): ?>
                                                     <span style="color: #6c757d; margin-left: 0.5rem; font-size: 0.85rem;">
-                                                        (<?= date('M j, Y', strtotime($item['request_date'])) ?>)
+                                                        (Due: <?= date('M j, Y', strtotime($item_due)) ?>)
                                                     </span>
                                                 <?php endif; ?>
+                                                <input type="number" 
+                                                       class="return-qty" 
+                                                       data-index="<?= $index ?>" 
+                                                       min="1" 
+                                                       value="<?= $item_qty ?>" 
+                                                       max="<?= $item_qty ?>" 
+                                                       style="width:80px; margin-left:1rem;">
                                             </label>
                                         </div>
                                     <?php endforeach; ?>
@@ -533,6 +530,57 @@ try {
                     }
                 });
             }
+
+            // Sync quantity input to checkbox JSON value and update Due Date display
+            function safeParseJSON(val) {
+                try {
+                    return JSON.parse(val);
+                } catch (err) {
+                    return null;
+                }
+            }
+
+            function updateDueDateFromSelection() {
+                const dueInput = document.getElementById('dueDateInput');
+                const firstChecked = document.querySelector('input[name="selected_items[]"]:checked');
+                if (!firstChecked) {
+                    if (dueInput) dueInput.value = 'Not specified';
+                    return;
+                }
+                const data = safeParseJSON(firstChecked.value);
+                if (data && data.due_date) {
+                    const d = new Date(data.due_date);
+                    if (!isNaN(d.getTime())) {
+                        const options = { month: 'short', day: 'numeric', year: 'numeric' };
+                        dueInput.value = d.toLocaleDateString('en-US', options);
+                        return;
+                    }
+                }
+                if (dueInput) dueInput.value = 'Not specified';
+            }
+
+            // Attach change listeners to checkboxes
+            document.querySelectorAll('input[name="selected_items[]"]').forEach(cb => {
+                cb.addEventListener('change', updateDueDateFromSelection);
+            });
+
+            // Attach listeners to quantity inputs to update corresponding checkbox JSON
+            document.querySelectorAll('.return-qty').forEach(q => {
+                q.addEventListener('change', function() {
+                    let idx = this.dataset.index;
+                    const checkbox = document.getElementById('item_' + idx);
+                    if (!checkbox) return;
+                    let data = safeParseJSON(checkbox.value) || {};
+                    let val = parseInt(this.value) || 1;
+                    if (data) {
+                        data.quantity = val;
+                        checkbox.value = JSON.stringify(data);
+                    }
+                });
+            });
+
+            // Initialize Due Date display
+            updateDueDateFromSelection();
         });
     </script>
 </body>

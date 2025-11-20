@@ -131,6 +131,9 @@ try {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f5f5f5;
             color: #333;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
         }
 
         /* Header */
@@ -146,6 +149,9 @@ try {
             top: 0;
             z-index: 100;
             border-bottom: 1px solid #e0e0e0;
+            width: 100%;
+            max-width: 100vw;
+            box-sizing: border-box;
         }
 
         .header-left {
@@ -200,11 +206,15 @@ try {
         .main-container {
             display: flex;
             min-height: calc(100vh - 70px);
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
         }
 
         /* Sidebar */
         .sidebar {
             width: 280px;
+            max-width: 280px;
             background: white;
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
             min-height: calc(100vh - 70px);
@@ -212,7 +222,8 @@ try {
             top: 70px;
             left: 0;
             z-index: 50;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .nav-menu {
@@ -252,7 +263,10 @@ try {
             flex: 1;
             margin-left: 280px;
             padding: 2rem;
+            max-width: calc(100vw - 280px);
             overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
         }
 
         .content-section {
@@ -269,6 +283,8 @@ try {
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
+            width: 100%;
+            max-width: 100%;
         }
 
         .dashboard-card {
@@ -315,6 +331,8 @@ try {
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
+            width: 100%;
+            max-width: 100%;
         }
 
         .content-panel {
@@ -591,6 +609,8 @@ try {
             overflow-x: auto;
             border-radius: 8px;
             border: 1px solid #e5e7eb;
+            width: 100%;
+            max-width: 100%;
         }
 
         .table-container table {
@@ -614,6 +634,13 @@ try {
 
         .table-container tr:hover {
             background: #f9fafb;
+        }
+
+        /* Compact row style for denser inventory lists */
+        .compact-row > div {
+            padding: 0 0.4rem !important;
+            font-size: 0.9rem;
+            line-height: 1.2;
         }
 
         /* Student Profiles Specific Styles */
@@ -845,6 +872,8 @@ try {
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
             margin-bottom: 2rem;
+            width: 100%;
+            max-width: 100%;
         }
 
         .events-left,
@@ -864,6 +893,12 @@ try {
 
         .events-list {
             flex: 1;
+            overflow-y: auto;
+        }
+
+        /* Ensure upcoming events list can be limited and scrolled to match input panel height */
+        .events-right .events-list,
+        .events-left .events-list {
             overflow-y: auto;
         }
 
@@ -1560,7 +1595,7 @@ try {
 
             /* Inventory tables on tablet */
             .table-header-row {
-                grid-template-columns: minmax(150px, 2fr) 70px 90px 90px minmax(150px, 1fr) !important;
+                grid-template-columns: 2fr 70px 90px 90px 1fr !important;
                 font-size: 0.8rem !important;
             }
         }
@@ -2060,7 +2095,7 @@ try {
                 </div>
 
                 <!-- Dashboard Overview -->
-                <div class="student-overview">
+                <div class="student-overview" style="width: 100%; max-width: 100%;">
                     <div class="overview-left">
                         <h3 style="margin-bottom: 1rem; color: #666;">Campus Distribution</h3>
                         <div id="campusDistributionChart" class="campus-distribution">
@@ -2347,15 +2382,21 @@ try {
 
                 <!-- Event Participation Table -->
                 <div class="content-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Event Participation</h3>
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                        <h3 class="panel-title" style="margin: 0;">Event Participation</h3>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="text" id="participationSearchInput" placeholder="Search events by title, category, or location..." 
+                                   style="padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 20px; min-width: 260px; box-sizing: border-box;" 
+                                   oninput="filterParticipationEvents()">
+                            <button onclick="clearParticipationSearch()" style="background: #dc2626; color: white; border: none; padding: 0.45rem 0.75rem; border-radius: 6px; cursor: pointer;">Clear</button>
+                        </div>
                     </div>
                     <div class="panel-content" id="eventParticipationContent">
                         <div class="loading-state" id="participationLoading">
                             <p>Loading event participation data...</p>
                         </div>
-                        <div class="participation-table-container" id="participationTableContainer" style="display: none;">
-                            <!-- Event participation table will be loaded here -->
+                        <div class="participation-table-container" id="participationTableContainer" style="display: none; max-height: 450px; overflow-y: auto;">
+                            <!-- Event participation table will be loaded here - max 5 rows visible -->
                         </div>
                     </div>
                 </div>
@@ -2414,8 +2455,8 @@ try {
                                 <span style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #666; font-size: 16px;">🔍</span>
                             </div>
                         </div>
-                        <div id="eventSelectionList" style="max-height: 350px; overflow-y: auto; padding: 1rem;">
-                            <!-- Event list will be populated here -->
+                        <div id="eventSelectionList" style="max-height: 250px; overflow-y: auto; padding: 1rem;">
+                            <!-- Event list will be populated here - max 5 rows visible -->
                         </div>
                     </div>
                 </div>
@@ -2512,20 +2553,26 @@ try {
                                 <!-- Rating Distribution Chart -->
                                 <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;">
                                     <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Rating Distribution</h4>
-                                    <canvas id="ratingDistributionChart" width="400" height="300" style="max-width: 100%; height: auto; display: block; margin: 0 auto;"></canvas>
+                                    <div style="position: relative; height: 300px;">
+                                        <canvas id="ratingDistributionChart" style="max-width: 100%; max-height: 100%; display: block; margin: 0 auto;"></canvas>
+                                    </div>
                                 </div>
 
                                 <!-- Question Scores Chart -->
                                 <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                     <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Question Scores</h4>
-                                    <canvas id="questionScoresChart" width="400" height="420" style="max-width: 100%; height: auto;"></canvas>
+                                    <div style="position: relative; height: 300px;">
+                                        <canvas id="questionScoresChart" style="max-width: 100%; max-height: 100%;"></canvas>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Evaluation Trends Chart -->
                             <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
                                 <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Evaluation Trends Over Time</h4>
-                                <canvas id="evaluationTrendsChart" width="800" height="400" style="max-width: 100%; height: auto;"></canvas>
+                                <div style="position: relative; height: 350px;">
+                                    <canvas id="evaluationTrendsChart" style="max-width: 100%; max-height: 100%;"></canvas>
+                                </div>
                             </div>
 
                             <!-- Detailed Analytics -->
@@ -2581,7 +2628,7 @@ try {
                 </div>
 
                 <!-- Inventory Grid -->
-                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem; width: 100%; max-width: 100%;">
                     <!-- Costumes Table -->
                     <div class="inventory-left">
                         <div class="inventory-panel">
@@ -2591,7 +2638,7 @@ try {
                             <div class="inventory-table-container">
                                 <div class="table-section">
                                     <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: minmax(150px, 2fr) minmax(60px, 80px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 200px);">
+                                        <div class="table-header-row" style="grid-template-columns: 2fr 80px 100px 100px 1fr;">
                                             <div class="header-col">NAME</div>
                                             <div class="header-col">QTY</div>
                                             <div class="header-col">CONDITION</div>
@@ -2600,8 +2647,8 @@ try {
                                         </div>
                                     </div>
                                     
-                                    <div class="table-body" id="costumesTableBody">
-                                        <!-- Costumes will be loaded dynamically -->
+                                    <div class="table-body" id="costumesTableBody" style="max-height: 560px; overflow-y: auto;">
+                                        <!-- Costumes will be loaded dynamically - max 10 rows visible -->
                                         <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
                                             <p>No costumes found.</p>
                                             <small>Click "Add Costume" to get started.</small>
@@ -2621,7 +2668,7 @@ try {
                             <div class="inventory-table-container">
                                 <div class="table-section">
                                     <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: minmax(150px, 2fr) minmax(60px, 100px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 220px);">
+                                        <div class="table-header-row" style="grid-template-columns: 2fr 80px 100px 100px 1fr;">
                                             <div class="header-col">NAME</div>
                                             <div class="header-col">QTY</div>
                                             <div class="header-col">CONDITION</div>
@@ -2630,8 +2677,8 @@ try {
                                         </div>
                                     </div>
                                     
-                                    <div class="table-body" id="equipmentTableBody">
-                                        <!-- Equipment will be loaded dynamically -->
+                                    <div class="table-body" id="equipmentTableBody" style="max-height: 560px; overflow-y: auto;">
+                                        <!-- Equipment will be loaded dynamically - max 10 rows visible -->
                                         <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
                                             <p>No equipment found.</p>
                                             <small>Click "Add Costume" to get started.</small>
@@ -2888,6 +2935,12 @@ try {
                             <option value="costume">Costume</option>
                             <option value="equipment">Equipment</option>
                         </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="itemQuantity">Quantity*</label>
+                        <input type="number" id="itemQuantity" name="quantity" placeholder="Enter quantity" required min="0" value="0"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
                     </div>
                     
                     <div class="form-group">
@@ -3593,7 +3646,35 @@ try {
             loadStudentArtistOverview();
             loadUpcomingEventsOverview();
             loadCostumeInventoryOverview();
+                // Adjust upcoming events list height to match the input panel
+                try { if (typeof adjustUpcomingEventsHeight === 'function') adjustUpcomingEventsHeight(); } catch(e) { console.warn(e); }
         });
+
+            // Keep the upcoming events list height in sync with the input panel
+            function adjustUpcomingEventsHeight() {
+                try {
+                    const inputPanel = document.querySelector('.events-left .input-panel');
+                    const eventsList = document.getElementById('eventsList');
+                    if (!inputPanel || !eventsList) return;
+
+                    // Compute available height inside the input panel (exclude paddings if needed)
+                    const panelStyle = window.getComputedStyle(inputPanel);
+                    const panelPaddingTop = parseFloat(panelStyle.paddingTop) || 0;
+                    const panelPaddingBottom = parseFloat(panelStyle.paddingBottom) || 0;
+                    const availableHeight = inputPanel.clientHeight - panelPaddingTop - panelPaddingBottom;
+
+                    // Apply the height to the events list so it scrolls internally when content overflows
+                    eventsList.style.maxHeight = availableHeight + 'px';
+                    eventsList.style.overflowY = 'auto';
+                } catch (err) {
+                    console.error('adjustUpcomingEventsHeight error:', err);
+                }
+            }
+
+            // Recompute on resize and when DOM changes in case panels are toggled
+            window.addEventListener('resize', function() {
+                try { adjustUpcomingEventsHeight(); } catch(e) { /* ignore */ }
+            });
 
         // Campus Distribution Functions
         function loadCampusDistribution(searchTerm = '') {
@@ -4317,14 +4398,17 @@ try {
             }))
             .then(response => response.json())
             .then(data => {
+                loadingDiv.style.display = 'none';
+                contentDiv.style.display = 'block';
+
                 if (data.success) {
                     displayReturnRequests(data.requests);
-                    loadingDiv.style.display = 'none';
-                    contentDiv.style.display = 'block';
+                    // Render pagination controls if provided by the API
+                    if (data.pagination) {
+                        displayReturnRequestsPagination(data.pagination);
+                    }
                 } else {
                     tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Error loading return requests: ${data.message}</td></tr>`;
-                    loadingDiv.style.display = 'none';
-                    contentDiv.style.display = 'block';
                 }
             })
             .catch(error => {
@@ -4361,6 +4445,48 @@ try {
             });
             
             tableBody.innerHTML = html;
+        }
+
+        function displayReturnRequestsPagination(pagination) {
+            const paginationDiv = document.getElementById('returnsPagination');
+            if (!paginationDiv) return;
+
+            if (pagination.total_pages <= 1) {
+                paginationDiv.innerHTML = '';
+                return;
+            }
+
+            let html = '<div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 1rem;">';
+
+            // Previous button
+            if (pagination.current_page > 1) {
+                html += `<button class="pagination-btn" onclick="loadReturnRequests(${pagination.current_page - 1})">Previous</button>`;
+            }
+
+            // Page numbers
+            const startPage = Math.max(1, pagination.current_page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === pagination.current_page ? 'active' : '';
+                html += `<button class="pagination-number ${activeClass}" onclick="loadReturnRequests(${i})">${i}</button>`;
+            }
+
+            // Next button
+            if (pagination.current_page < pagination.total_pages) {
+                html += `<button class="pagination-btn" onclick="loadReturnRequests(${pagination.current_page + 1})">Next</button>`;
+            }
+
+            html += '</div>';
+
+            const perPage = pagination.per_page || 10;
+            const total = pagination.total_count || 0;
+            const startItem = ((pagination.current_page - 1) * perPage) + 1;
+            const endItem = Math.min(pagination.current_page * perPage, total);
+
+            html += `<div style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem; color: #666;">Showing ${startItem} to ${endItem} of ${total} requests</div>`;
+
+            paginationDiv.innerHTML = html;
         }
 
         let returnSearchTimeout;
@@ -4489,6 +4615,7 @@ try {
                     const itemData = {
                         name: formData.get('name'),
                         category: formData.get('category'),
+                        quantity: formData.get('quantity'),
                         condition: formData.get('condition'),
                         description: formData.get('description'),
                         status: 'available' // Automatically set to available
@@ -4562,7 +4689,7 @@ try {
             
             let html = '';
             costumes.forEach(costume => {
-                html += '<div class="table-row" style="display: grid; grid-template-columns: minmax(150px, 2fr) minmax(60px, 80px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 200px); padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.6rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
                 html += '<div style="padding: 0 0.5rem; font-weight: 500;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
                 html += '<div style="padding: 0 0.5rem; text-align: center;">' + getConditionBadge(costume.condition_status) + '</div>';
@@ -4582,7 +4709,7 @@ try {
             
             let html = '';
             equipment.forEach(item => {
-                html += '<div class="table-row" style="display: grid; grid-template-columns: minmax(150px, 2fr) minmax(60px, 100px) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 220px); padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.6rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
                 html += '<div style="padding: 0 0.5rem; font-weight: 500;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
                 html += '<div style="padding: 0 0.5rem; text-align: center;">' + getConditionBadge(item.condition_status) + '</div>';
@@ -4594,14 +4721,32 @@ try {
         }
 
         function getBorrowerInfo(item) {
-            if (item.status === 'borrowed' && item.borrower_name) {
-                const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return `<div style="line-height: 1.4;">
-                    <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${item.borrower_name}</div>
-                    <div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>
-                </div>`;
-            } else if (item.status === 'borrowed') {
-                return '<span style="color: #666; font-style: italic;">Borrowed</span>';
+            if (item.status === 'borrowed') {
+                // Check if there are multiple borrowers
+                if (item.borrowers && item.borrowers.length > 0) {
+                    let html = '<div style="line-height: 1.4;">';
+                    
+                    // Show all borrower names
+                    item.borrowers.forEach((borrower, index) => {
+                        const borrowDate = new Date(borrower.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.5rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.5rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
+                        html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px;">${borrower.student_name}</div>`;
+                        html += `<div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>`;
+                        html += `</div>`;
+                    });
+                    
+                    html += '</div>';
+                    return html;
+                } else if (item.borrower_name) {
+                    // Fallback to single borrower for backward compatibility
+                    const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    return `<div style="line-height: 1.4;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${item.borrower_name}</div>
+                        <div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>
+                    </div>`;
+                } else {
+                    return '<span style="color: #666; font-style: italic;">Borrowed</span>';
+                }
             }
             return '<span style="color: #aaa; text-align: center; display: block;">-</span>';
         }
@@ -5414,6 +5559,8 @@ try {
             console.log('Loading event participation data...');
             const loadingDiv = document.getElementById('participationLoading');
             const tableContainer = document.getElementById('participationTableContainer');
+            // global variable to hold participation events for client-side filtering
+            window.participationEvents = window.participationEvents || [];
             
             loadingDiv.style.display = 'block';
             tableContainer.style.display = 'none';
@@ -5432,7 +5579,9 @@ try {
                     
                     if (data.success) {
                         console.log('Success! Events count:', data.events.length);
-                        displayEventParticipation(data.events);
+                        // store full events list for filtering
+                        window.participationEvents = data.events || [];
+                        displayEventParticipation(window.participationEvents);
                     } else {
                         console.error('API returned error:', data.message);
                         showParticipationError(data.message);
@@ -5534,6 +5683,33 @@ try {
             
             // Show and populate the chart
             showParticipationChart(events);
+        }
+
+        // Filter participation events client-side
+        function filterParticipationEvents() {
+            const q = document.getElementById('participationSearchInput').value.trim().toLowerCase();
+            if (!window.participationEvents) return;
+            if (q === '') {
+                displayEventParticipation(window.participationEvents);
+                return;
+            }
+
+            const filtered = window.participationEvents.filter(ev => {
+                const title = (ev.title || '').toLowerCase();
+                const category = (ev.category || '').toLowerCase();
+                const location = (ev.location || '').toLowerCase();
+                return title.includes(q) || category.includes(q) || location.includes(q);
+            });
+
+            displayEventParticipation(filtered);
+        }
+
+        function clearParticipationSearch() {
+            const input = document.getElementById('participationSearchInput');
+            if (input) {
+                input.value = '';
+                displayEventParticipation(window.participationEvents || []);
+            }
         }
 
         // Chart functionality
