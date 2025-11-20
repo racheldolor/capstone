@@ -892,14 +892,28 @@ try {
         }
 
         .events-list {
-            flex: 1;
             overflow-y: auto;
+            padding: 1.5rem;
+            height: 700px;
+            min-height: 700px;
         }
 
         /* Ensure upcoming events list can be limited and scrolled to match input panel height */
         .events-right .events-list,
         .events-left .events-list {
             overflow-y: auto;
+            height: 700px;
+            min-height: 700px;
+        }
+        
+        .events-right {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .events-right .upcoming-panel {
+            display: flex;
+            flex-direction: column;
         }
 
         .panel-header-event {
@@ -1094,11 +1108,6 @@ try {
         .save-event-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-        }
-
-        .events-list {
-            padding: 1.5rem;
-            min-height: 400px;
         }
 
         .empty-events {
@@ -1344,6 +1353,18 @@ try {
         .pagination-number.active {
             background: #dc2626;
             color: white;
+        }
+
+        /* Inventory Styles */
+        .inventory-panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .inventory-table-container {
+            overflow: hidden;
         }
 
         /* Responsive */
@@ -2553,26 +2574,21 @@ try {
                                 <!-- Rating Distribution Chart -->
                                 <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;">
                                     <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Rating Distribution</h4>
-                                    <div style="position: relative; height: 300px;">
-                                        <canvas id="ratingDistributionChart" style="max-width: 100%; max-height: 100%; display: block; margin: 0 auto;"></canvas>
-                                    </div>
+                                    <canvas id="ratingDistributionChart" width="400" height="300" style="max-width: 100%; height: auto; display: block; margin: 0 auto;"></canvas>
                                 </div>
 
                                 <!-- Question Scores Chart -->
                                 <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                     <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Question Scores</h4>
-                                    <div style="position: relative; height: 300px;">
-                                        <canvas id="questionScoresChart" style="max-width: 100%; max-height: 100%;"></canvas>
-                                    </div>
+                                    <canvas id="questionScoresChart" width="400" height="420" style="max-width: 100%; height: auto;"></canvas>
                                 </div>
                             </div>
 
                             <!-- Evaluation Trends Chart -->
                             <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
                                 <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Evaluation Trends Over Time</h4>
-                                <div style="position: relative; height: 350px;">
-                                    <canvas id="evaluationTrendsChart" style="max-width: 100%; max-height: 100%;"></canvas>
-                                </div>
+                                <canvas id="evaluationTrendsChart" width="800" height="400" style="max-width: 100%; height: auto;"></canvas>
+                            </div>
                             </div>
 
                             <!-- Detailed Analytics -->
@@ -2628,7 +2644,7 @@ try {
                 </div>
 
                 <!-- Inventory Grid -->
-                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem; width: 100%; max-width: 100%;">
+                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; width: 100%; max-width: 100%;">
                     <!-- Costumes Table -->
                     <div class="inventory-left">
                         <div class="inventory-panel">
@@ -4689,11 +4705,11 @@ try {
             
             let html = '';
             costumes.forEach(costume => {
-                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.6rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem; font-weight: 500;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div style="padding: 0 0.5rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getConditionBadge(costume.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getConditionBadge(costume.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
                 html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(costume) + '</div>';
                 html += '</div>';
             });
@@ -4709,11 +4725,11 @@ try {
             
             let html = '';
             equipment.forEach(item => {
-                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.6rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem; font-weight: 500;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
+                html += '<div style="padding: 0 0.5rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
                 html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getConditionBadge(item.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getConditionBadge(item.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getInventoryStatusBadge(item.status) + '</div>';
                 html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(item) + '</div>';
                 html += '</div>';
             });
@@ -7077,37 +7093,40 @@ try {
 
             // Chart setup
             const padding = 60;
+            const paddingTop = 40;
             const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const barHeight = 15;
-            const barSpacing = 35;
+            const chartHeight = canvas.height - paddingTop - 20;
+            const barHeight = 18;
+            // Calculate dynamic spacing to fit all questions
+            const totalBars = questionData.length;
+            const barSpacing = chartHeight / totalBars;
 
             // Draw horizontal bars
             questionData.forEach((question, index) => {
                 const barWidth = (question.average_score / 5) * chartWidth;
-                const y = padding + (index * barSpacing);
+                const y = paddingTop + (index * barSpacing);
 
                 // Draw bar background
                 ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(padding, y, chartWidth, barHeight);
+                ctx.fillRect(padding, y + 15, chartWidth, barHeight);
 
                 // Draw bar
                 const hue = (question.average_score / 5) * 120; // Green for high scores
                 ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
-                ctx.fillRect(padding, y, barWidth, barHeight);
+                ctx.fillRect(padding, y + 15, barWidth, barHeight);
 
                 // Draw question label
                 ctx.fillStyle = '#333';
                 ctx.font = '11px Arial';
                 ctx.textAlign = 'left';
-                const questionText = question.question.length > 50 ? 
-                    question.question.substring(0, 50) + '...' : question.question;
-                ctx.fillText(questionText, padding, y - 8);
+                const questionText = question.question.length > 45 ? 
+                    question.question.substring(0, 45) + '...' : question.question;
+                ctx.fillText(questionText, padding, y + 12);
 
                 // Draw score
                 ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'right';
-                ctx.fillText(question.average_score.toFixed(1), canvas.width - padding, y + 12);
+                ctx.fillText(question.average_score.toFixed(1), canvas.width - padding + 10, y + 28);
             });
 
             // Draw title
