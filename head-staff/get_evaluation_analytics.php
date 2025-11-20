@@ -381,13 +381,31 @@ function getCommentsAnalysis($evaluations) {
                 'rating_context' => calculateCommentRating($evaluation)
             ];
             
-            // Simple sentiment analysis based on average rating
+            // Check for improvement keywords
+            $improvementKeywords = ['improve', 'better', 'should', 'could', 'need', 'more', 'less', 
+                                   'change', 'fix', 'issue', 'problem', 'suggest', 'recommend', 
+                                   'enhancement', 'upgrade', 'update', 'adjust', 'modify'];
+            
+            $textLower = strtolower($response['text']);
+            $hasImprovementKeyword = false;
+            foreach ($improvementKeywords as $keyword) {
+                if (strpos($textLower, $keyword) !== false) {
+                    $hasImprovementKeyword = true;
+                    break;
+                }
+            }
+            
+            // Classify comments
             $avgRating = calculateCommentRating($evaluation);
             
-            if ($avgRating >= 4.0) {
-                $positiveComments[] = $comment;
-            } elseif ($avgRating <= 3.0) {
+            // If it's a suggestion type or contains improvement keywords, add to improvements
+            if ($response['type'] === 'Suggestions' || $hasImprovementKeyword || $avgRating <= 3.5) {
                 $improvementComments[] = $comment;
+            } 
+            
+            // If high rating and no improvement keywords, add to positive
+            if ($avgRating >= 4.0 && !$hasImprovementKeyword) {
+                $positiveComments[] = $comment;
             }
             
             $allComments[] = $comment;
