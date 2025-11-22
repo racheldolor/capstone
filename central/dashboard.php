@@ -2,10 +2,39 @@
 session_start();
 require_once '../config/database.php';
 
-// Authentication check for central role
-if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'central') {
+// Authentication check - allow both central and admin roles
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['central', 'admin'])) {
     header('Location: ../index.php');
     exit();
+}
+
+// RBAC: Determine access level for central users
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+// Central Head identification (read-only access to all campuses)
+$centralHeadEmails = [
+    'mark.central@g.batstate-u.edu.ph',
+    // Add more Central Head emails here
+];
+
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$isCentralStaff = ($user_role === 'central' && !$isCentralHead);
+
+// Campus filtering logic:
+// - Admin: see all campuses
+// - Pablo Borbon central users: see all campuses
+// - Other campus central users: see only their campus
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
+$canManage = !$isCentralHead; // Central Head is read-only
+
+// Build campus filter for SQL queries
+$campusFilter = '';
+$campusParams = [];
+if (!$canViewAll && $user_campus) {
+    $campusFilter = ' AND campus = ?';
+    $campusParams[] = $user_campus;
 }
 
 $pdo = getDBConnection();
@@ -18,19 +47,19 @@ $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 // Get dashboard statistics
 try {
     // Count student artists from student_artists table (active and suspended)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended')");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended')" . $campusFilter);
+    $stmt->execute($campusParams);
     $student_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
     // Count distinct cultural groups assigned to student artists
     $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cultural_group) as count FROM student_artists 
-                          WHERE cultural_group IS NOT NULL AND cultural_group != ''");
-    $stmt->execute();
+                          WHERE cultural_group IS NOT NULL AND cultural_group != ''" . $campusFilter);
+    $stmt->execute($campusParams);
     $cultural_groups = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
     // Count scheduled events (future events that are not yet completed)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE()");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE()" . $campusFilter);
+    $stmt->execute($campusParams);
     $scheduled_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
     // Count worn out costumes (for now, simulate this data - can be implemented later with inventory system)
@@ -51,6 +80,12 @@ try {
 try {
     $where_conditions = ["status IN ('active', 'suspended')"];
     $params = [];
+    
+    // Apply campus filter
+    if (!$canViewAll && $user_campus) {
+        $where_conditions[] = "campus = ?";
+        $params[] = $user_campus;
+    }
     
     if (!empty($search)) {
         $where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
@@ -119,6 +154,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self';">
     <title>Central Dashboard - Culture and Arts - BatStateU TNEU</title>
     <style>
         * {
@@ -1407,7 +1443,20 @@ try {
         <div class="header-right">
             <div class="user-info">
                 <span>👤</span>
-                <span><?= htmlspecialchars($_SESSION['user_name']) ?></span>
+                <?php 
+                $first_name = explode(' ', $_SESSION['user_name'])[0];
+                $role_display = strtoupper($user_role);
+                ?>
+                <span><?= htmlspecialchars($first_name) ?></span>
+                <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
+                <?php if ($isCentralHead): ?>
+                    <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
+                <?php endif; ?>
+                <?php if ($canViewAll && !$isCentralHead): ?>
+                    <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">ALL CAMPUSES</span>
+                <?php elseif (!$canViewAll && $user_campus): ?>
+                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($user_campus) ?></span>
+                <?php endif; ?>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -2045,8 +2094,8 @@ try {
                             <option value="Pablo Borbon">Pablo Borbon</option>
                             <option value="Alangilan">Alangilan</option>
                             <option value="Lipa">Lipa</option>
-                            <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
-                            <option value="JPLPC Malvar">JPLPC Malvar</option>
+                            <option value="Nasugbu">Nasugbu</option>
+                            <option value="Malvar">Malvar</option>
                         </select>
                     </div>
                     <div>
@@ -2389,7 +2438,11 @@ try {
     </div>
 
     <script>
-
+        // User campus and permissions for campus filtering
+        const userCampus = '<?php echo $user_campus ?? ''; ?>';
+        const canViewAll = <?php echo $canViewAll ? 'true' : 'false'; ?>;
+        const canManage = <?php echo $canManage ? 'true' : 'false'; ?>;
+        const userRole = '<?php echo $user_role; ?>';
 
         // Utility function to format dates
         function formatDate(dateString) {
@@ -2406,6 +2459,9 @@ try {
 
         // Navigation functionality
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize campus field for event form
+            initializeCampusField();
+            
             const navLinks = document.querySelectorAll('.nav-link');
             const contentSections = document.querySelectorAll('.content-section');
 
@@ -2447,6 +2503,18 @@ try {
                 const defaultSection = document.getElementById('dashboard');
                 if (defaultLink) defaultLink.classList.add('active');
                 if (defaultSection) defaultSection.classList.add('active');
+            }
+            
+            // Check for modal parameter in URL and open the appropriate modal
+            const modalParam = urlParams.get('modal');
+            if (modalParam === 'borrow') {
+                setTimeout(() => {
+                    openBorrowRequests();
+                }, 500);
+            } else if (modalParam === 'returns') {
+                setTimeout(() => {
+                    openReturns();
+                }, 500);
             }
 
             navLinks.forEach(link => {
@@ -3842,6 +3910,23 @@ try {
         // Event Management Functions
         let isEditMode = false;
         let currentEditingEventId = null;
+        
+        // Initialize campus field based on user permissions
+        function initializeCampusField() {
+            const municipalityField = document.getElementById('municipality');
+            if (!municipalityField || !userCampus) return;
+            
+            // Set default campus
+            municipalityField.value = userCampus;
+            
+            // If user cannot view all campuses, disable the field
+            if (!canViewAll) {
+                municipalityField.disabled = true;
+                municipalityField.style.backgroundColor = '#f3f4f6';
+                municipalityField.style.cursor = 'not-allowed';
+                municipalityField.title = 'You can only create events for your campus';
+            }
+        }
 
         function editEvent(eventId) {
             isEditMode = true;
@@ -3878,7 +3963,24 @@ try {
             document.getElementById('startDate').value = event.start_date_formatted;
             document.getElementById('endDate').value = event.end_date_formatted;
             document.getElementById('eventLocation').value = event.location;
-            document.getElementById('municipality').value = event.venue || '';
+            
+            // Handle campus field - use event.campus, not event.venue
+            const municipalityField = document.getElementById('municipality');
+            if (municipalityField) {
+                const eventCampus = event.campus || event.venue || userCampus;
+                municipalityField.value = eventCampus;
+                
+                // Re-enable for Pablo Borbon users when editing
+                if (canViewAll) {
+                    municipalityField.disabled = false;
+                    municipalityField.style.backgroundColor = '';
+                    municipalityField.style.cursor = '';
+                } else {
+                    // Force user's campus for non-Pablo Borbon users
+                    municipalityField.value = userCampus;
+                }
+            }
+            
             document.getElementById('eventCategory').value = event.category;
             
             // Handle cultural groups
@@ -3892,9 +3994,14 @@ try {
         function cancelEdit() {
             isEditMode = false;
             currentEditingEventId = null;
+            
             // Reset form
             document.getElementById('eventForm').reset();
             updateCulturalGroupsDisplay();
+            
+            // Reinitialize campus field
+            initializeCampusField();
+            
             // Update form title and button
             document.querySelector('.panel-title-event').textContent = 'Input New Event';
             document.querySelector('.save-event-btn').textContent = 'Save Event';

@@ -9,6 +9,23 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
     exit();
 }
 
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'] ?? '';
+$user_email = $_SESSION['user_email'] ?? '';
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+
+// Build campus filter
+$campusFilter = '';
+$campusParams = [];
+if (!$canViewAll && $user_campus) {
+    $campusFilter = ' WHERE campus = ?';
+    $campusParams[] = $user_campus;
+}
+
 header('Content-Type: application/json');
 
 try {
@@ -32,8 +49,8 @@ try {
     }
     
     if ($tableExists) {
-        // Get inventory statistics using the real inventory table
-        $statsStmt = $pdo->prepare("
+        // Get inventory statistics using the real inventory table with campus filtering
+        $statsSql = "
             SELECT 
                 COUNT(*) as total_items,
                 COUNT(CASE WHEN status = 'available' THEN 1 END) as available_items,
@@ -42,30 +59,35 @@ try {
                 COUNT(CASE WHEN condition_status IN ('poor', 'damaged') THEN 1 END) as damaged_items,
                 COUNT(CASE WHEN condition_status = 'excellent' THEN 1 END) as excellent_items
             FROM inventory
-        ");
-        $statsStmt->execute();
+            " . $campusFilter . "
+        ";
+        $statsStmt = $pdo->prepare($statsSql);
+        $statsStmt->execute($campusParams);
         $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         
         // Debug: Log the actual query results
         error_log("Costume Inventory Debug - Stats: " . json_encode($stats));
         
-        // Get items by category (since there's no cultural_group in inventory table)
-        $groupStmt = $pdo->prepare("
+        // Get items by category (since there's no cultural_group in inventory table) with campus filtering
+        $categoryWhere = $campusFilter ? str_replace('WHERE', 'WHERE category IS NOT NULL AND', $campusFilter) : 'WHERE category IS NOT NULL';
+        $groupSql = "
             SELECT 
                 category,
                 COUNT(*) as item_count,
                 COUNT(CASE WHEN status = 'available' THEN 1 END) as available_count
             FROM inventory
-            WHERE category IS NOT NULL
+            " . $categoryWhere . "
             GROUP BY category
             ORDER BY item_count DESC
             LIMIT 6
-        ");
-        $groupStmt->execute();
+        ";
+        $groupStmt = $pdo->prepare($groupSql);
+        $groupStmt->execute($campusParams);
         $groupBreakdown = $groupStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Get items needing attention (poor condition or maintenance)
-        $attentionStmt = $pdo->prepare("
+        // Get items needing attention (poor condition or maintenance) with campus filtering
+        $attentionWhere = $campusFilter ? $campusFilter . ' AND (condition_status IN (\'poor\', \'damaged\') OR status = \'maintenance\')' : 'WHERE condition_status IN (\'poor\', \'damaged\') OR status = \'maintenance\'';
+        $attentionSql = "
             SELECT 
                 item_name,
                 category,
@@ -73,7 +95,7 @@ try {
                 status,
                 updated_at as last_used
             FROM inventory
-            WHERE condition_status IN ('poor', 'damaged') OR status = 'maintenance'
+            " . $attentionWhere . "
             ORDER BY 
                 CASE condition_status 
                     WHEN 'damaged' THEN 1 
@@ -82,8 +104,9 @@ try {
                 END,
                 updated_at DESC
             LIMIT 5
-        ");
-        $attentionStmt->execute();
+        ";
+        $attentionStmt = $pdo->prepare($attentionSql);
+        $attentionStmt->execute($campusParams);
         $itemsNeedingAttention = $attentionStmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Calculate utilization rate (borrowed / total available)

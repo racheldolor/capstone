@@ -430,6 +430,19 @@
                     </div>
                     
                     <div class="form-group">
+                        <label for="campus" class="form-label">Campus</label>
+                        <select id="campus" name="campus" class="form-select" required>
+                            <option value="">Select campus</option>
+                            <option value="Pablo Borbon">Pablo Borbon</option>
+                            <option value="Alangilan">Alangilan</option>
+                            <option value="Lipa">Lipa</option>
+                            <option value="Nasugbu">Nasugbu</option>
+                            <option value="Malvar">Malvar</option>
+                        </select>
+                        <span class="error-message" id="campusError"></span>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="password" class="form-label">Password</label>
                         <input type="password" id="password" name="password" class="form-input" required>
                         <div class="password-strength" id="passwordStrength">
@@ -470,6 +483,7 @@
                     lastName: document.getElementById('lastName'),
                     email: document.getElementById('email'),
                     role: document.getElementById('role'),
+                    campus: document.getElementById('campus'),
                     password: document.getElementById('password'),
                     confirmPassword: document.getElementById('confirmPassword')
                 };
@@ -478,6 +492,7 @@
                     lastName: document.getElementById('lastNameError'),
                     email: document.getElementById('emailError'),
                     role: document.getElementById('roleError'),
+                    campus: document.getElementById('campusError'),
                     password: document.getElementById('passwordError'),
                     confirmPassword: document.getElementById('confirmPasswordError')
                 };
@@ -547,6 +562,13 @@
                     case 'role':
                         if (!value) {
                             this.showError(fieldName, 'Please select your role');
+                            return false;
+                        }
+                        break;
+                    
+                    case 'campus':
+                        if (!value) {
+                            this.showError(fieldName, 'Please select a campus');
                             return false;
                         }
                         break;
@@ -675,6 +697,7 @@
                         lastName: this.inputs.lastName.value.trim(),
                         email: this.inputs.email.value.trim(),
                         role: this.inputs.role.value,
+                        campus: this.inputs.campus.value,
                         password: this.inputs.password.value
                     };
                     

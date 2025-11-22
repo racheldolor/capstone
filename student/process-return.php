@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is logged in as student
-if (!isset($_SESSION['user_id']) || $_SESSION['user_table'] !== 'student_artists') {
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'student') {
     header("Location: ../index.php");
     exit();
 }

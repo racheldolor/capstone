@@ -3,11 +3,20 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit();
 }
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
 
 header('Content-Type: application/json');
 
@@ -21,10 +30,17 @@ try {
     $whereConditions = ["status = 'active'", "campus IS NOT NULL"];
     $params = [];
     
+    // Apply campus filter for campus-specific users
+    if (!$canViewAll && $user_campus) {
+        $whereConditions[] = "campus = ?";
+        $params[] = $user_campus;
+    }
+    
     if (!empty($search)) {
         $whereConditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
         $searchParam = "%$search%";
-        $params = array_fill(0, 5, $searchParam);
+        $searchParams = array_fill(0, 5, $searchParam);
+        $params = array_merge($params, $searchParams);
     }
     
     $whereClause = implode(' AND ', $whereConditions);

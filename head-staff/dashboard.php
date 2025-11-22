@@ -3,37 +3,63 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
     header('Location: ../index.php');
     exit();
 }
 
 $pdo = getDBConnection();
 
+// === RBAC: Get user's campus and determine access level ===
+$user_role = $_SESSION['user_role'] ?? '';
+$user_email = $_SESSION['user_email'] ?? '';
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+// Central Head emails (view-only access)
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
+$isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
+$isCentralStaff = ($user_role === 'central' && !$isCentralHead);
+
+// Campus filtering logic:
+// - Admin: see all campuses
+// - Pablo Borbon staff/head: see all campuses
+// - Other campus staff/head: see only their campus
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canManage = !$isCentralHead; // Central Head is view-only
+
+// Build campus filter for SQL
+if ($canViewAll) {
+    $campusFilter = '1=1'; // No filter - see all
+    $campusParams = [];
+} else {
+    $campusFilter = 'campus = ?';
+    $campusParams = [$user_campus];
+}
+
 // Pagination for student artists
 $students_per_page = 5;
 $current_page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Get dashboard statistics
+// Get dashboard statistics with campus filtering
 try {
     // Count student artists from student_artists table (active and suspended)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended')");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended') AND $campusFilter");
+    $stmt->execute($campusParams);
     $student_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
     // Count distinct cultural groups assigned to student artists
     $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cultural_group) as count FROM student_artists 
-                          WHERE cultural_group IS NOT NULL AND cultural_group != ''");
-    $stmt->execute();
+                          WHERE cultural_group IS NOT NULL AND cultural_group != '' AND $campusFilter");
+    $stmt->execute($campusParams);
     $cultural_groups = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count scheduled events (future events that are not yet completed)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE()");
-    $stmt->execute();
+    // Count scheduled events (future events that are not yet completed) with campus filtering
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE() AND " . $campusFilter);
+    $stmt->execute($campusParams);
     $scheduled_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count worn out costumes (for now, simulate this data - can be implemented later with inventory system)
+    // Count worn out costumes
     $worn_costumes = 0; // Will be implemented when costume inventory system is added
     
 } catch (Exception $e) {
@@ -43,14 +69,14 @@ try {
     $scheduled_events = $scheduled_events ?? 0;
     $worn_costumes = 0;
     
-    // Log the error for debugging (optional)
+    // Log the error for debugging
     error_log("Dashboard statistics error: " . $e->getMessage());
 }
 
-// Get student artists with pagination (active and suspended)
+// Get student artists with pagination (active and suspended) - with campus filtering
 try {
-    $where_conditions = ["status IN ('active', 'suspended')"];
-    $params = [];
+    $where_conditions = ["status IN ('active', 'suspended')", $campusFilter];
+    $params = $campusParams;
     
     if (!empty($search)) {
         $where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
@@ -119,6 +145,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self';">
     <title>Staff Dashboard - Culture and Arts - BatStateU TNEU</title>
     <style>
         * {
@@ -275,6 +302,8 @@ try {
 
         .content-section.active {
             display: block;
+            width: 100%;
+            height: 100%;
         }
 
         /* Dashboard Cards */
@@ -1367,6 +1396,24 @@ try {
             overflow: hidden;
         }
 
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        #costume-inventory {
+            display: none;
+        }
+
+        #costume-inventory.active {
+            display: block;
+            position: relative;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .main-container {
@@ -1974,7 +2021,20 @@ try {
         <div class="header-right">
             <div class="user-info">
                 <span>👤</span>
-                <span><?= htmlspecialchars($_SESSION['user_name']) ?></span>
+                <?php 
+                $first_name = explode(' ', $_SESSION['user_name'])[0];
+                $role_display = strtoupper($user_role);
+                ?>
+                <span><?= htmlspecialchars($first_name) ?></span>
+                <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
+                <?php if ($isCentralHead): ?>
+                    <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
+                <?php endif; ?>
+                <?php if ($canViewAll && !$isCentralHead): ?>
+                    <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">ALL CAMPUSES</span>
+                <?php elseif (!$canViewAll && $user_campus): ?>
+                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($user_campus) ?></span>
+                <?php endif; ?>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -2007,7 +2067,7 @@ try {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link" data-section="costume-inventory">
+                        <a href="inventory.php" class="nav-link">
                             Inventory
                         </a>
                     </li>
@@ -2284,8 +2344,8 @@ try {
                                         <option value="Pablo Borbon">Pablo Borbon</option>
                                         <option value="Alangilan">Alangilan</option>
                                         <option value="Lipa">Lipa</option>
-                                        <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
-                                        <option value="JPLPC Malvar">JPLPC Malvar</option>
+                                        <option value="Nasugbu">Nasugbu</option>
+                                        <option value="Malvar">Malvar</option>
                                     </select>
                                 </div>
 
@@ -2616,88 +2676,6 @@ try {
                                             <div id="improvementComments" style="max-height: 200px; overflow-y: auto;">
                                                 <!-- Improvement comments will be loaded here -->
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Costume Inventory Section -->
-            <section class="content-section" id="costume-inventory">
-                <div class="page-header">
-                    <h1 class="page-title">Inventory</h1>
-                    <div style="display: flex; gap: 1rem;">
-                        <button class="add-btn" onclick="openAddItemModal()">
-                            <span>+</span>
-                            Add Item
-                        </button>
-                        <button class="add-btn" onclick="openBorrowRequests()">
-                            Borrow Requests
-                        </button>
-                        <button class="add-btn" onclick="openReturns()">
-                            Returns
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Inventory Grid -->
-                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; width: 100%; max-width: 100%;">
-                    <!-- Costumes Table -->
-                    <div class="inventory-left">
-                        <div class="inventory-panel">
-                            <div style="padding: 1rem; border-bottom: 1px solid #e0e0e0;">
-                                <h3 style="margin: 0; color: #333; font-size: 1.25rem; font-weight: 600;">Costumes</h3>
-                            </div>
-                            <div class="inventory-table-container">
-                                <div class="table-section">
-                                    <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: 2fr 80px 100px 100px 1fr;">
-                                            <div class="header-col">NAME</div>
-                                            <div class="header-col">QTY</div>
-                                            <div class="header-col">CONDITION</div>
-                                            <div class="header-col">STATUS</div>
-                                            <div class="header-col">BORROWER INFO</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="table-body" id="costumesTableBody" style="max-height: 560px; overflow-y: auto;">
-                                        <!-- Costumes will be loaded dynamically - max 10 rows visible -->
-                                        <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
-                                            <p>No costumes found.</p>
-                                            <small>Click "Add Costume" to get started.</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Equipment Table -->
-                    <div class="inventory-right">
-                        <div class="inventory-panel">
-                            <div style="padding: 1rem; border-bottom: 1px solid #e0e0e0;">
-                                <h3 style="margin: 0; color: #333; font-size: 1.25rem; font-weight: 600;">Equipment</h3>
-                            </div>
-                            <div class="inventory-table-container">
-                                <div class="table-section">
-                                    <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: 2fr 80px 100px 100px 1fr;">
-                                            <div class="header-col">NAME</div>
-                                            <div class="header-col">QTY</div>
-                                            <div class="header-col">CONDITION</div>
-                                            <div class="header-col">STATUS</div>
-                                            <div class="header-col">BORROWER INFO</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="table-body" id="equipmentTableBody" style="max-height: 560px; overflow-y: auto;">
-                                        <!-- Equipment will be loaded dynamically - max 10 rows visible -->
-                                        <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
-                                            <p>No equipment found.</p>
-                                            <small>Click "Add Costume" to get started.</small>
                                         </div>
                                     </div>
                                 </div>
@@ -3150,6 +3128,12 @@ try {
     <script>
         // Global variable to store applications data for filtering
         let allApplications = [];
+        
+        // User campus and permissions for campus filtering
+        const userCampus = '<?php echo $user_campus ?? ''; ?>';
+        const canViewAll = <?php echo $canViewAll ? 'true' : 'false'; ?>;
+        const canManage = <?php echo $canManage ? 'true' : 'false'; ?>;
+        const userRole = '<?php echo $user_role; ?>';
 
         // Utility function to format dates
         function formatDate(dateString) {
@@ -3166,6 +3150,9 @@ try {
 
         // Navigation functionality
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize campus field for event form
+            initializeCampusField();
+            
             const navLinks = document.querySelectorAll('.nav-link');
             const contentSections = document.querySelectorAll('.content-section');
 
@@ -3208,9 +3195,27 @@ try {
                 if (defaultLink) defaultLink.classList.add('active');
                 if (defaultSection) defaultSection.classList.add('active');
             }
+            
+            // Check for modal parameter in URL and open the appropriate modal
+            const modalParam = urlParams.get('modal');
+            if (modalParam === 'borrow') {
+                setTimeout(() => {
+                    openBorrowRequests();
+                }, 500);
+            } else if (modalParam === 'returns') {
+                setTimeout(() => {
+                    openReturns();
+                }, 500);
+            }
 
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
+                    // Skip navigation handling for external links (like inventory.php)
+                    if (this.getAttribute('href') && this.getAttribute('href') !== '#') {
+                        // Let the browser handle the navigation to external page
+                        return;
+                    }
+                    
                     e.preventDefault();
                     
                     console.log('Navigation clicked:', this.dataset.section);
@@ -3238,11 +3243,6 @@ try {
                         if (sectionId === 'reports-analytics') {
                             loadEventParticipation();
                             initializeEvaluationAnalytics();
-                        }
-                        
-                        // Load inventory items when Costume Inventory section is activated
-                        if (sectionId === 'costume-inventory') {
-                            loadInventoryItems();
                         }
                     } else {
                         console.error('Target section not found:', sectionId);
@@ -4705,12 +4705,12 @@ try {
             
             let html = '';
             costumes.forEach(costume => {
-                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getConditionBadge(costume.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(costume) + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 60px 90px 90px 1.5fr; padding: 0.65rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center; font-size: 0.85rem;">';
+                html += '<div style="padding: 0 0.3rem; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.3;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getConditionBadge(costume.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; font-size: 0.8rem; line-height: 1.3;">' + getBorrowerInfo(costume) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
@@ -4725,12 +4725,12 @@ try {
             
             let html = '';
             equipment.forEach(item => {
-                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getConditionBadge(item.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getInventoryStatusBadge(item.status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(item) + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 60px 90px 90px 1.5fr; padding: 0.65rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center; font-size: 0.85rem;">';
+                html += '<div style="padding: 0 0.3rem; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.3;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getConditionBadge(item.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; font-size: 0.8rem; line-height: 1.3;">' + getBorrowerInfo(item) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
@@ -4740,14 +4740,14 @@ try {
             if (item.status === 'borrowed') {
                 // Check if there are multiple borrowers
                 if (item.borrowers && item.borrowers.length > 0) {
-                    let html = '<div style="line-height: 1.4;">';
+                    let html = '<div style="line-height: 1.3;">';
                     
                     // Show all borrower names
                     item.borrowers.forEach((borrower, index) => {
                         const borrowDate = new Date(borrower.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.5rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.5rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
-                        html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px;">${borrower.student_name}</div>`;
-                        html += `<div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>`;
+                        html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
+                        html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word; overflow-wrap: break-word;">${borrower.student_name}</div>`;
+                        html += `<div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>`;
                         html += `</div>`;
                     });
                     
@@ -4756,39 +4756,39 @@ try {
                 } else if (item.borrower_name) {
                     // Fallback to single borrower for backward compatibility
                     const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    return `<div style="line-height: 1.4;">
-                        <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${item.borrower_name}</div>
-                        <div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>
+                    return `<div style="line-height: 1.3;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word; overflow-wrap: break-word;">${item.borrower_name}</div>
+                        <div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>
                     </div>`;
                 } else {
-                    return '<span style="color: #666; font-style: italic;">Borrowed</span>';
+                    return '<span style="color: #666; font-style: italic; font-size: 0.8rem;">Borrowed</span>';
                 }
             }
-            return '<span style="color: #aaa; text-align: center; display: block;">-</span>';
+            return '<span style="color: #aaa; text-align: center; display: block; font-size: 0.8rem;">-</span>';
         }
 
         function getConditionBadge(condition) {
             const badges = {
-                'excellent': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Excellent</span>',
-                'good': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Good</span>',
-                'fair': '<span style="background: #ffc107; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Fair</span>',
-                'poor': '<span style="background: #fd7e14; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Poor</span>',
-                'worn-out': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Worn-out</span>',
-                'damaged': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Damaged</span>',
-                'bad': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Bad</span>'
+                'excellent': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Excellent</span>',
+                'good': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Good</span>',
+                'fair': '<span style="background: #ffc107; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Fair</span>',
+                'poor': '<span style="background: #fd7e14; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Poor</span>',
+                'worn-out': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Worn-out</span>',
+                'damaged': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Damaged</span>',
+                'bad': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Bad</span>'
             };
-            return badges[condition] || `<span style="color: #666; font-size: 0.8rem;">${condition || 'Unknown'}</span>`;
+            return badges[condition] || `<span style="color: #666; font-size: 0.7rem;">${condition || 'Unknown'}</span>`;
         }
 
         function getInventoryStatusBadge(status) {
             const badges = {
-                'available': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Available</span>',
-                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Borrowed</span>',
-                'maintenance': '<span style="background: #fd7e14; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Maintenance</span>',
-                'reserved': '<span style="background: #17a2b8; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Reserved</span>',
-                'retired': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Retired</span>'
+                'available': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Available</span>',
+                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Borrowed</span>',
+                'maintenance': '<span style="background: #fd7e14; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Maintenance</span>',
+                'reserved': '<span style="background: #17a2b8; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Reserved</span>',
+                'retired': '<span style="background: #6c757d; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Retired</span>'
             };
-            return badges[status] || `<span style="color: #666; font-size: 0.8rem;">${status || 'Unknown'}</span>`;
+            return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Unknown'}</span>`;
         }
 
         // Load inventory items when costume inventory section is activated
@@ -4956,6 +4956,23 @@ try {
         // Event Management Functions
         let isEditMode = false;
         let currentEditingEventId = null;
+        
+        // Initialize campus field based on user permissions
+        function initializeCampusField() {
+            const municipalityField = document.getElementById('municipality');
+            if (!municipalityField || !userCampus) return;
+            
+            // Set default campus
+            municipalityField.value = userCampus;
+            
+            // If user cannot view all campuses, disable the field
+            if (!canViewAll) {
+                municipalityField.disabled = true;
+                municipalityField.style.backgroundColor = '#f3f4f6';
+                municipalityField.style.cursor = 'not-allowed';
+                municipalityField.title = 'You can only create events for your campus';
+            }
+        }
 
         function editEvent(eventId) {
             isEditMode = true;
@@ -4992,7 +5009,21 @@ try {
             document.getElementById('startDate').value = event.start_date_formatted;
             document.getElementById('endDate').value = event.end_date_formatted;
             document.getElementById('eventLocation').value = event.location;
-            document.getElementById('municipality').value = event.venue || '';
+            
+            // Use campus field (not venue)
+            const municipalityField = document.getElementById('municipality');
+            const eventCampus = event.campus || event.venue || userCampus;
+            
+            // Only allow editing campus if user can view all
+            if (canViewAll) {
+                municipalityField.value = eventCampus;
+                municipalityField.disabled = false;
+            } else {
+                // Lock to user's campus
+                municipalityField.value = userCampus;
+                municipalityField.disabled = true;
+            }
+            
             document.getElementById('eventCategory').value = event.category;
             
             // Handle cultural groups
@@ -5009,6 +5040,13 @@ try {
             // Reset form
             document.getElementById('eventForm').reset();
             updateCulturalGroupsDisplay();
+            
+            // Reset campus to user's campus
+            const municipalityField = document.getElementById('municipality');
+            if (municipalityField && userCampus) {
+                municipalityField.value = userCampus;
+            }
+            
             // Update form title and button
             document.querySelector('.panel-title-event').textContent = 'Input New Event';
             document.querySelector('.save-event-btn').textContent = 'Save Event';
@@ -5054,6 +5092,21 @@ try {
                     e.preventDefault();
                     saveEvent();
                 });
+            }
+            
+            // Set default campus and manage field state
+            const municipalityField = document.getElementById('municipality');
+            if (municipalityField && userCampus) {
+                // If user cannot view all campuses, lock them to their campus
+                if (!canViewAll) {
+                    municipalityField.value = userCampus;
+                    municipalityField.disabled = true;
+                    municipalityField.style.backgroundColor = '#f3f4f6';
+                    municipalityField.style.cursor = 'not-allowed';
+                } else {
+                    // Pablo Borbon users can select any campus, default to their own
+                    municipalityField.value = userCampus;
+                }
             }
         });
 

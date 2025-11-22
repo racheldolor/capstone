@@ -3,9 +3,25 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit;
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canManage = !$isCentralHead;
+
+// Check write permission
+if (!$canManage) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'You do not have permission to create events']);
     exit;
 }
 
@@ -28,6 +44,13 @@ try {
     $category = $_POST['category'] ?? '';
     $cultural_groups = isset($_POST['cultural_groups']) && is_array($_POST['cultural_groups']) ? $_POST['cultural_groups'] : [];
     
+    // Auto-set campus for non-Pablo Borbon users (staff, head, central)
+    // Only Pablo Borbon users and admin can choose campus
+    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff', 'central'])));
+    if (!$canChooseCampus && $user_campus) {
+        $campus = $user_campus;
+    }
+    
     // Validate required fields
     if (empty($title) || empty($description) || empty($start_date) || empty($end_date) || empty($location) || empty($category)) {
         echo json_encode(['success' => false, 'message' => 'All required fields must be filled']);
@@ -44,10 +67,10 @@ try {
     // Ensure we always have a valid array (empty or with values)
     $cultural_groups_json = json_encode(is_array($cultural_groups) ? $cultural_groups : []);
     
-    // Insert event into database - using venue field to store campus info
+    // Insert event into database with campus field
     $stmt = $pdo->prepare("
-        INSERT INTO events (title, description, start_date, end_date, location, venue, category, cultural_groups, status, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)
+        INSERT INTO events (title, description, start_date, end_date, location, venue, category, cultural_groups, status, created_by, campus) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)
     ");
     
     $result = $stmt->execute([
@@ -56,10 +79,11 @@ try {
         $start_date,
         $end_date,
         $location,
-        $campus, // store campus in venue field
+        $location, // venue is the specific location
         $category,
         $cultural_groups_json,
-        $_SESSION['user_id'] ?? null
+        $_SESSION['user_id'] ?? null,
+        $campus // campus field for filtering
     ]);
     
     if ($result) {

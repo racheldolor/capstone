@@ -57,22 +57,34 @@ try {
     // Normalize action to status
     $status = ($action === 'approve' || $action === 'approved') ? 'approved' : 'rejected';
 
+    // Get the borrowing request to check campus
+    $req_stmt = $pdo->prepare("SELECT student_campus FROM borrowing_requests WHERE id = ?");
+    $req_stmt->execute([$request_id]);
+    $borrowing_request = $req_stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$borrowing_request) {
+        throw new Exception('Borrowing request not found');
+    }
+    
+    $request_campus = $borrowing_request['student_campus'];
+
     // Start transaction
     $pdo->beginTransaction();
 
     try {
         // If approving with selected items, validate and update inventory
         if ($status === 'approved' && !empty($selected_items)) {
-            // Validate selected items exist and are available
+            // Validate selected items exist and are available AND from same campus
             $item_ids = array_map(function($item) { return $item['id']; }, $selected_items);
             $placeholders = implode(',', array_fill(0, count($item_ids), '?'));
             
             $stmt = $pdo->prepare("
-                SELECT id, item_name, status 
+                SELECT id, item_name, status, campus 
                 FROM inventory 
-                WHERE id IN ($placeholders) AND status = 'available'
+                WHERE id IN ($placeholders) AND status = 'available' AND campus = ?
             ");
-            $stmt->execute($item_ids);
+            $params_with_campus = array_merge($item_ids, [$request_campus]);
+            $stmt->execute($params_with_campus);
             $available_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             if (count($available_items) !== count($selected_items)) {

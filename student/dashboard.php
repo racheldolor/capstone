@@ -904,7 +904,14 @@ try {
         <div class="header-right">
             <div class="user-info">
                 <span>👤</span>
-                <span><?= htmlspecialchars($student_info['first_name'] ?? 'Student') ?> <?= htmlspecialchars($student_info['last_name'] ?? '') ?></span>
+                <?php 
+                $first_name = $student_info['first_name'] ?? 'Student';
+                $campus = $student_info['campus'] ?? '';
+                ?>
+                <span><?= htmlspecialchars($first_name) ?></span>
+                <?php if ($campus): ?>
+                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($campus) ?></span>
+                <?php endif; ?>
             </div>
             <button class="logout-btn" onclick="window.location.href='../index.php'">Logout</button>
         </div>

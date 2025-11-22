@@ -10,13 +10,16 @@ error_reporting(0);
 // Start session
 session_start();
 
-// Check if user is logged in and is admin (head or staff)
+// Check if user is logged in and is admin (head, staff, or central)
 if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
     ob_clean();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
+
+// Get user's campus for the inventory item
+$user_campus = $_SESSION['user_campus'] ?? null;
 
 // Database connection
 $host = 'localhost';
@@ -83,9 +86,9 @@ try {
     ";
     $pdo->exec($createTableSQL);
 
-    // Insert the new item
-    $sql = "INSERT INTO inventory (item_name, category, condition_status, status, description) 
-            VALUES (:item_name, :category, :condition_status, :status, :description)";
+    // Insert the new item with campus
+    $sql = "INSERT INTO inventory (item_name, category, condition_status, status, description, campus) 
+            VALUES (:item_name, :category, :condition_status, :status, :description, :campus)";
     
     $stmt = $pdo->prepare($sql);
     $result = $stmt->execute([
@@ -93,7 +96,8 @@ try {
         ':category' => $input['category'],
         ':condition_status' => $input['condition'],
         ':status' => 'available', // Always set to available as requested
-        ':description' => trim($input['description'] ?? '')
+        ':description' => trim($input['description'] ?? ''),
+        ':campus' => $user_campus
     ]);
 
     if ($result) {

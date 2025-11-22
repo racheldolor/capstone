@@ -10,11 +10,28 @@ error_reporting(0);
 session_start();
 
 // Check if user is logged in and is admin (head or staff)
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     ob_clean();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+
+// Build campus filter
+$campusFilter = '';
+$campusParams = [];
+if (!$canViewAll && $user_campus) {
+    $campusFilter = ' AND campus = ?';
+    $campusParams[] = $user_campus;
 }
 
 // Database connection
@@ -47,8 +64,9 @@ try {
     }
 
     // Fetch costumes
-    $costumesSQL = "SELECT * FROM inventory WHERE category = 'costume' ORDER BY created_at DESC";
-    $costumesStmt = $pdo->query($costumesSQL);
+    $costumesSQL = "SELECT * FROM inventory WHERE category = 'costume'" . $campusFilter . " ORDER BY created_at DESC";
+    $costumesStmt = $pdo->prepare($costumesSQL);
+    $costumesStmt->execute($campusParams);
     $costumes = $costumesStmt->fetchAll(PDO::FETCH_ASSOC);
     
     // For each costume, fetch all active borrowers
@@ -80,9 +98,10 @@ try {
         }
     }
 
-    // Fetch equipment
-    $equipmentSQL = "SELECT * FROM inventory WHERE category = 'equipment' ORDER BY created_at DESC";
-    $equipmentStmt = $pdo->query($equipmentSQL);
+    // Fetch equipment with campus filtering
+    $equipmentSQL = "SELECT * FROM inventory WHERE category = 'equipment'" . $campusFilter . " ORDER BY created_at DESC";
+    $equipmentStmt = $pdo->prepare($equipmentSQL);
+    $equipmentStmt->execute($campusParams);
     $equipment = $equipmentStmt->fetchAll(PDO::FETCH_ASSOC);
     
     // For each equipment, fetch all active borrowers

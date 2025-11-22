@@ -3,11 +3,20 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
 }
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
 
 try {
     $pdo = getDBConnection();
@@ -27,6 +36,12 @@ try {
     $where_conditions = [];
     $params = [];
     
+    // Apply campus filter for non-admin users
+    if (!$canViewAll && $user_campus) {
+        $where_conditions[] = 'campus = ?';
+        $params[] = $user_campus;
+    }
+    
     // Apply status filter
     if (!empty($status_filter)) {
         if ($status_filter === 'active') {
@@ -39,9 +54,6 @@ try {
             $where_conditions[] = "status = ?";
             $params[] = $status_filter;
         }
-    } else {
-        // Default: show all statuses
-        $where_conditions[] = "1=1";
     }
     
     if (!empty($category_filter)) {
@@ -49,9 +61,15 @@ try {
         $params[] = $category_filter;
     }
     
-    if (!empty($campus_filter)) {
-        $where_conditions[] = "venue = ?";
+    // Only add campus filter from GET if user can view all campuses
+    if (!empty($campus_filter) && $canViewAll) {
+        $where_conditions[] = "campus = ?";
         $params[] = $campus_filter;
+    }
+    
+    // Ensure we have at least one condition
+    if (empty($where_conditions)) {
+        $where_conditions[] = "1=1";
     }
     
     if (!empty($month_filter)) {
