@@ -516,6 +516,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .form-group {
             display: flex;
             flex-direction: column;
+            position: relative;
+            margin-bottom: 0.5rem;
         }
 
         .form-group label {
@@ -532,6 +534,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             border-radius: 4px;
             font-size: 0.9rem;
             font-family: inherit;
+            color: #000;
+        }
+
+        .form-group select:disabled {
+            color: #999;
+            background-color: #f5f5f5;
         }
 
         .form-group input:focus,
@@ -544,7 +552,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .form-row {
             display: flex;
             gap: 1rem;
-            align-items: end;
+            align-items: flex-start;
         }
 
         .form-group.half {
@@ -1252,7 +1260,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>Campus:</label>
-                                <select name="campus" required>
+                                <select id="campusSelect" name="campus" required>
                                     <option value="">Select Campus</option>
                                     <option value="Pablo Borbon">Pablo Borbon</option>
                                     <option value="Alangilan">Alangilan</option>
@@ -1263,8 +1271,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
                             <div class="form-row">
                                 <div class="form-group half">
-                                    <label>College:</label>
-                                    <input type="text" name="college">
+                                    <label>Extension Campus/College:</label>
+                                    <select id="collegeSelect" name="college" required disabled>
+                                        <option value="">Select Extension Campus/College</option>
+                                    </select>
                                 </div>
                                 <div class="form-group quarter">
                                     <label>SR Code:</label>
@@ -1291,15 +1301,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     <label>Number of Units:</label>
                                     <div class="checkbox-row">
                                         <label class="checkbox-inline">
-                                            <input type="checkbox" name="semester" value="first">
+                                            <input type="checkbox" id="firstSemesterCheck" name="semester" value="first">
                                             First Semester
                                         </label>
-                                        <input type="number" class="inline-units" name="first_semester_units" placeholder="Units" min="0" max="30">
+                                        <input type="number" id="firstSemesterUnits" class="inline-units" name="first_semester_units" placeholder="Units" min="0" max="30" disabled>
                                         <label class="checkbox-inline">
-                                            <input type="checkbox" name="semester" value="second">
+                                            <input type="checkbox" id="secondSemesterCheck" name="semester" value="second">
                                             Second Semester
                                         </label>
-                                        <input type="number" class="inline-units" name="second_semester_units" placeholder="Units" min="0" max="30">
+                                        <input type="number" id="secondSemesterUnits" class="inline-units" name="second_semester_units" placeholder="Units" min="0" max="30" disabled>
                                     </div>
                                 </div>
                             </div>
@@ -1425,6 +1435,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     this.cancelBtn = document.querySelector('.cancel-btn');
                     this.isSubmitting = false;
                     
+                    // Campus and College selects
+                    this.campusSelect = document.getElementById('campusSelect');
+                    this.collegeSelect = document.getElementById('collegeSelect');
+                    
+                    // College mapping by campus
+                    this.collegesByCampus = {
+                        'Pablo Borbon': [
+                            'College of Accountancy, Business, Economics and International Hospitality Management',
+                            'College of Health Sciences',
+                            'College of Arts and Sciences',
+                            'College of Law',
+                            'College of Teacher Education',
+                            'College of Criminal Justice Education',
+                            'College of Medicine'
+                        ],
+                        'Alangilan': [
+                            'College of Engineering',
+                            'College of Architecture, Fine Arts and Design',
+                            'College of Engineering Technology',
+                            'College of Informatics and Computing Sciences',
+                            'Lobo Campus',
+                            'Balayan Campus',
+                            'Mabini Campus'
+                        ],
+                        'JPLPC Malvar': [
+                            'College of Industrial Technology'
+                        ],
+                        'Lipa': [
+                            'College of Accountancy, Business, Economics, and International Hospitality Management',
+                            'College of Arts and Sciences'
+                        ],
+                        'ARASOF Nasugbu': [
+                            'College of Agriculture and Forestry',
+                            'College of Accountancy, Business, Economics, and International Hospitality Management'
+                        ]
+                    };
+                    
                     // Signature canvas setup
                     this.canvas = document.getElementById('signatureCanvas');
                     console.log('Canvas element found:', this.canvas);
@@ -1451,12 +1498,50 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 try {
                     console.log('Calling bindEvents...');
                     this.bindEvents();
+                    this.setupCampusCollegeFilter();
                     
                     console.log('initializeForm() completed successfully');
                 } catch (error) {
                     console.error('Error in initializeForm:', error);
                     throw error;
                 }
+            }
+
+            setupCampusCollegeFilter() {
+                if (!this.campusSelect || !this.collegeSelect) {
+                    console.warn('Campus or College select not found');
+                    return;
+                }
+                
+                // Populate college dropdown when campus is selected
+                this.campusSelect.addEventListener('change', () => {
+                    const selectedCampus = this.campusSelect.value;
+                    this.populateCollegeDropdown(selectedCampus);
+                });
+            }
+
+            populateCollegeDropdown(campus) {
+                // Clear existing options except the default one
+                this.collegeSelect.innerHTML = '<option value="">Select Extension Campus/College</option>';
+                
+                if (campus && this.collegesByCampus[campus]) {
+                    // Add colleges for the selected campus
+                    this.collegesByCampus[campus].forEach(college => {
+                        const option = document.createElement('option');
+                        option.value = college;
+                        option.textContent = college;
+                        this.collegeSelect.appendChild(option);
+                    });
+                    
+                    // Enable the college dropdown
+                    this.collegeSelect.disabled = false;
+                } else {
+                    // Disable if no campus selected
+                    this.collegeSelect.disabled = true;
+                }
+                
+                // Reset the selected value
+                this.collegeSelect.value = '';
             }
 
             bindEvents() {
@@ -1479,6 +1564,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 // Signature canvas setup
                 this.setupSignatureCanvas();
+                
+                // Semester selection
+                this.setupSemesterSelection();
+            }
+
+            setupSemesterSelection() {
+                const firstSemCheck = document.getElementById('firstSemesterCheck');
+                const secondSemCheck = document.getElementById('secondSemesterCheck');
+                const firstSemUnits = document.getElementById('firstSemesterUnits');
+                const secondSemUnits = document.getElementById('secondSemesterUnits');
+                
+                if (!firstSemCheck || !secondSemCheck || !firstSemUnits || !secondSemUnits) {
+                    console.warn('Semester selection elements not found');
+                    return;
+                }
+                
+                firstSemCheck.addEventListener('change', () => {
+                    if (firstSemCheck.checked) {
+                        // Enable first semester units, disable and clear second semester
+                        firstSemUnits.disabled = false;
+                        secondSemCheck.checked = false;
+                        secondSemUnits.disabled = true;
+                        secondSemUnits.value = '';
+                    } else {
+                        // If unchecked, disable and clear first semester units
+                        firstSemUnits.disabled = true;
+                        firstSemUnits.value = '';
+                    }
+                });
+                
+                secondSemCheck.addEventListener('change', () => {
+                    if (secondSemCheck.checked) {
+                        // Enable second semester units, disable and clear first semester
+                        secondSemUnits.disabled = false;
+                        firstSemCheck.checked = false;
+                        firstSemUnits.disabled = true;
+                        firstSemUnits.value = '';
+                    } else {
+                        // If unchecked, disable and clear second semester units
+                        secondSemUnits.disabled = true;
+                        secondSemUnits.value = '';
+                    }
+                });
             }
 
             setupPerformanceTypeValidation() {
@@ -1931,12 +2059,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'field-error';
-                errorDiv.style.cssText = `
-                    color: #ff5a5a;
-                    font-size: 0.8rem;
-                    margin-top: 0.25rem;
-                    display: block;
-                `;
                 errorDiv.textContent = message;
                 
                 // Find the best place to insert the error
@@ -2336,9 +2458,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             .field-error {
                 color: #ff5a5a !important;
-                font-size: 0.8rem !important;
+                font-size: 0.75rem !important;
                 margin-top: 0.25rem !important;
                 display: block !important;
+                line-height: 1.2 !important;
+                min-height: 1rem !important;
             }
         `;
         document.head.appendChild(style);

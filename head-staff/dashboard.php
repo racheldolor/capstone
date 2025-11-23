@@ -40,6 +40,18 @@ if ($canViewAll) {
 $students_per_page = 5;
 $current_page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$campus_filter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : 'Pablo Borbon';
+
+// Build campus filter for student queries
+if (!empty($campus_filter)) {
+    // Use the selected campus filter from dropdown
+    $studentCampusFilter = 'campus = ?';
+    $studentCampusParams = [$campus_filter];
+} else {
+    // Default to Pablo Borbon if no filter specified
+    $studentCampusFilter = 'campus = ?';
+    $studentCampusParams = ['Pablo Borbon'];
+}
 
 // Get dashboard statistics with campus filtering
 try {
@@ -75,8 +87,8 @@ try {
 
 // Get student artists with pagination (active and suspended) - with campus filtering
 try {
-    $where_conditions = ["status IN ('active', 'suspended')", $campusFilter];
-    $params = $campusParams;
+    $where_conditions = ["status IN ('active', 'suspended')", $studentCampusFilter];
+    $params = $studentCampusParams;
     
     if (!empty($search)) {
         $where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
@@ -2170,7 +2182,7 @@ try {
                         </div>
                         <button type="submit" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; height: 36px; box-sizing: border-box; font-size: 14px;">Search</button>
                         <?php if (!empty($search)): ?>
-                            <a href="?section=student-profiles" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 36px; font-size: 14px;">Clear</a>
+                            <a href="?section=student-profiles<?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 36px; font-size: 14px;">Clear</a>
                         <?php endif; ?>
                     </form>
                 </div>
@@ -2178,16 +2190,17 @@ try {
                 <!-- Dashboard Overview -->
                 <div class="student-overview" style="width: 100%; max-width: 100%;">
                     <div class="overview-left">
-                        <h3 style="margin-bottom: 1rem; color: #666;">Campus Distribution</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; color: #666;">Distribution of Student Artists</h3>
+                            <select id="campusFilterDropdown" onchange="filterByCampus()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
+                                <option value="Pablo Borbon" <?= $campus_filter === 'Pablo Borbon' ? 'selected' : '' ?>>Pablo Borbon</option>
+                                <option value="Alangilan" <?= $campus_filter === 'Alangilan' ? 'selected' : '' ?>>Alangilan</option>
+                                <option value="Lipa" <?= $campus_filter === 'Lipa' ? 'selected' : '' ?>>Lipa</option>
+                                <option value="ARASOF Nasugbu" <?= $campus_filter === 'ARASOF Nasugbu' ? 'selected' : '' ?>>ARASOF Nasugbu</option>
+                                <option value="JPLPC Malvar" <?= $campus_filter === 'JPLPC Malvar' ? 'selected' : '' ?>>JPLPC Malvar</option>
+                            </select>
+                        </div>
                         <div id="campusDistributionChart" class="campus-distribution">
-                            <div class="chart-section">
-                                <div class="pie-chart-container">
-                                    <canvas id="pieChart" width="200" height="200"></canvas>
-                                </div>
-                                <div class="chart-legend" id="chartLegend">
-                                    <!-- Legend will be populated by JavaScript -->
-                                </div>
-                            </div>
                             <div class="bar-chart-container" id="barChart">
                                 <!-- Bar chart will be populated by JavaScript -->
                             </div>
@@ -2271,7 +2284,7 @@ try {
                         </span>
                         <div class="pagination-controls">
                             <?php if ($current_page > 1): ?>
-                                <a href="?section=student-profiles&page=<?= $current_page - 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                <a href="?section=student-profiles&page=<?= $current_page - 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                    class="pagination-btn">Previous</a>
                             <?php else: ?>
                                 <button class="pagination-btn" disabled>Previous</button>
@@ -2281,13 +2294,13 @@ try {
                                 <?php if ($i == $current_page): ?>
                                     <span class="pagination-number active"><?= $i ?></span>
                                 <?php else: ?>
-                                    <a href="?section=student-profiles&page=<?= $i ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                    <a href="?section=student-profiles&page=<?= $i ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                        class="pagination-number" style="text-decoration: none; color: #666;"><?= $i ?></a>
                                 <?php endif; ?>
                             <?php endfor; ?>
                             
                             <?php if ($current_page < $total_pages): ?>
-                                <a href="?section=student-profiles&page=<?= $current_page + 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                <a href="?section=student-profiles&page=<?= $current_page + 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                    class="pagination-btn">Next</a>
                             <?php else: ?>
                                 <button class="pagination-btn" disabled>Next</button>
@@ -2344,8 +2357,8 @@ try {
                                         <option value="Pablo Borbon">Pablo Borbon</option>
                                         <option value="Alangilan">Alangilan</option>
                                         <option value="Lipa">Lipa</option>
-                                        <option value="Nasugbu">Nasugbu</option>
-                                        <option value="Malvar">Malvar</option>
+                                        <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
+                                        <option value="JPLPC Malvar">JPLPC Malvar</option>
                                     </select>
                                 </div>
 
@@ -3370,7 +3383,7 @@ try {
                 <div style="border-top: 1px solid #e0e0e0; padding-top: 1.5rem;">
                     <h3 style="color: #dc2626; margin-bottom: 1rem;">Cultural Group Assignment</h3>
                     
-                    ${student.desired_cultural_group ? `
+                    ${!currentCulturalGroup && student.desired_cultural_group ? `
                     <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 4px solid #17a2b8; border-radius: 4px;">
                         <p style="margin: 0; color: #333;"><strong>Applied for:</strong> <span style="color: #17a2b8; font-weight: 600;">${student.desired_cultural_group}</span></p>
                         <small style="color: #666; font-style: italic;">This is the cultural group the student originally wanted to join</small>
@@ -3545,7 +3558,12 @@ try {
                                     <p><strong>College:</strong> ${app.college}</p>
                                     <p><strong>Program:</strong> ${app.program}</p>
                                     <p><strong>Year Level:</strong> ${app.year_level}</p>
-                                    <p><strong>Units:</strong> 1st Sem: ${app.first_semester_units}, 2nd Sem: ${app.second_semester_units}</p>
+                                    ${app.first_semester_units && app.first_semester_units > 0 
+                                        ? `<p><strong>Units:</strong> 1st Semester: ${app.first_semester_units}</p>` 
+                                        : ''}
+                                    ${app.second_semester_units && app.second_semester_units > 0 
+                                        ? `<p><strong>Units:</strong> 2nd Semester: ${app.second_semester_units}</p>` 
+                                        : ''}
                                 </div>
                                 <div class="detail-section">
                                     <h4>Performance Type</h4>
@@ -3657,8 +3675,11 @@ try {
         // Initialize search when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             initializeStudentSearch();
-            loadCampusDistribution();
-            loadCulturalGroupDistribution();
+            // Get campus filter from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const campusFilter = urlParams.get('campus_filter') || 'Pablo Borbon';
+            loadCampusDistribution('', campusFilter);
+            loadCulturalGroupDistribution('', campusFilter);
             loadStudentArtistOverview();
             loadUpcomingEventsOverview();
             loadCostumeInventoryOverview();
@@ -3693,15 +3714,28 @@ try {
             });
 
         // Campus Distribution Functions
-        function loadCampusDistribution(searchTerm = '') {
-            console.log('Loading campus distribution with search:', searchTerm);
-            const url = searchTerm ? `get_campus_distribution.php?search=${encodeURIComponent(searchTerm)}` : 'get_campus_distribution.php';
+        function filterByCampus() {
+            const selectedCampus = document.getElementById('campusFilterDropdown').value;
+            // Update URL with campus filter parameter and reload page
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('campus_filter', selectedCampus);
+            urlParams.set('section', 'student-profiles');
+            window.location.href = '?' + urlParams.toString();
+        }
+
+        function loadCampusDistribution(searchTerm = '', filterCampus = 'Pablo Borbon') {
+            console.log('Loading campus distribution with search:', searchTerm, 'campus:', filterCampus);
+            let url = 'get_college_distribution.php';
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (filterCampus) params.append('campus', filterCampus);
+            if (params.toString()) url += '?' + params.toString();
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Campus distribution response:', data);
                     if (data.success) {
-                        displayCampusDistribution(data.campusDistribution, data.totalStudents);
+                        displayCampusDistribution(data.collegeDistribution, data.totalStudents, filterCampus);
                     } else {
                         console.error('Failed to load campus distribution:', data.error);
                         showEmptyCampusChart();
@@ -3713,117 +3747,151 @@ try {
                 });
         }
 
-        function displayCampusDistribution(campusData, totalStudents) {
-            console.log('Campus data received:', campusData);
+        function displayCampusDistribution(collegeData, totalStudents, filterCampus = 'Pablo Borbon') {
+            console.log('College data received:', collegeData, 'filter:', filterCampus);
             
-            if (!campusData || campusData.length === 0) {
-                showEmptyCampusChart();
-                return;
+            // Get selected campus from dropdown if not passed
+            if (!filterCampus) {
+                const dropdown = document.getElementById('campusFilterDropdown');
+                if (dropdown) {
+                    filterCampus = dropdown.value || 'Pablo Borbon';
+                }
             }
+            
+            // Define college lists for each campus
+            const campusColleges = {
+                'Pablo Borbon': [
+                    'College of Accountancy, Business, Economics and International Hospitality Management',
+                    'College of Health Sciences',
+                    'College of Arts and Sciences',
+                    'College of Law',
+                    'College of Teacher Education',
+                    'College of Criminal Justice Education',
+                    'College of Medicine'
+                ],
+                'Alangilan': [
+                    'College of Engineering',
+                    'College of Architecture, Fine Arts and Design',
+                    'College of Engineering Technology',
+                    'College of Informatics and Computing Sciences',
+                    'Lobo Campus',
+                    'Balayan Campus',
+                    'Mabini Campus'
+                ],
+                'JPLPC Malvar': [
+                    'College of Industrial Technology'
+                ],
+                'Lipa': [
+                    'College of Accountancy, Business, Economics, and International Hospitality Management',
+                    'College of Arts and Sciences'
+                ],
+                'ARASOF Nasugbu': [
+                    'College of Agriculture and Forestry',
+                    'College of Accountancy, Business, Economics, and International Hospitality Management'
+                ]
+            };
+            
+            // Get the college order based on selected campus filter
+            let collegeOrder = campusColleges[filterCampus] || [];
+            
+            // Create a map of existing data
+            const dataMap = {};
+            if (collegeData && collegeData.length > 0) {
+                collegeData.forEach(item => {
+                    dataMap[item.college] = item.count;
+                });
+            }
+            
+            // Build ordered data with all colleges, using 0 for missing ones
+            const orderedData = collegeOrder.map(college => ({
+                college: college,
+                count: dataMap[college] || 0,
+                percentage: 0 // Will be calculated below
+            }));
+            
+            // Calculate percentages based on max count
+            const maxCount = Math.max(...orderedData.map(c => c.count), 1); // Ensure at least 1 to avoid division by zero
+            orderedData.forEach(item => {
+                item.percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+            });
 
-            // Colors for different campuses
+            // Red color palette for bars (from light to dark)
             const colors = [
-                '#4285F4', // Blue
-                '#FF6B35', // Orange  
-                '#9C27B0', // Purple
-                '#4CAF50', // Green
-                '#FF9800', // Amber
-                '#607D8B'  // Blue Grey
+                '#ff6b6b', // Light red
+                '#ee5a52', // 
+                '#dc2626', // Medium red
+                '#c91f1f', // 
+                '#b91c1c', // Dark red
+                '#a81818', // 
+                '#991515', // 
+                '#8b1414', // 
+                '#7f1d1d', // Very dark red
+                '#6b1717'  // Darkest red
             ];
-
-            // Draw pie chart
-            drawPieChart(campusData, colors);
             
-            // Draw legend
-            drawLegend(campusData, colors);
-            
-            // Draw bar chart
-            drawBarChart(campusData, colors);
+            // Draw bar chart with ordered data
+            drawBarChart(orderedData, colors);
         }
 
-        function drawPieChart(campusData, colors) {
-            const canvas = document.getElementById('pieChart');
-            const ctx = canvas.getContext('2d');
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const radius = 80;
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // If only one campus, draw full circle
-            if (campusData.length === 1) {
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                ctx.fillStyle = colors[0];
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                return;
-            }
-
-            let currentAngle = -Math.PI / 2; // Start from top
-            
-            campusData.forEach((campus, index) => {
-                const sliceAngle = (campus.percentage / 100) * 2 * Math.PI;
-                
-                // Draw slice
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-                ctx.closePath();
-                ctx.fillStyle = colors[index % colors.length];
-                ctx.fill();
-                
-                // Draw border
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                currentAngle += sliceAngle;
-            });
-        }
-
-        function drawLegend(campusData, colors) {
-            const legendContainer = document.getElementById('chartLegend');
-            legendContainer.innerHTML = '';
-            
-            campusData.forEach((campus, index) => {
-                const legendItem = document.createElement('div');
-                legendItem.className = 'legend-item';
-                
-                legendItem.innerHTML = `
-                    <div class="legend-color" style="background: ${colors[index % colors.length]}"></div>
-                    <div class="legend-text">${campus.campus} (${campus.percentage}%)</div>
-                `;
-                
-                legendContainer.appendChild(legendItem);
-            });
-        }
-
-        function drawBarChart(campusData, colors) {
+        function drawBarChart(collegeData, colors) {
             const barContainer = document.getElementById('barChart');
             barContainer.innerHTML = '';
             
-            const maxCount = Math.max(...campusData.map(c => c.count));
+            const maxCount = Math.max(...collegeData.map(c => c.count), 1); // Ensure at least 1 to avoid division by zero
             
-            campusData.forEach((campus, index) => {
-                const barItem = document.createElement('div');
-                barItem.className = 'bar-item';
+            // Reset container styles for horizontal bars
+            barContainer.style.display = 'block';
+            barContainer.style.padding = '1rem';
+            
+            collegeData.forEach((college, index) => {
+                const barWrapper = document.createElement('div');
+                barWrapper.style.marginBottom = '1rem';
+                barWrapper.style.display = 'flex';
+                barWrapper.style.alignItems = 'center';
+                barWrapper.style.gap = '1rem';
                 
-                const percentage = (campus.count / maxCount) * 100;
+                // Calculate percentage based on the maximum count
+                const percentage = maxCount > 0 ? (college.count / maxCount) * 100 : 0;
                 
-                barItem.innerHTML = `
-                    <div class="bar-label">${campus.campus}</div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width: ${percentage}%; background: ${colors[index % colors.length]}">
-                            <span class="bar-value">${campus.count}</span>
+                barWrapper.innerHTML = `
+                    <div style="
+                        width: 200px;
+                        flex-shrink: 0;
+                        text-align: right;
+                        font-size: 0.75rem;
+                        color: #333;
+                        font-weight: 500;
+                        padding-right: 0.5rem;
+                    ">${college.college}</div>
+                    <div style="
+                        flex: 1;
+                        height: 35px;
+                        background: #f0f0f0;
+                        border-radius: 4px;
+                        position: relative;
+                        overflow: hidden;
+                    ">
+                        <div style="
+                            height: 100%;
+                            width: ${percentage}%;
+                            background: ${colors[index % colors.length]};
+                            display: flex;
+                            align-items: center;
+                            justify-content: flex-end;
+                            padding-right: 0.75rem;
+                            transition: width 0.3s ease;
+                            min-width: ${college.count > 0 ? '30px' : '0'};
+                        ">
+                            <span style="
+                                color: white;
+                                font-weight: bold;
+                                font-size: 0.875rem;
+                            ">${college.count}</span>
                         </div>
                     </div>
                 `;
                 
-                barContainer.appendChild(barItem);
+                barContainer.appendChild(barWrapper);
             });
         }
 
@@ -3832,17 +3900,21 @@ try {
             chartContainer.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; height: 300px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #ddd;">
                     <div style="text-align: center; color: #888;">
-                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No campus distribution data available</p>
-                        <small style="font-size: 0.875rem; color: #aaa;">Chart will appear when student data is available</small>
+                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No data available</p>
+                        <small style="font-size: 0.875rem; color: #aaa;">No student artists found or no college assigned</small>
                     </div>
                 </div>
             `;
         }
 
         // Cultural Group Distribution Functions
-        function loadCulturalGroupDistribution(searchTerm = '') {
-            console.log('Loading cultural group distribution with search:', searchTerm);
-            const url = searchTerm ? `get_cultural_group_distribution.php?search=${encodeURIComponent(searchTerm)}` : 'get_cultural_group_distribution.php';
+        function loadCulturalGroupDistribution(searchTerm = '', filterCampus = '') {
+            console.log('Loading cultural group distribution with search:', searchTerm, 'campus:', filterCampus);
+            let url = 'get_cultural_group_distribution.php';
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (filterCampus) params.append('campus', filterCampus);
+            if (params.toString()) url += '?' + params.toString();
             fetch(url)
                 .then(response => response.json())
                 .then(data => {

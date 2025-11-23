@@ -27,24 +27,8 @@ try {
     $search = isset($_GET['search']) ? trim($_GET['search']) : '';
     $filterCampus = isset($_GET['campus']) ? trim($_GET['campus']) : '';
     
-    // Define all available cultural groups
-    $allGroups = [
-        'Dulaang Batangan',
-        'BatStateU Dance Company', 
-        'Diwayanis Dance Theatre',
-        'BatStateU Band',
-        'Indak Yaman Dance Varsity',
-        'Ritmo Voice',
-        'Sandugo Dance Group',
-        'Areglo Band',
-        'Teatro Aliwana',
-        'The Levites',
-        'Melophiles',
-        'Sindayog'
-    ];
-    
     // Build WHERE clause for search
-    $whereConditions = ["status = 'active'"];
+    $whereConditions = ["status IN ('active', 'suspended')", "college IS NOT NULL", "college != ''"];
     $params = [];
     
     // Apply campus filter
@@ -66,44 +50,21 @@ try {
     
     $whereClause = implode(' AND ', $whereConditions);
     
-    // Get actual student counts for each group with search filter
+    // Get college distribution with search filter
     $sql = "
         SELECT 
-            CASE 
-                WHEN cultural_group IS NULL OR cultural_group = '' THEN 'Not Assigned'
-                ELSE cultural_group
-            END as group_name,
-            COUNT(*) as count
+            college,
+            COUNT(*) as count,
+            ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM student_artists WHERE $whereClause)), 1) as percentage
         FROM student_artists 
         WHERE $whereClause
-        GROUP BY CASE 
-            WHEN cultural_group IS NULL OR cultural_group = '' THEN 'Not Assigned'
-            ELSE cultural_group
-        END
+        GROUP BY college 
+        ORDER BY count DESC
     ";
+    
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $actualCounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Create associative array for easy lookup
-    $countLookup = [];
-    foreach ($actualCounts as $row) {
-        $countLookup[$row['group_name']] = $row['count'];
-    }
-    
-    // Build complete group data including groups with 0 students
-    $groupData = [];
-    foreach ($allGroups as $groupName) {
-        $groupData[] = [
-            'group_name' => $groupName,
-            'count' => isset($countLookup[$groupName]) ? $countLookup[$groupName] : 0
-        ];
-    }
-    
-    // Sort by count (descending)
-    usort($groupData, function($a, $b) {
-        return $b['count'] - $a['count'];
-    });
+    $stmt->execute(array_merge($params, $params)); // params twice for subquery
+    $collegeData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Get total count with search filter
     $totalSql = "SELECT COUNT(*) as total FROM student_artists WHERE $whereClause";
@@ -114,9 +75,10 @@ try {
     // Prepare response
     $response = [
         'success' => true,
-        'groupDistribution' => $groupData,
+        'collegeDistribution' => $collegeData,
         'totalStudents' => $total,
-        'searchApplied' => !empty($search)
+        'searchApplied' => !empty($search),
+        'campus' => $user_campus // Include campus for debugging
     ];
     
     echo json_encode($response);
@@ -125,7 +87,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to fetch cultural group distribution data'
+        'error' => 'Failed to fetch college distribution data: ' . $e->getMessage()
     ]);
 }
 ?>
