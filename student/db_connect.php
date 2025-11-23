@@ -1,13 +1,13 @@
 <?php
-// Database connection configuration
-$servername = "localhost";
-$username = "root";
-$password = ""; // Default XAMPP MySQL password is empty
-$dbname = "capstone_culture_arts";
+// Use centralized database configuration
+require_once __DIR__ . '/../config/database.php';
 
 try {
-    // Create connection using MySQLi
-    $conn = new mysqli($servername, $username, $password, $dbname);
+    // Get PDO connection from centralized config
+    $pdo = getDBConnection();
+    
+    // For backward compatibility, create MySQLi connection if needed
+    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
     
     // Check connection
     if ($conn->connect_error) {

@@ -12,14 +12,9 @@ try {
         throw new Exception('Unauthorized access');
     }
 
-    // Database connection
-    $host = 'localhost';
-    $dbname = 'capstone_culture_arts';
-    $username = 'root';
-    $password = '';
-
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Database connection using centralized config
+    require_once __DIR__ . '/../config/database.php';
+    $pdo = getDBConnection();
 
     $student_id = $_SESSION['user_id'];
 

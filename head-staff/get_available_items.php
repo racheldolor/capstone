@@ -16,14 +16,9 @@ $isCentralHead = in_array($user_email, $centralHeadEmails);
 $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
 
 try {
-    // Database connection
-    $host = 'localhost';
-    $dbname = 'capstone_culture_arts';
-    $username = 'root';
-    $password = '';
-
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Database connection using centralized config
+    require_once __DIR__ . '/../config/database.php';
+    $pdo = getDBConnection();
 
     // Get parameters
     $search = isset($_GET['search']) ? trim($_GET['search']) : '';

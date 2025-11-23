@@ -1,9 +1,35 @@
 <?php
-// Database configuration
-define('DB_HOST', 'localhost');
+/**
+ * Database Configuration
+ * 
+ * IMPORTANT: Update these constants based on your hosting environment:
+ * 
+ * For localhost/XAMPP:
+ *   DB_HOST = 'localhost'
+ *   DB_USER = 'root'
+ *   DB_PASS = ''
+ * 
+ * For shared hosting (e.g., cPanel, Hostinger, etc.):
+ *   DB_HOST = 'localhost' or your hosting provider's database server
+ *   DB_USER = your database username from hosting control panel
+ *   DB_PASS = your database password from hosting control panel
+ * 
+ * For cloud hosting (e.g., AWS RDS, DigitalOcean):
+ *   DB_HOST = database endpoint/IP address (e.g., 'mydb.abc123.us-east-1.rds.amazonaws.com')
+ *   DB_USER = your database username
+ *   DB_PASS = your database password
+ * 
+ * For remote database servers:
+ *   DB_HOST = IP address or domain name of your database server
+ *   DB_USER = your database username
+ *   DB_PASS = your database password
+ */
+
+// Database connection constants
+define('DB_HOST', 'localhost');  // Change to your database host
 define('DB_NAME', 'capstone_culture_arts');
-define('DB_USER', 'root');  // Change this to your MySQL username
-define('DB_PASS', '');      // Change this to your MySQL password
+define('DB_USER', 'root');       // Change to your MySQL username
+define('DB_PASS', '');           // Change to your MySQL password
 
 // Create database connection
 function getDBConnection() {
