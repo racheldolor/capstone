@@ -1871,9 +1871,8 @@ try {
 
         // Open return form for a specific borrowing request
         function openReturnForm(requestId) {
-            if (confirm('Do you want to submit a return request for this borrowing?')) {
-                window.location.href = `return-form.php?request_id=${requestId}`;
-            }
+            // Navigate directly to return form
+            window.location.href = 'return-form.php?request_id=' + requestId;
         }
 
         // Join event function
