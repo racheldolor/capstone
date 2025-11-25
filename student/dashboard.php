@@ -1757,9 +1757,18 @@ try {
                     actionsHtml = '<span style="color: #10b981; font-weight: 600;">Returned</span>';
                 }
                 
+                // Build item name display - show approved item with quantity and requested item if different
+                let itemNameDisplay = request.item_name;
+                if (request.quantity) {
+                    itemNameDisplay += ` (Qty: ${request.quantity})`;
+                }
+                if (request.requested_item && request.requested_item !== request.item_name) {
+                    itemNameDisplay += `<br><small style="color: #6b7280;">Requested: ${request.requested_item}</small>`;
+                }
+                
                 html += `
                     <tr>
-                        <td class="item-name-cell">${request.item_name}</td>
+                        <td class="item-name-cell">${itemNameDisplay}</td>
                         <td><span class="item-status ${statusClass}">${getRequestStatusText(request)}</span></td>
                         <td class="date-cell">${formattedRequestDate}</td>
                         <td class="date-cell">${formattedDueDate}</td>

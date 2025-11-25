@@ -13,7 +13,22 @@ $pdo = getDBConnection();
 // === RBAC: Get user's campus and determine access level ===
 $user_role = $_SESSION['user_role'] ?? '';
 $user_email = $_SESSION['user_email'] ?? '';
-$user_campus = $_SESSION['user_campus'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
+
+// Display campus name (Pablo Borbon shows as "All Campuses")
+$display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
 
 // Central Head emails (view-only access)
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
@@ -32,25 +47,57 @@ if ($canViewAll) {
     $campusFilter = '1=1'; // No filter - see all
     $campusParams = [];
 } else {
-    $campusFilter = 'campus = ?';
-    $campusParams = [$user_campus];
+    // For Malvar and Nasugbu, check both short and full names
+    if ($user_campus === 'JPLPC Malvar') {
+        $campusFilter = '(campus = ? OR campus = ?)';
+        $campusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($user_campus === 'ARASOF Nasugbu') {
+        $campusFilter = '(campus = ? OR campus = ?)';
+        $campusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $campusFilter = 'campus = ?';
+        $campusParams = [$user_campus];
+    }
 }
 
 // Pagination for student artists
 $students_per_page = 5;
 $current_page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
-$campus_filter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : 'Pablo Borbon';
+
+// Determine effective campus filter:
+// - If URL provides campus_filter, use it.
+// - Else: if user can view all, default to Pablo Borbon (admin/central staff case).
+// - Else default to the user's assigned campus so that non-Pablo users see only their campus.
+$campus_filter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : (
+    !empty($canViewAll) ? 'Pablo Borbon' : ($user_campus ?? 'Pablo Borbon')
+);
 
 // Build campus filter for student queries
 if (!empty($campus_filter)) {
-    // Use the selected campus filter from dropdown
-    $studentCampusFilter = 'campus = ?';
-    $studentCampusParams = [$campus_filter];
+    // Use the selected campus filter from dropdown or the user's campus
+    if ($campus_filter === 'JPLPC Malvar') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($campus_filter === 'ARASOF Nasugbu') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $studentCampusFilter = 'campus = ?';
+        $studentCampusParams = [$campus_filter];
+    }
 } else {
-    // Default to Pablo Borbon if no filter specified
-    $studentCampusFilter = 'campus = ?';
-    $studentCampusParams = ['Pablo Borbon'];
+    // Fallback - should not normally happen
+    if ($user_campus === 'JPLPC Malvar') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($user_campus === 'ARASOF Nasugbu') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $studentCampusFilter = 'campus = ?';
+        $studentCampusParams = [$user_campus ?? 'Pablo Borbon'];
+    }
 }
 
 // Get dashboard statistics with campus filtering
@@ -2042,11 +2089,7 @@ try {
                 <?php if ($isCentralHead): ?>
                     <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
                 <?php endif; ?>
-                <?php if ($canViewAll && !$isCentralHead): ?>
-                    <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">ALL CAMPUSES</span>
-                <?php elseif (!$canViewAll && $user_campus): ?>
-                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($user_campus) ?></span>
-                <?php endif; ?>
+                <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -2081,6 +2124,11 @@ try {
                     <li class="nav-item">
                         <a href="inventory.php" class="nav-link">
                             Inventory
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="archives.php" class="nav-link">
+                            Archives
                         </a>
                     </li>
                 </ul>
@@ -2192,13 +2240,19 @@ try {
                     <div class="overview-left">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h3 style="margin: 0; color: #666;">Distribution of Student Artists</h3>
-                            <select id="campusFilterDropdown" onchange="filterByCampus()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
-                                <option value="Pablo Borbon" <?= $campus_filter === 'Pablo Borbon' ? 'selected' : '' ?>>Pablo Borbon</option>
-                                <option value="Alangilan" <?= $campus_filter === 'Alangilan' ? 'selected' : '' ?>>Alangilan</option>
-                                <option value="Lipa" <?= $campus_filter === 'Lipa' ? 'selected' : '' ?>>Lipa</option>
-                                <option value="ARASOF Nasugbu" <?= $campus_filter === 'ARASOF Nasugbu' ? 'selected' : '' ?>>ARASOF Nasugbu</option>
-                                <option value="JPLPC Malvar" <?= $campus_filter === 'JPLPC Malvar' ? 'selected' : '' ?>>JPLPC Malvar</option>
-                            </select>
+                            <?php if ($user_campus === 'Pablo Borbon' || $canViewAll): ?>
+                                <select id="campusFilterDropdown" onchange="filterByCampus()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
+                                    <option value="Pablo Borbon" <?= $campus_filter === 'Pablo Borbon' ? 'selected' : '' ?>>Pablo Borbon</option>
+                                    <option value="Alangilan" <?= $campus_filter === 'Alangilan' ? 'selected' : '' ?>>Alangilan</option>
+                                    <option value="Lipa" <?= $campus_filter === 'Lipa' ? 'selected' : '' ?>>Lipa</option>
+                                    <option value="ARASOF Nasugbu" <?= $campus_filter === 'ARASOF Nasugbu' ? 'selected' : '' ?>>ARASOF Nasugbu</option>
+                                    <option value="JPLPC Malvar" <?= $campus_filter === 'JPLPC Malvar' ? 'selected' : '' ?>>JPLPC Malvar</option>
+                                </select>
+                            <?php else: ?>
+                                <select id="campusFilterDropdown" disabled style="padding: 0.5rem; border: 1px solid #eee; border-radius: 4px; font-size: 0.9rem; cursor: default; background: #f8f9fa; color: #333;">
+                                    <option value="<?= htmlspecialchars($campus_filter) ?>"><?= htmlspecialchars($campus_filter) ?></option>
+                                </select>
+                            <?php endif; ?>
                         </div>
                         <div id="campusDistributionChart" class="campus-distribution">
                             <div class="bar-chart-container" id="barChart">
@@ -3675,9 +3729,8 @@ try {
         // Initialize search when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             initializeStudentSearch();
-            // Get campus filter from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const campusFilter = urlParams.get('campus_filter') || 'Pablo Borbon';
+            // Use server-side campus filter to ensure non-Pablo users see their campus
+            const campusFilter = '<?= htmlspecialchars($campus_filter, ENT_QUOTES) ?>' || 'Pablo Borbon';
             loadCampusDistribution('', campusFilter);
             loadCulturalGroupDistribution('', campusFilter);
             loadStudentArtistOverview();
@@ -4976,7 +5029,7 @@ try {
                 }
                 html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
                 html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
-                html += '<button onclick="deleteEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>';
+                html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
@@ -5125,12 +5178,12 @@ try {
             document.querySelector('.cancel-event-btn').style.display = 'none';
         }
 
-        function deleteEvent(eventId, eventTitle) {
-            if (!confirm('Are you sure you want to delete the event "' + eventTitle + '"? This action cannot be undone.')) {
+        function archiveEvent(eventId, eventTitle) {
+            if (!confirm('Are you sure you want to archive the event "' + eventTitle + '"? You can restore it from the Archives module.')) {
                 return;
             }
             
-            fetch('delete_event.php', {
+            fetch('archive_event.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -5147,12 +5200,12 @@ try {
                         loadAllEvents();
                     }
                 } else {
-                    alert('Error deleting event: ' + data.message);
+                    alert('Error archiving event: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error deleting event');
+                alert('An error occurred while archiving the event');
             });
         }
 
@@ -5396,8 +5449,8 @@ try {
                             <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
                                 Edit
                             </button>
-                            <button onclick="deleteEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}'); " style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
-                                Delete
+                            <button onclick="archiveEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}');" style="background: #ff9800; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+                                Archive
                             </button>
                         </div>
                     </div>

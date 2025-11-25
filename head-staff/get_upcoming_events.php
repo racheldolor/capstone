@@ -51,6 +51,7 @@ try {
             $selectClause
         FROM events 
         WHERE status IN ('published', 'ongoing', 'draft') 
+        AND status != 'archived'
         AND start_date >= CURDATE()
         " . $campusCondition . "
         ORDER BY start_date ASC, title ASC

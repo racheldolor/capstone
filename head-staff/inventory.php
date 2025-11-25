@@ -11,7 +11,22 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
 // RBAC: Get user's campus and determine access level
 $user_role = $_SESSION['user_role'] ?? '';
 $user_email = $_SESSION['user_email'] ?? '';
-$user_campus = $_SESSION['user_campus'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
+
+// Display campus name (Pablo Borbon shows as "All Campuses")
+$display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
 
 // Central Head emails (view-only access)
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
@@ -28,6 +43,7 @@ $pdo = getDBConnection();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory - Culture and Arts - BatStateU TNEU</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -467,6 +483,204 @@ $pdo = getDBConnection();
         .btn-secondary:hover {
             background: #5a6268;
         }
+
+        /* Floating Action Buttons */
+        .floating-actions {
+            position: fixed;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 90;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .floating-actions.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fab::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .fab:hover::before {
+            width: 100%;
+            height: 100%;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        .fab-add {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+        }
+
+        .fab-borrow {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+        }
+
+        .fab-return {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+
+        .fab-tooltip {
+            position: absolute;
+            right: 70px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .fab:hover .fab-tooltip {
+            opacity: 1;
+        }
+
+        /* Action Buttons in Table */
+        .item-actions {
+            display: flex;
+            gap: 0.3rem;
+            justify-content: center;
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .icon-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .icon-btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .icon-btn-edit:hover {
+            background: #2563eb;
+        }
+
+        .icon-btn-archive {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .icon-btn-archive:hover {
+            background: #d97706;
+        }
+
+        .icon-btn-info {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .icon-btn-info:hover {
+            background: #7c3aed;
+        }
+
+        .icon-btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .icon-btn-delete:hover {
+            background: #dc2626;
+        }
+
+        /* Update table header to include actions column */
+        .table-header {
+            display: grid;
+            grid-template-columns: 2fr 60px 90px 90px 120px;
+            font-size: 0.8rem;
+            padding: 0.75rem 0.5rem;
+            background: #dc2626;
+            color: white;
+            font-weight: 600;
+        }
+
+        .table-row {
+            display: grid;
+            grid-template-columns: 2fr 60px 90px 90px 120px;
+            padding: 0.65rem 0.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        /* Validation Error Styles */
+        .error-message {
+            color: #dc2626;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+            display: none;
+        }
+
+        .form-group.error input,
+        .form-group.error select {
+            border-color: #dc2626;
+        }
+
+        .form-group.error .error-message {
+            display: block;
+        }
+
+        /* Badge for unavailable status */
+        .badge-unavailable {
+            background: #dc2626;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -474,7 +688,7 @@ $pdo = getDBConnection();
     <header class="header">
         <div class="header-left">
             <img src="../assets/OCA Logo.png" alt="BatStateU Logo" class="logo">
-            <h1 class="header-title">Culture and Arts - BatStateU TNEU</h1>
+            <h1 class="header-title">Culture and Arts - Dashboard</h1>
         </div>
         <div class="header-right">
             <div class="user-info">
@@ -488,11 +702,7 @@ $pdo = getDBConnection();
                 <?php if ($isCentralHead): ?>
                     <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
                 <?php endif; ?>
-                <?php if ($canViewAll && !$isCentralHead): ?>
-                    <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">ALL CAMPUSES</span>
-                <?php elseif (!$canViewAll && $user_campus): ?>
-                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($user_campus) ?></span>
-                <?php endif; ?>
+                <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -529,26 +739,49 @@ $pdo = getDBConnection();
                             Inventory
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="archives.php" class="nav-link">
+                            Archives
+                        </a>
+                    </li>
                 </ul>
             </nav>
         </aside>
 
         <!-- Main Content -->
         <main class="main-content">
-            <div class="page-header">
+            <div class="page-header" id="pageHeader">
                 <h1 class="page-title">Inventory</h1>
                 <div style="display: flex; gap: 1rem;">
                     <button class="add-btn" onclick="openAddItemModal()">
-                        <span>+</span>
+                        <i class="fas fa-plus"></i>
                         Add Item
                     </button>
-                    <button class="add-btn" onclick="openBorrowRequests()">
+                    <button class="add-btn" onclick="openBorrowRequests()" style="background: linear-gradient(135deg, #2563eb, #1e40af);">
+                        <i class="fas fa-hand-holding"></i>
                         Borrow Requests
                     </button>
-                    <button class="add-btn" onclick="openReturns()">
+                    <button class="add-btn" onclick="openReturns()" style="background: linear-gradient(135deg, #059669, #047857);">
+                        <i class="fas fa-undo"></i>
                         Returns
                     </button>
                 </div>
+            </div>
+
+            <!-- Floating Action Buttons (shown when header is scrolled out of view) -->
+            <div class="floating-actions">
+                <button class="fab fab-add" onclick="openAddItemModal()" title="Add Item">
+                    <span class="fab-tooltip">Add Item</span>
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="fab fab-borrow" onclick="openBorrowRequests()" title="Borrow Requests">
+                    <span class="fab-tooltip">Borrow Requests</span>
+                    <i class="fas fa-hand-holding"></i>
+                </button>
+                <button class="fab fab-return" onclick="openReturns()" title="Returns">
+                    <span class="fab-tooltip">Returns</span>
+                    <i class="fas fa-undo"></i>
+                </button>
             </div>
 
             <!-- Inventory Grid -->
@@ -565,6 +798,7 @@ $pdo = getDBConnection();
                             <div>CONDITION</div>
                             <div>STATUS</div>
                             <div>BORROWER INFO</div>
+                            <div>ACTIONS</div>
                         </div>
                         <div class="table-body" id="costumesTableBody">
                             <div class="empty-state">
@@ -586,6 +820,7 @@ $pdo = getDBConnection();
                             <div>CONDITION</div>
                             <div>STATUS</div>
                             <div>BORROWER INFO</div>
+                            <div>ACTIONS</div>
                         </div>
                         <div class="table-body" id="equipmentTableBody">
                             <div class="empty-state">
@@ -611,6 +846,7 @@ $pdo = getDBConnection();
                     <div class="form-group">
                         <label for="itemName">Name*</label>
                         <input type="text" id="itemName" name="name" placeholder="Enter item name" required>
+                        <div class="error-message"></div>
                     </div>
                     
                     <div class="form-group">
@@ -620,11 +856,13 @@ $pdo = getDBConnection();
                             <option value="costume">Costume</option>
                             <option value="equipment">Equipment</option>
                         </select>
+                        <div class="error-message"></div>
                     </div>
                     
                     <div class="form-group">
                         <label for="itemQuantity">Quantity*</label>
-                        <input type="number" id="itemQuantity" name="quantity" placeholder="Enter quantity" required min="0" value="0">
+                        <input type="number" id="itemQuantity" name="quantity" placeholder="Enter quantity" required min="0" value="0" step="1">
+                        <div class="error-message"></div>
                     </div>
                     
                     <div class="form-group">
@@ -635,6 +873,7 @@ $pdo = getDBConnection();
                             <option value="worn-out">Worn-out</option>
                             <option value="bad">Bad</option>
                         </select>
+                        <div class="error-message"></div>
                     </div>
                     
                     <div class="form-group">
@@ -680,12 +919,20 @@ $pdo = getDBConnection();
             
             let html = '';
             costumes.forEach(costume => {
+                const displayQty = costume.quantity || 0;
+                // Only set to unavailable if qty is 0, otherwise use actual status
+                const autoStatus = displayQty <= 0 ? 'unavailable' : (costume.status || 'available');
+                
                 html += '<div class="table-row">';
                 html += '<div>' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
-                html += '<div>' + (costume.quantity || 0) + '</div>';
+                html += '<div>' + displayQty + '</div>';
                 html += '<div>' + getConditionBadge(costume.condition_status) + '</div>';
-                html += '<div>' + getInventoryStatusBadge(costume.status) + '</div>';
-                html += '<div style="font-size: 0.8rem;">' + getBorrowerInfo(costume) + '</div>';
+                html += '<div>' + getInventoryStatusBadge(autoStatus, displayQty) + '</div>';
+                html += '<div class="item-actions">';
+                html += '<button class="icon-btn icon-btn-info" onclick="viewBorrowerInfo(' + costume.id + ', \'' + (costume.item_name || costume.name || 'this item') + '\')" title="View Info"><i class="fas fa-info-circle"></i></button>';
+                html += '<button class="icon-btn icon-btn-edit" onclick="editItem(' + costume.id + ', \'costume\')" title="Edit"><i class="fas fa-edit"></i></button>';
+                html += '<button class="icon-btn icon-btn-archive" onclick="archiveItem(' + costume.id + ', \'' + (costume.item_name || costume.name || 'this item') + '\')" title="Archive"><i class="fas fa-archive"></i></button>';
+                html += '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
@@ -700,40 +947,46 @@ $pdo = getDBConnection();
             
             let html = '';
             equipment.forEach(item => {
+                const displayQty = item.quantity || 0;
+                // Only set to unavailable if qty is 0, otherwise use actual status
+                const autoStatus = displayQty <= 0 ? 'unavailable' : (item.status || 'available');
+                
                 html += '<div class="table-row">';
                 html += '<div>' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
-                html += '<div>' + (item.quantity || 0) + '</div>';
+                html += '<div>' + displayQty + '</div>';
                 html += '<div>' + getConditionBadge(item.condition_status) + '</div>';
-                html += '<div>' + getInventoryStatusBadge(item.status) + '</div>';
-                html += '<div style="font-size: 0.8rem;">' + getBorrowerInfo(item) + '</div>';
+                html += '<div>' + getInventoryStatusBadge(autoStatus, displayQty) + '</div>';
+                html += '<div class="item-actions">';
+                html += '<button class="icon-btn icon-btn-info" onclick="viewBorrowerInfo(' + item.id + ', \'' + (item.item_name || item.name || 'this item') + '\')" title="View Info"><i class="fas fa-info-circle"></i></button>';
+                html += '<button class="icon-btn icon-btn-edit" onclick="editItem(' + item.id + ', \'equipment\')" title="Edit"><i class="fas fa-edit"></i></button>';
+                html += '<button class="icon-btn icon-btn-archive" onclick="archiveItem(' + item.id + ', \'' + (item.item_name || item.name || 'this item') + '\')" title="Archive"><i class="fas fa-archive"></i></button>';
+                html += '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
         }
 
         function getBorrowerInfo(item) {
-            if (item.status === 'borrowed') {
-                if (item.borrowers && item.borrowers.length > 0) {
-                    let html = '<div style="line-height: 1.3;">';
-                    item.borrowers.forEach((borrower, index) => {
-                        const borrowDate = new Date(borrower.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
-                        html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word;">${borrower.student_name}</div>`;
-                        html += `<div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>`;
-                        html += `</div>`;
-                    });
-                    html += '</div>';
-                    return html;
-                } else if (item.borrower_name) {
-                    const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    return `<div style="line-height: 1.3;">
-                        <div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word;">${item.borrower_name}</div>
-                        <div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>
-                    </div>`;
-                } else {
-                    return '<span style="color: #666; font-style: italic; font-size: 0.8rem;">Borrowed</span>';
-                }
+            // Only show borrower info if item status is actually 'borrowed' and has borrower data
+            if (item.status === 'borrowed' && item.borrowers && item.borrowers.length > 0) {
+                let html = '<div style="line-height: 1.3;">';
+                item.borrowers.forEach((borrower, index) => {
+                    const borrowDate = new Date(borrower.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
+                    html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word;">${borrower.student_name}</div>`;
+                    html += `<div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>`;
+                    html += `</div>`;
+                });
+                html += '</div>';
+                return html;
+            } else if (item.status === 'borrowed' && item.borrower_name) {
+                const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                return `<div style="line-height: 1.3;">
+                    <div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word;">${item.borrower_name}</div>
+                    <div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>
+                </div>`;
             }
+            // Default: show dash for all other cases (available, unavailable, maintenance, etc.)
             return '<span style="color: #aaa; text-align: center; display: block; font-size: 0.8rem;">-</span>';
         }
 
@@ -747,11 +1000,17 @@ $pdo = getDBConnection();
             return badges[condition] || `<span style="color: #666; font-size: 0.7rem;">${condition || 'Unknown'}</span>`;
         }
 
-        function getInventoryStatusBadge(status) {
+        function getInventoryStatusBadge(status, quantity) {
+            // Auto-set to unavailable/borrowed if quantity is 0
+            if (quantity !== undefined && quantity <= 0) {
+                return '<span class="badge badge-unavailable">Unavailable</span>';
+            }
+            
             const badges = {
                 'available': '<span class="badge badge-available">Available</span>',
                 'borrowed': '<span class="badge badge-borrowed">Borrowed</span>',
-                'maintenance': '<span class="badge badge-maintenance">Maintenance</span>'
+                'maintenance': '<span class="badge badge-maintenance">Maintenance</span>',
+                'unavailable': '<span class="badge badge-unavailable">Unavailable</span>'
             };
             return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Unknown'}</span>`;
         }
@@ -759,12 +1018,154 @@ $pdo = getDBConnection();
         // Modal functions
         function openAddItemModal() {
             document.getElementById('addItemModal').classList.add('show');
+            document.getElementById('addItemForm').reset();
+            // Reset form to add mode
+            document.querySelector('#addItemModal h2').textContent = 'Add Costume/Equipment';
+            document.getElementById('addItemForm').removeAttribute('data-edit-id');
+            clearFormErrors();
         }
 
         function closeAddItemModal() {
             document.getElementById('addItemModal').classList.remove('show');
             document.getElementById('addItemForm').reset();
+            document.getElementById('addItemForm').removeAttribute('data-edit-id');
+            clearFormErrors();
         }
+
+        // Edit item function
+        function editItem(itemId, category) {
+            // Fetch item details
+            fetch(`get_inventory_items.php`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const items = category === 'costume' ? data.costumes : data.equipment;
+                        const item = items.find(i => i.id == itemId);
+                        
+                        if (item) {
+                            // Populate form with item data
+                            document.getElementById('itemName').value = item.item_name || item.name || '';
+                            document.getElementById('itemCategory').value = item.category || category;
+                            document.getElementById('itemQuantity').value = item.quantity || 0;
+                            document.getElementById('itemCondition').value = item.condition_status || '';
+                            document.getElementById('itemDescription').value = item.description || '';
+                            
+                            // Set form to edit mode
+                            document.querySelector('#addItemModal h2').textContent = 'Edit ' + (item.item_name || item.name || 'Item');
+                            document.getElementById('addItemForm').setAttribute('data-edit-id', itemId);
+                            
+                            // Open modal
+                            document.getElementById('addItemModal').classList.add('show');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading item:', error);
+                    alert('Error loading item details');
+                });
+        }
+
+        // Archive item function
+        function archiveItem(itemId, itemName) {
+            if (confirm(`Are you sure you want to archive "${itemName}"?\n\nArchived items can be restored from the Archives module.`)) {
+                fetch('archive_inventory_item.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ item_id: itemId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message || 'Item archived successfully!');
+                        loadInventoryItems();
+                    } else {
+                        alert('Error archiving item: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error archiving item:', error);
+                    alert('Error archiving item. Please try again.');
+                });
+            }
+        }
+
+        // Form validation functions
+        function validateForm() {
+            clearFormErrors();
+            let isValid = true;
+
+            const name = document.getElementById('itemName');
+            const category = document.getElementById('itemCategory');
+            const quantity = document.getElementById('itemQuantity');
+            const condition = document.getElementById('itemCondition');
+
+            // Validate name
+            if (!name.value.trim()) {
+                showError(name, 'Item name is required');
+                isValid = false;
+            }
+
+            // Validate category
+            if (!category.value) {
+                showError(category, 'Please select a category');
+                isValid = false;
+            }
+
+            // Validate quantity
+            if (quantity.value === '' || quantity.value < 0) {
+                showError(quantity, 'Quantity must be 0 or greater');
+                isValid = false;
+            }
+
+            // Validate condition
+            if (!condition.value) {
+                showError(condition, 'Please select a condition');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        function showError(input, message) {
+            const formGroup = input.closest('.form-group');
+            formGroup.classList.add('error');
+            const errorDiv = formGroup.querySelector('.error-message') || createErrorMessage(formGroup);
+            errorDiv.textContent = message;
+        }
+
+        function createErrorMessage(formGroup) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            formGroup.appendChild(errorDiv);
+            return errorDiv;
+        }
+
+        function clearFormErrors() {
+            document.querySelectorAll('.form-group.error').forEach(group => {
+                group.classList.remove('error');
+            });
+        }
+
+        // Real-time validation
+        document.addEventListener('DOMContentLoaded', function() {
+            const quantityInput = document.getElementById('itemQuantity');
+            
+            // Prevent negative numbers
+            quantityInput.addEventListener('input', function() {
+                if (this.value < 0) {
+                    this.value = 0;
+                }
+            });
+
+            // Clear error on input
+            document.querySelectorAll('#addItemForm input, #addItemForm select, #addItemForm textarea').forEach(input => {
+                input.addEventListener('input', function() {
+                    this.closest('.form-group').classList.remove('error');
+                });
+            });
+        });
 
         function openBorrowRequests() {
             const modal = document.getElementById('borrowRequestsModal');
@@ -792,8 +1193,25 @@ $pdo = getDBConnection();
         document.getElementById('addItemForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // Validate form
+            if (!validateForm()) {
+                return;
+            }
+            
             const formData = new FormData(this);
             const data = Object.fromEntries(formData);
+            
+            // Check if editing existing item
+            const editId = this.getAttribute('data-edit-id');
+            if (editId) {
+                data.id = editId;
+            }
+            
+            // Ensure quantity is non-negative
+            if (data.quantity < 0) {
+                alert('Quantity cannot be negative');
+                return;
+            }
             
             fetch('save_inventory_item.php', {
                 method: 'POST',
@@ -805,15 +1223,15 @@ $pdo = getDBConnection();
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Item added successfully!');
+                    alert(data.message || (editId ? 'Item updated successfully!' : 'Item added successfully!'));
                     closeAddItemModal();
                     loadInventoryItems();
                 } else {
-                    alert('Error adding item: ' + data.message);
+                    alert('Error: ' + (data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
-                alert('Error adding item: ' + error.message);
+                alert('Error saving item: ' + error.message);
             });
         });
 
@@ -909,42 +1327,27 @@ $pdo = getDBConnection();
         }
         
         function approveRequest(requestId) {
-            if (confirm('Are you sure you want to approve this borrow request?')) {
-                updateRequestStatus(requestId, 'approved');
-            }
+            // Fetch request details first
+            fetch(`get_borrowing_requests.php?request_id=${requestId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        const request = data.data[0];
+                        showApprovalModal(request);
+                    } else {
+                        alert('Error loading request details');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading request details');
+                });
         }
         
         function rejectRequest(requestId) {
             if (confirm('Are you sure you want to reject this borrow request?')) {
                 updateRequestStatus(requestId, 'rejected');
             }
-        }
-        
-        function updateRequestStatus(requestId, status) {
-            fetch('update_borrowing_request.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    request_id: requestId,
-                    status: status
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message || 'Request updated successfully!');
-                    loadBorrowRequests();
-                    loadInventoryItems();
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Error updating request:', error);
-                alert('Error updating request. Please try again.');
-            });
         }
         
         function displayRequestsPagination(pagination) {
@@ -1098,10 +1501,402 @@ $pdo = getDBConnection();
         function viewRequestDetails(id) { alert('View borrow request: ' + id); }
         function viewReturnDetails(id) { alert('View return request: ' + id); }
 
-        // Load inventory on page load
+        // Approval Modal Functions
+        function showApprovalModal(request) {
+            const modal = document.getElementById('approvalModal');
+            const requestInfo = document.getElementById('approvalRequestInfo');
+            const requestedItemsList = document.getElementById('requestedItemsList');
+            const availableItemsList = document.getElementById('availableItemsList');
+            
+            // Display request info
+            requestInfo.innerHTML = `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <h3 style="margin-bottom: 0.5rem; color: #333;">${request.student_name || 'Unknown Student'}</h3>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Email:</strong> ${request.student_email || 'N/A'}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Campus:</strong> ${request.student_campus || 'N/A'}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Dates:</strong> ${request.dates_of_use || 'Not specified'}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Purpose:</strong> ${request.purpose || 'Not specified'}</p>
+                </div>
+            `;
+            
+            // Parse and display requested items (read-only)
+            const itemsText = request.item_name || request.items || '';
+            let requestedHTML = '';
+            
+            if (itemsText.includes(',')) {
+                const items = itemsText.split(',').map(i => i.trim());
+                items.forEach((item, index) => {
+                    const match = item.match(/(.+?)\s*\((\d+)\)/);
+                    const itemName = match ? match[1].trim() : item;
+                    const quantity = match ? match[2] : '1';
+                    
+                    requestedHTML += `
+                        <div style="padding: 0.5rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #333; font-weight: 500;">${itemName}</span>
+                            <span style="color: #666; font-size: 0.9rem;">Qty: ${quantity}</span>
+                        </div>
+                    `;
+                });
+            } else {
+                const match = itemsText.match(/(.+?)\s*\((\d+)\)/);
+                const itemName = match ? match[1].trim() : itemsText;
+                const quantity = match ? match[2] : '1';
+                
+                requestedHTML = `
+                    <div style="padding: 0.5rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #333; font-weight: 500;">${itemName}</span>
+                        <span style="color: #666; font-size: 0.9rem;">Qty: ${quantity}</span>
+                    </div>
+                `;
+            }
+            
+            requestedItemsList.innerHTML = requestedHTML;
+            
+            // Load available inventory items
+            loadAvailableInventoryForApproval();
+            
+            // Store request ID for later use
+            document.getElementById('confirmApprovalBtn').setAttribute('data-request-id', request.id);
+            
+            // Show modal
+            modal.style.display = 'flex';
+        }
+
+        function loadAvailableInventoryForApproval() {
+            const availableItemsList = document.getElementById('availableItemsList');
+            availableItemsList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Loading available items...</div>';
+            
+            fetch('get_inventory_items.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const allItems = [...(data.costumes || []), ...(data.equipment || [])];
+                        displayAvailableItems(allItems);
+                    } else {
+                        availableItemsList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #dc2626;">Error loading items</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    availableItemsList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #dc2626;">Error loading items</div>';
+                });
+        }
+
+        function displayAvailableItems(items) {
+            const availableItemsList = document.getElementById('availableItemsList');
+            
+            if (!items || items.length === 0) {
+                availableItemsList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">No items available</div>';
+                return;
+            }
+            
+            let html = '';
+            items.forEach((item, index) => {
+                const itemName = item.item_name || item.name || 'Unnamed Item';
+                const quantity = item.quantity || 0;
+                const category = item.category || 'unknown';
+                const status = item.status || 'available';
+                const isAvailable = status === 'available' && quantity > 0;
+                
+                html += `
+                    <div class="available-item" style="display: flex; align-items: center; padding: 0.75rem; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 0.5rem; background: ${isAvailable ? 'white' : '#f5f5f5'}; opacity: ${isAvailable ? '1' : '0.6'};">
+                        <input type="checkbox" id="avail_item_${item.id}" ${isAvailable ? '' : 'disabled'} 
+                               style="margin-right: 1rem; width: 18px; height: 18px; cursor: ${isAvailable ? 'pointer' : 'not-allowed'};"
+                               onchange="toggleQuantityInput(${item.id})">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: #333;">
+                                ${itemName}
+                                <span style="background: ${category === 'costume' ? '#e0f2fe' : '#fef3c7'}; color: ${category === 'costume' ? '#0369a1' : '#a16207'}; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; margin-left: 0.5rem;">${category}</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">
+                                Available: <strong>${quantity}</strong>
+                                ${!isAvailable ? '<span style="color: #dc2626; margin-left: 0.5rem;">(Not available)</span>' : ''}
+                            </div>
+                        </div>
+                        <div style="margin-left: 1rem;">
+                            <input type="number" id="avail_qty_${item.id}" value="1" min="1" max="${quantity}" 
+                                   disabled
+                                   style="width: 70px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px; text-align: center;">
+                        </div>
+                    </div>
+                `;
+            });
+            
+            availableItemsList.innerHTML = html;
+        }
+
+        function toggleQuantityInput(itemId) {
+            const checkbox = document.getElementById(`avail_item_${itemId}`);
+            const qtyInput = document.getElementById(`avail_qty_${itemId}`);
+            
+            if (checkbox && qtyInput) {
+                qtyInput.disabled = !checkbox.checked;
+                if (checkbox.checked) {
+                    qtyInput.focus();
+                }
+            }
+        }
+
+        function searchAvailableItems() {
+            const searchInput = document.getElementById('approvalSearchInput');
+            const searchTerm = searchInput.value.toLowerCase();
+            const items = document.querySelectorAll('.available-item');
+            
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function closeApprovalModal() {
+            document.getElementById('approvalModal').style.display = 'none';
+        }
+
+        function viewBorrowerInfo(itemId, itemName) {
+            const modal = document.getElementById('borrowerInfoModal');
+            const loadingDiv = document.getElementById('borrowerInfoLoading');
+            const contentDiv = document.getElementById('borrowerInfoContent');
+            const titleElement = document.getElementById('borrowerInfoTitle');
+            
+            titleElement.textContent = `Borrower Information: ${itemName}`;
+            modal.style.display = 'block';
+            loadingDiv.style.display = 'block';
+            contentDiv.style.display = 'none';
+            
+            // Fetch borrower information
+            fetch(`get_item_borrowers.php?item_id=${itemId}`)
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    
+                    if (data.success) {
+                        displayBorrowerInfo(data.borrowers, data.item);
+                    } else {
+                        contentDiv.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 2rem;">${data.message || 'Error loading borrower information'}</p>`;
+                    }
+                })
+                .catch(error => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    contentDiv.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 2rem;">Error: ${error.message}</p>`;
+                });
+        }
+
+        function closeBorrowerInfoModal() {
+            document.getElementById('borrowerInfoModal').style.display = 'none';
+        }
+
+        function displayBorrowerInfo(borrowers, item) {
+            const contentDiv = document.getElementById('borrowerInfoContent');
+            
+            if (!borrowers || borrowers.length === 0) {
+                contentDiv.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #666;">
+                        <i class="fas fa-info-circle" style="font-size: 3rem; color: #94a3b8; margin-bottom: 1rem;"></i>
+                        <p style="margin: 0; font-size: 1.1rem;">No active borrowers for this item</p>
+                        <small style="color: #94a3b8;">This item is currently available</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #f1f5f9; border-radius: 8px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                        <div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Total Quantity</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: #1e293b;">${item.total_quantity || 0}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Available</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: #059669;">${item.available_quantity || 0}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Borrowed</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">${borrowers.length}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h4 style="margin-bottom: 1rem; color: #334155; font-size: 1rem;">Active Borrowers</h4>
+                
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8f9fa; text-align: left;">
+                            <th style="padding: 0.75rem; border-bottom: 2px solid #e2e8f0;">Borrower</th>
+                            <th style="padding: 0.75rem; border-bottom: 2px solid #e2e8f0;">Quantity</th>
+                            <th style="padding: 0.75rem; border-bottom: 2px solid #e2e8f0;">Borrow Date</th>
+                            <th style="padding: 0.75rem; border-bottom: 2px solid #e2e8f0;">Due Date</th>
+                            <th style="padding: 0.75rem; border-bottom: 2px solid #e2e8f0;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            borrowers.forEach((borrower, index) => {
+                const borrowDate = new Date(borrower.borrow_date);
+                const dueDate = new Date(borrower.due_date);
+                const today = new Date();
+                
+                const formattedBorrowDate = borrowDate.toLocaleDateString('en-US', { 
+                    month: 'short', day: 'numeric', year: 'numeric' 
+                });
+                const formattedDueDate = dueDate.toLocaleDateString('en-US', { 
+                    month: 'short', day: 'numeric', year: 'numeric' 
+                });
+                
+                // Check if overdue
+                const isOverdue = dueDate < today && borrower.current_status === 'active';
+                const daysOverdue = isOverdue ? Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)) : 0;
+                
+                let statusBadge = '';
+                if (borrower.current_status === 'returned') {
+                    statusBadge = '<span style="background: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">Returned</span>';
+                } else if (borrower.current_status === 'pending_return') {
+                    statusBadge = '<span style="background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">Pending Return</span>';
+                } else if (isOverdue) {
+                    statusBadge = `<span style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">Overdue (${daysOverdue}d)</span>`;
+                } else {
+                    statusBadge = '<span style="background: #3b82f6; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">Active</span>';
+                }
+                
+                const rowBg = index % 2 === 0 ? '#ffffff' : '#f9fafb';
+                
+                html += `
+                    <tr style="background: ${rowBg}; ${isOverdue ? 'border-left: 3px solid #dc2626;' : ''}">
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e2e8f0;">
+                            <div style="font-weight: 600; color: #1e293b; margin-bottom: 0.25rem;">${borrower.student_name}</div>
+                            <div style="font-size: 0.85rem; color: #64748b;">${borrower.student_email || '-'}</div>
+                        </td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${borrower.quantity || 1}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e2e8f0;">${formattedBorrowDate}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e2e8f0;">${formattedDueDate}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e2e8f0;">${statusBadge}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            contentDiv.innerHTML = html;
+        }
+
+        function confirmApproval() {
+            const requestId = document.getElementById('confirmApprovalBtn').getAttribute('data-request-id');
+            const availableItemsList = document.getElementById('availableItemsList');
+            const checkboxes = availableItemsList.querySelectorAll('input[type="checkbox"]:not([disabled])');
+            
+            // Collect approved items from available inventory
+            let approvedItems = [];
+            let hasSelectedItems = false;
+            
+            checkboxes.forEach((checkbox) => {
+                if (checkbox.checked) {
+                    hasSelectedItems = true;
+                    const itemId = checkbox.id.replace('avail_item_', '');
+                    const qtyInput = document.getElementById(`avail_qty_${itemId}`);
+                    const itemDiv = checkbox.nextElementSibling;
+                    const itemNameElement = itemDiv.querySelector('div:first-child');
+                    const itemName = itemNameElement.childNodes[0].textContent.trim();
+                    const quantity = qtyInput ? qtyInput.value : 1;
+                    
+                    approvedItems.push({
+                        id: parseInt(itemId),
+                        name: itemName,
+                        quantity: parseInt(quantity)
+                    });
+                    
+                    console.log('Added item:', { id: parseInt(itemId), name: itemName, quantity: parseInt(quantity) });
+                }
+            });
+            
+            if (!hasSelectedItems) {
+                alert('Please select at least one item to approve');
+                return;
+            }
+            
+            console.log('Final approved items:', approvedItems);
+            
+            if (confirm(`Are you sure you want to approve ${approvedItems.length} item(s)?`)) {
+                updateRequestStatus(requestId, 'approved', approvedItems);
+                closeApprovalModal();
+            }
+        }
+
+        function updateRequestStatus(requestId, status, approvedItems = null) {
+            const payload = {
+                request_id: requestId,
+                status: status
+            };
+            
+            if (approvedItems) {
+                payload.approved_items = approvedItems;
+                console.log('Sending payload with approved_items:', payload);
+            }
+            
+            fetch('update_borrowing_request.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Response from server:', data);
+                if (data.success) {
+                    alert(data.message || 'Request updated successfully!');
+                    // Reload both the borrow requests and inventory
+                    loadBorrowRequests();
+                    loadInventoryItems(); // Refresh inventory to show updated quantities and status
+                } else {
+                    alert('Error: ' + (data.error || data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error updating request:', error);
+                alert('Error updating request. Please try again.');
+            });
+        }
         document.addEventListener('DOMContentLoaded', function() {
             loadInventoryItems();
+            
+            // Initialize floating action buttons visibility
+            initFloatingButtons();
         });
+
+        // Show/hide floating action buttons based on scroll position
+        function initFloatingButtons() {
+            const pageHeader = document.getElementById('pageHeader');
+            const floatingActions = document.querySelector('.floating-actions');
+            
+            if (!pageHeader || !floatingActions) return;
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        // Header is visible, hide floating buttons
+                        floatingActions.classList.remove('visible');
+                    } else {
+                        // Header is not visible, show floating buttons
+                        floatingActions.classList.add('visible');
+                    }
+                });
+            }, {
+                threshold: 0,
+                rootMargin: '-70px 0px 0px 0px' // Account for sticky header
+            });
+            
+            observer.observe(pageHeader);
+        }
     </script>
 
     <!-- Borrow Requests Modal -->
@@ -1188,6 +1983,85 @@ $pdo = getDBConnection();
                     </table>
                 </div>
                 <div id="returnsPagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approval Modal -->
+    <div id="approvalModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; width: 95%;">
+            <div class="modal-header">
+                <h2>Approve Borrow Request</h2>
+                <span class="close" onclick="closeApprovalModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="approvalRequestInfo"></div>
+                
+                <!-- Requested Items Section -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="margin-bottom: 0.75rem; color: #333; font-size: 1rem; display: flex; align-items: center;">
+                        <i class="fas fa-clipboard-list" style="margin-right: 0.5rem; color: #dc2626;"></i>
+                        Items Requested by Student:
+                    </h3>
+                    <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 6px; padding: 0.75rem;">
+                        <div id="requestedItemsList"></div>
+                    </div>
+                </div>
+                
+                <!-- Available Items Section -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="margin-bottom: 0.75rem; color: #333; font-size: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span>
+                            <i class="fas fa-box-open" style="margin-right: 0.5rem; color: #059669;"></i>
+                            Select Available Items to Approve:
+                        </span>
+                    </h3>
+                    
+                    <!-- Search Bar -->
+                    <div style="margin-bottom: 1rem;">
+                        <input type="text" id="approvalSearchInput" placeholder="Search items by name or category..." 
+                               oninput="searchAvailableItems()"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
+                    </div>
+                    
+                    <!-- Available Items List -->
+                    <div id="availableItemsList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 6px; padding: 0.5rem; background: #f9fafb;">
+                        <div style="text-align: center; padding: 2rem; color: #666;">Loading available items...</div>
+                    </div>
+                </div>
+                
+                <div style="background: #e0f2fe; border: 1px solid #0ea5e9; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <p style="margin: 0; color: #075985; font-size: 0.9rem;">
+                        <strong><i class="fas fa-info-circle"></i> Instructions:</strong> 
+                        Search and select the items you want to approve from the available inventory. 
+                        You can adjust quantities and only checked items will be approved.
+                    </p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeApprovalModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmApprovalBtn" onclick="confirmApproval()">
+                        <i class="fas fa-check"></i> Confirm Approval
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Borrower Info Modal -->
+    <div id="borrowerInfoModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px; width: 95%; margin: 5% auto;">
+            <div class="modal-header">
+                <h2 id="borrowerInfoTitle">Item Borrower Information</h2>
+                <span class="close" onclick="closeBorrowerInfoModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="borrowerInfoLoading" style="text-align: center; padding: 2rem;">
+                    <p>Loading borrower information...</p>
+                </div>
+                <div id="borrowerInfoContent" style="display: none;">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
             </div>
         </div>
     </div>

@@ -12,19 +12,41 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
 // RBAC: Determine access level
 $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
-$user_campus = $_SESSION['user_campus'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Campus name normalization
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Lemery' => 'Lemery',
+    'Rosario' => 'Rosario',
+    'Balayan' => 'Balayan',
+    'Mabini' => 'Mabini',
+    'San Juan' => 'San Juan',
+    'Lobo' => 'Lobo'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
 $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
 $canManage = !$isCentralHead;
 
-// Build campus filter
+// Build campus filter with support for both short and full campus names
 $campusFilter = '';
 $campusParams = [];
 if (!$canViewAll && $user_campus) {
-    $campusFilter = ' AND campus = ?';
-    $campusParams[] = $user_campus;
+    if ($user_campus === 'JPLPC Malvar') {
+        $campusFilter = ' AND (campus = ? OR campus = ?)';
+        $campusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($user_campus === 'ARASOF Nasugbu') {
+        $campusFilter = ' AND (campus = ? OR campus = ?)';
+        $campusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $campusFilter = ' AND campus = ?';
+        $campusParams = [$user_campus];
+    }
 }
 
 header('Content-Type: application/json');

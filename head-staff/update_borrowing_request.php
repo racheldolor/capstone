@@ -44,6 +44,12 @@ try {
     $action = $input['action'] ?? $input['status'] ?? null; // Support both 'action' and 'status' for backward compatibility
     $notes = $input['notes'] ?? '';
     $selected_items = $input['selected_items'] ?? [];
+    $approved_items = $input['approved_items'] ?? []; // New format from approval modal
+
+    // Use approved_items if available, otherwise fall back to selected_items
+    if (!empty($approved_items)) {
+        $selected_items = $approved_items;
+    }
 
     // Validate input
     if (!$request_id || !$action) {
@@ -79,7 +85,7 @@ try {
             $placeholders = implode(',', array_fill(0, count($item_ids), '?'));
             
             $stmt = $pdo->prepare("
-                SELECT id, item_name, status, campus 
+                SELECT id, item_name, quantity, status, campus 
                 FROM inventory 
                 WHERE id IN ($placeholders) AND status = 'available' AND campus = ?
             ");
@@ -91,13 +97,32 @@ try {
                 throw new Exception('Some selected items are no longer available');
             }
 
-            // Update inventory status to 'borrowed'
-            $stmt = $pdo->prepare("
-                UPDATE inventory 
-                SET status = 'borrowed', updated_at = CURRENT_TIMESTAMP 
-                WHERE id IN ($placeholders)
-            ");
-            $stmt->execute($item_ids);
+            // Update inventory - decrease quantity and change status if needed
+            foreach ($selected_items as $selected_item) {
+                $item_id = $selected_item['id'];
+                $borrow_qty = intval($selected_item['quantity']);
+                
+                // Get current quantity
+                $stmt = $pdo->prepare("SELECT quantity FROM inventory WHERE id = ?");
+                $stmt->execute([$item_id]);
+                $current = $stmt->fetch(PDO::FETCH_ASSOC);
+                $current_qty = intval($current['quantity']);
+                
+                // Calculate new quantity
+                $new_qty = $current_qty - $borrow_qty;
+                
+                // Update quantity and status
+                $new_status = $new_qty <= 0 ? 'unavailable' : 'borrowed';
+                
+                $stmt = $pdo->prepare("
+                    UPDATE inventory 
+                    SET quantity = ?, 
+                        status = ?, 
+                        updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$new_qty, $new_status, $item_id]);
+            }
 
             // Store approved items as JSON in the request
             $approved_items_json = json_encode($selected_items);

@@ -35,7 +35,8 @@ try {
             br.approved_date as reviewed_at,
             br.status,
             br.current_status,
-            br.approval_notes as review_notes
+            br.approval_notes as review_notes,
+            br.approved_items
         FROM borrowing_requests br
         WHERE br.student_id = ? 
         ORDER BY br.created_at DESC
@@ -48,24 +49,65 @@ try {
 
     foreach ($requests as $request) {
         if ($request['status'] === 'approved' || $request['status'] === 'borrowed') {
-            // Get item details from inventory
-            $item_stmt = $pdo->prepare("
-                SELECT item_name, category, condition_status, status 
-                FROM inventory 
-                WHERE id = ?
-            ");
-            $item_stmt->execute([$request['item_id']]);
-            $item_details = $item_stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($item_details) {
+            // If staff approved specific items, use those instead of what student typed
+            if (!empty($request['approved_items'])) {
+                $approved_items = json_decode($request['approved_items'], true);
+                
+                if (is_array($approved_items) && count($approved_items) > 0) {
+                    // Create an entry for each approved item
+                    foreach ($approved_items as $approved_item) {
+                        $all_requests[] = [
+                            'id' => $request['id'],
+                            'request_id' => $request['id'],
+                            'item_id' => $approved_item['id'],
+                            'item_name' => $approved_item['name'],
+                            'quantity' => $approved_item['quantity'],
+                            'item_type' => $request['item_category'],
+                            'category' => $request['item_category'],
+                            'condition' => null,
+                            'current_status' => $request['current_status'] ?? 'active',
+                            'dates_of_use' => $request['dates_of_use'],
+                            'estimated_return_date' => $request['estimated_return_date'],
+                            'request_date' => $request['created_at'],
+                            'approved_date' => $request['reviewed_at'],
+                            'due_date' => $request['due_date'] ?? $request['estimated_return_date'],
+                            'status' => $request['status'],
+                            'review_notes' => $request['review_notes'],
+                            'requested_item' => $request['item_name'],
+                            'display_type' => 'approved_item'
+                        ];
+                    }
+                } else {
+                    // Fallback to old behavior if approved_items is empty
+                    $all_requests[] = [
+                        'id' => $request['id'],
+                        'request_id' => $request['id'],
+                        'item_id' => $request['item_id'],
+                        'item_name' => $request['item_name'],
+                        'item_type' => $request['item_category'],
+                        'category' => $request['item_category'],
+                        'condition' => null,
+                        'current_status' => $request['current_status'] ?? 'active',
+                        'dates_of_use' => $request['dates_of_use'],
+                        'estimated_return_date' => $request['estimated_return_date'],
+                        'request_date' => $request['created_at'],
+                        'approved_date' => $request['reviewed_at'],
+                        'due_date' => $request['due_date'] ?? $request['estimated_return_date'],
+                        'status' => $request['status'],
+                        'review_notes' => $request['review_notes'],
+                        'display_type' => 'approved_item'
+                    ];
+                }
+            } else {
+                // Fallback to old behavior if approved_items is null
                 $all_requests[] = [
                     'id' => $request['id'],
                     'request_id' => $request['id'],
                     'item_id' => $request['item_id'],
                     'item_name' => $request['item_name'],
                     'item_type' => $request['item_category'],
-                    'category' => $item_details['category'],
-                    'condition' => $item_details['condition_status'],
+                    'category' => $request['item_category'],
+                    'condition' => null,
                     'current_status' => $request['current_status'] ?? 'active',
                     'dates_of_use' => $request['dates_of_use'],
                     'estimated_return_date' => $request['estimated_return_date'],
@@ -78,7 +120,7 @@ try {
                 ];
             }
         } else {
-            // For pending/rejected requests
+            // For pending/rejected requests - show what they requested
             $all_requests[] = [
                 'id' => $request['id'],
                 'request_id' => $request['id'],

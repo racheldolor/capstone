@@ -12,7 +12,21 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
 // RBAC: Determine access level
 $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
-$user_campus = $_SESSION['user_campus'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Campus name normalization
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Lemery' => 'Lemery',
+    'Rosario' => 'Rosario',
+    'Balayan' => 'Balayan',
+    'Mabini' => 'Mabini',
+    'San Juan' => 'San Juan',
+    'Lobo' => 'Lobo'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
@@ -36,10 +50,23 @@ try {
     $where_conditions = [];
     $params = [];
     
+    // Exclude archived events
+    $where_conditions[] = "status != 'archived'";
+    
     // Apply campus filter for non-admin users
     if (!$canViewAll && $user_campus) {
-        $where_conditions[] = 'campus = ?';
-        $params[] = $user_campus;
+        if ($user_campus === 'JPLPC Malvar') {
+            $where_conditions[] = '(campus = ? OR campus = ?)';
+            $params[] = 'JPLPC Malvar';
+            $params[] = 'Malvar';
+        } elseif ($user_campus === 'ARASOF Nasugbu') {
+            $where_conditions[] = '(campus = ? OR campus = ?)';
+            $params[] = 'ARASOF Nasugbu';
+            $params[] = 'Nasugbu';
+        } else {
+            $where_conditions[] = 'campus = ?';
+            $params[] = $user_campus;
+        }
     }
     
     // Apply status filter
