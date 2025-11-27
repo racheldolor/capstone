@@ -4200,7 +4200,7 @@ try {
             
             container.innerHTML = `
                 <div style="padding: 1rem;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
                         <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
                             <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-style: normal;">${stats.total_items}</div>
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Total Items</div>
@@ -4214,6 +4214,10 @@ try {
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Borrowed</div>
                         </div>
                         <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #6c757d; font-style: normal;">${stats.unavailable_items || 0}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Unavailable</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px; grid-column: 1 / -1; justify-self: center; width: 100%; max-width: calc(50% - 10px);">
                             <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545; font-style: normal;">${stats.damaged_items}</div>
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Damaged</div>
                         </div>

@@ -649,6 +649,13 @@ $pdo = getDBConnection();
             color: white;
             font-weight: 600;
         }
+        
+        .table-header > div:nth-child(2),
+        .table-header > div:nth-child(3),
+        .table-header > div:nth-child(4),
+        .table-header > div:nth-child(5) {
+            text-align: center;
+        }
 
         .table-row {
             display: grid;
@@ -797,7 +804,6 @@ $pdo = getDBConnection();
                             <div>QTY</div>
                             <div>CONDITION</div>
                             <div>STATUS</div>
-                            <div>BORROWER INFO</div>
                             <div>ACTIONS</div>
                         </div>
                         <div class="table-body" id="costumesTableBody">
@@ -819,7 +825,6 @@ $pdo = getDBConnection();
                             <div>QTY</div>
                             <div>CONDITION</div>
                             <div>STATUS</div>
-                            <div>BORROWER INFO</div>
                             <div>ACTIONS</div>
                         </div>
                         <div class="table-body" id="equipmentTableBody">

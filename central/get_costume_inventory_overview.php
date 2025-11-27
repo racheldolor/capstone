@@ -18,12 +18,34 @@ $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
 $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
 
-// Build campus filter
-$campusFilter = '';
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
+];
+$normalized_campus = $campus_name_map[$user_campus] ?? $user_campus;
+
+// Build campus filter - always exclude archived items
+$campusFilter = "WHERE status != 'archived'";
 $campusParams = [];
-if (!$canViewAll && $user_campus) {
-    $campusFilter = ' WHERE campus = ?';
-    $campusParams[] = $user_campus;
+
+if (!$canViewAll && $normalized_campus) {
+    // For Malvar and Nasugbu, check both short and full names
+    if ($normalized_campus === 'JPLPC Malvar') {
+        $campusFilter .= ' AND (campus = ? OR campus = ?)';
+        $campusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($normalized_campus === 'ARASOF Nasugbu') {
+        $campusFilter .= ' AND (campus = ? OR campus = ?)';
+        $campusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $campusFilter .= ' AND campus = ?';
+        $campusParams = [$normalized_campus];
+    }
 }
 
 header('Content-Type: application/json');
@@ -50,11 +72,13 @@ try {
     
     if ($tableExists) {
         // Get inventory statistics using the real inventory table with campus filtering
+        // Note: Available items must have quantity > 0 AND status = 'available'
+        // Items with quantity = 0 are unavailable regardless of their status
         $statsSql = "
             SELECT 
                 COUNT(*) as total_items,
-                COUNT(CASE WHEN status = 'available' THEN 1 END) as available_items,
-                COUNT(CASE WHEN status = 'borrowed' THEN 1 END) as borrowed_items,
+                COUNT(CASE WHEN status = 'available' AND quantity > 0 THEN 1 END) as available_items,
+                COUNT(CASE WHEN quantity = 0 OR status = 'unavailable' THEN 1 END) as unavailable_items,
                 COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as maintenance_items,
                 COUNT(CASE WHEN condition_status IN ('poor', 'damaged') THEN 1 END) as damaged_items,
                 COUNT(CASE WHEN condition_status = 'excellent' THEN 1 END) as excellent_items
@@ -65,18 +89,39 @@ try {
         $statsStmt->execute($campusParams);
         $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         
-        // Debug: Log the actual query results
-        error_log("Costume Inventory Debug - Stats: " . json_encode($stats));
+        // Borrowed items count: distinct inventory rows with status 'borrowed'.
+        $borrowedFilter = "WHERE status = 'borrowed'";
+        $borrowedParams = [];
+        if (!$canViewAll && $normalized_campus) {
+            if ($normalized_campus === 'JPLPC Malvar') {
+                $borrowedFilter .= " AND (campus = ? OR campus = ?)";
+                $borrowedParams = ['JPLPC Malvar', 'Malvar'];
+            } elseif ($normalized_campus === 'ARASOF Nasugbu') {
+                $borrowedFilter .= " AND (campus = ? OR campus = ?)";
+                $borrowedParams = ['ARASOF Nasugbu', 'Nasugbu'];
+            } else {
+                $borrowedFilter .= " AND campus = ?";
+                $borrowedParams = [$normalized_campus];
+            }
+        }
+        $borrowedSql = "SELECT COUNT(*) AS borrowed_count FROM inventory $borrowedFilter";
+        $borrowedStmt = $pdo->prepare($borrowedSql);
+        $borrowedStmt->execute($borrowedParams);
+        $stats['borrowed_items'] = (int)$borrowedStmt->fetch(PDO::FETCH_ASSOC)['borrowed_count'];
         
-        // Get items by category (since there's no cultural_group in inventory table) with campus filtering
-        $categoryWhere = $campusFilter ? str_replace('WHERE', 'WHERE category IS NOT NULL AND', $campusFilter) : 'WHERE category IS NOT NULL';
+        // Debug: Log the actual query results
+        error_log("Costume Inventory Debug - Campus: " . ($normalized_campus ?? 'all') . " - Stats: " . json_encode($stats));
+        
+        // Get items by category with campus filtering (exclude archived)
+        // Only count items with quantity > 0 as available
+        $categoryFilter = $campusFilter . " AND category IS NOT NULL";
         $groupSql = "
             SELECT 
                 category,
                 COUNT(*) as item_count,
-                COUNT(CASE WHEN status = 'available' THEN 1 END) as available_count
+                COUNT(CASE WHEN status = 'available' AND quantity > 0 THEN 1 END) as available_count
             FROM inventory
-            " . $categoryWhere . "
+            " . $categoryFilter . "
             GROUP BY category
             ORDER BY item_count DESC
             LIMIT 6
@@ -85,8 +130,8 @@ try {
         $groupStmt->execute($campusParams);
         $groupBreakdown = $groupStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Get items needing attention (poor condition or maintenance) with campus filtering
-        $attentionWhere = $campusFilter ? $campusFilter . ' AND (condition_status IN (\'poor\', \'damaged\') OR status = \'maintenance\')' : 'WHERE condition_status IN (\'poor\', \'damaged\') OR status = \'maintenance\'';
+        // Get items needing attention (poor condition or maintenance) with campus filtering (exclude archived)
+        $attentionFilter = $campusFilter . " AND (condition_status IN ('poor', 'damaged') OR status = 'maintenance')";
         $attentionSql = "
             SELECT 
                 item_name,
@@ -95,7 +140,7 @@ try {
                 status,
                 updated_at as last_used
             FROM inventory
-            " . $attentionWhere . "
+            " . $attentionFilter . "
             ORDER BY 
                 CASE condition_status 
                     WHEN 'damaged' THEN 1 
