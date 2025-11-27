@@ -10,7 +10,7 @@ error_reporting(0);
 // Start session
 session_start();
 
-// Check if user is logged in and is admin (head or staff)
+// Check if user is logged in and is admin (head, staff, or central)
 if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
     ob_clean();
     http_response_code(401);
@@ -18,15 +18,14 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
     exit;
 }
 
-// Database connection
-$host = 'localhost';
-$dbname = 'capstone_culture_arts';
-$username = 'root';
-$password = '';
+// Get user's campus for the inventory item
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+// Database connection using centralized config
+require_once __DIR__ . '/../config/database.php';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = getDBConnection();
 } catch(PDOException $e) {
     ob_clean();
     echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
@@ -83,9 +82,9 @@ try {
     ";
     $pdo->exec($createTableSQL);
 
-    // Insert the new item
-    $sql = "INSERT INTO inventory (item_name, category, condition_status, status, description) 
-            VALUES (:item_name, :category, :condition_status, :status, :description)";
+    // Insert the new item with campus
+    $sql = "INSERT INTO inventory (item_name, category, condition_status, status, description, campus) 
+            VALUES (:item_name, :category, :condition_status, :status, :description, :campus)";
     
     $stmt = $pdo->prepare($sql);
     $result = $stmt->execute([
@@ -93,7 +92,8 @@ try {
         ':category' => $input['category'],
         ':condition_status' => $input['condition'],
         ':status' => 'available', // Always set to available as requested
-        ':description' => trim($input['description'] ?? '')
+        ':description' => trim($input['description'] ?? ''),
+        ':campus' => $user_campus
     ]);
 
     if ($result) {

@@ -65,7 +65,7 @@ try {
             'event' as announcement_type
         FROM events
         WHERE (cultural_groups LIKE ? OR cultural_groups LIKE ? OR cultural_groups = '[]')
-        AND (venue = ? OR venue IS NULL OR venue = '')
+        AND (campus = ? OR campus IS NULL OR campus = '')
         AND end_date >= CURDATE()
         AND status IN ('published', 'ongoing')
         ORDER BY created_at DESC

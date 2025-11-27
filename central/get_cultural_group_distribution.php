@@ -3,10 +3,31 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit();
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+// Central Head identification
+$centralHeadEmails = [
+    'mark.central@g.batstate-u.edu.ph',
+];
+
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
+
+// Build campus filter
+$campusFilter = '';
+$campusParams = [];
+if (!$canViewAll && $user_campus) {
+    $campusFilter = ' AND campus = ?';
+    $campusParams[] = $user_campus;
 }
 
 header('Content-Type: application/json');
@@ -30,8 +51,8 @@ try {
         'Sindayog'
     ];
     
-    // Get actual student counts for each group
-    $stmt = $pdo->prepare("
+    // Get actual student counts for each group with RBAC filtering
+    $sql = "
         SELECT 
             CASE 
                 WHEN cultural_group IS NULL OR cultural_group = '' THEN 'Not Assigned'
@@ -39,13 +60,14 @@ try {
             END as group_name,
             COUNT(*) as count
         FROM student_artists 
-        WHERE status = 'active'
+        WHERE status = 'active'" . $campusFilter . "
         GROUP BY CASE 
             WHEN cultural_group IS NULL OR cultural_group = '' THEN 'Not Assigned'
             ELSE cultural_group
         END
-    ");
-    $stmt->execute();
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($campusParams);
     $actualCounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Create associative array for easy lookup
@@ -68,9 +90,10 @@ try {
         return $b['count'] - $a['count'];
     });
     
-    // Get total count
-    $totalStmt = $pdo->prepare("SELECT COUNT(*) as total FROM student_artists WHERE status = 'active'");
-    $totalStmt->execute();
+    // Get total count with RBAC filtering
+    $totalSql = "SELECT COUNT(*) as total FROM student_artists WHERE status = 'active'" . $campusFilter;
+    $totalStmt = $pdo->prepare($totalSql);
+    $totalStmt->execute($campusParams);
     $total = $totalStmt->fetch(PDO::FETCH_ASSOC)['total'];
     
     // Prepare response

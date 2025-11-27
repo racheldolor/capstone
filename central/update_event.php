@@ -3,9 +3,25 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit;
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canManage = !$isCentralHead;
+
+// Check write permission
+if (!$canManage) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'You do not have permission to update events']);
     exit;
 }
 
@@ -42,13 +58,26 @@ try {
     }
     
     // Check if event exists and user has permission to edit
-    $stmt = $pdo->prepare("SELECT id, event_poster FROM events WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, event_poster, venue, campus FROM events WHERE id = ?");
     $stmt->execute([$event_id]);
     $existing_event = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$existing_event) {
         echo json_encode(['success' => false, 'message' => 'Event not found']);
         exit;
+    }
+    
+    // Auto-set campus for non-Pablo Borbon users
+    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
+    
+    // Verify campus access for campus-specific users
+    if (!$canChooseCampus) {
+        if ($user_campus && $existing_event['campus'] !== $user_campus) {
+            echo json_encode(['success' => false, 'message' => 'You do not have permission to update this event']);
+            exit;
+        }
+        // Enforce campus for the update
+        $campus = $user_campus;
     }
     
     // Handle file upload if present
@@ -76,11 +105,11 @@ try {
     // Ensure we always have a valid array (empty or with values)
     $cultural_groups_json = json_encode(is_array($cultural_groups) ? $cultural_groups : []);
     
-    // Update event in database
+    // Update event in database with campus field
     $stmt = $pdo->prepare("
         UPDATE events 
         SET title = ?, description = ?, start_date = ?, end_date = ?, location = ?, 
-            venue = ?, category = ?, cultural_groups = ?, event_poster = ?, updated_at = CURRENT_TIMESTAMP
+            venue = ?, category = ?, cultural_groups = ?, event_poster = ?, campus = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
     ");
     
@@ -90,29 +119,25 @@ try {
         $start_date,
         $end_date,
         $location,
-        $venue,
+        $location,
         $category,
         $cultural_groups_json,
         $event_poster,
+        $campus,
         $event_id
     ]);
     
     if ($result) {
-        // Log successful update
-        error_log("Event updated successfully: ID=$event_id, Title=$title");
         echo json_encode([
             'success' => true, 
-            'message' => 'Event updated successfully!',
-            'event_id' => $event_id
+            'message' => 'Event updated successfully!'
         ]);
     } else {
-        $errorInfo = $stmt->errorInfo();
-        error_log("Failed to update event: " . print_r($errorInfo, true));
-        echo json_encode(['success' => false, 'message' => 'Failed to update event: ' . $errorInfo[2]]);
+        echo json_encode(['success' => false, 'message' => 'Failed to update event']);
     }
     
 } catch (Exception $e) {
     error_log("Error updating event: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'An error occurred while updating the event']);
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }
 ?>

@@ -3,37 +3,122 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
     header('Location: ../index.php');
     exit();
 }
 
 $pdo = getDBConnection();
 
+// === RBAC: Get user's campus and determine access level ===
+$user_role = $_SESSION['user_role'] ?? '';
+$user_email = $_SESSION['user_email'] ?? '';
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
+
+// Display campus name (Pablo Borbon shows as "All Campuses")
+$display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
+
+// Central Head emails (view-only access)
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
+$isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
+$isCentralStaff = ($user_role === 'central' && !$isCentralHead);
+
+// Campus filtering logic:
+// - Admin: see all campuses
+// - Pablo Borbon staff/head: see all campuses
+// - Other campus staff/head: see only their campus
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canManage = !$isCentralHead; // Central Head is view-only
+
+// Build campus filter for SQL
+if ($canViewAll) {
+    $campusFilter = '1=1'; // No filter - see all
+    $campusParams = [];
+} else {
+    // For Malvar and Nasugbu, check both short and full names
+    if ($user_campus === 'JPLPC Malvar') {
+        $campusFilter = '(campus = ? OR campus = ?)';
+        $campusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($user_campus === 'ARASOF Nasugbu') {
+        $campusFilter = '(campus = ? OR campus = ?)';
+        $campusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $campusFilter = 'campus = ?';
+        $campusParams = [$user_campus];
+    }
+}
+
 // Pagination for student artists
 $students_per_page = 5;
 $current_page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Get dashboard statistics
+// Determine effective campus filter:
+// - If URL provides campus_filter, use it.
+// - Else: if user can view all, default to Pablo Borbon (admin/central staff case).
+// - Else default to the user's assigned campus so that non-Pablo users see only their campus.
+$campus_filter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : (
+    !empty($canViewAll) ? 'Pablo Borbon' : ($user_campus ?? 'Pablo Borbon')
+);
+
+// Build campus filter for student queries
+if (!empty($campus_filter)) {
+    // Use the selected campus filter from dropdown or the user's campus
+    if ($campus_filter === 'JPLPC Malvar') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($campus_filter === 'ARASOF Nasugbu') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $studentCampusFilter = 'campus = ?';
+        $studentCampusParams = [$campus_filter];
+    }
+} else {
+    // Fallback - should not normally happen
+    if ($user_campus === 'JPLPC Malvar') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($user_campus === 'ARASOF Nasugbu') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $studentCampusFilter = 'campus = ?';
+        $studentCampusParams = [$user_campus ?? 'Pablo Borbon'];
+    }
+}
+
+// Get dashboard statistics with campus filtering
 try {
     // Count student artists from student_artists table (active and suspended)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended')");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended') AND $campusFilter");
+    $stmt->execute($campusParams);
     $student_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
     // Count distinct cultural groups assigned to student artists
     $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cultural_group) as count FROM student_artists 
-                          WHERE cultural_group IS NOT NULL AND cultural_group != ''");
-    $stmt->execute();
+                          WHERE cultural_group IS NOT NULL AND cultural_group != '' AND $campusFilter");
+    $stmt->execute($campusParams);
     $cultural_groups = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count scheduled events (future events that are not yet completed)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE()");
-    $stmt->execute();
+    // Count scheduled events (future events that are not yet completed) with campus filtering
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE() AND " . $campusFilter);
+    $stmt->execute($campusParams);
     $scheduled_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count worn out costumes (for now, simulate this data - can be implemented later with inventory system)
+    // Count worn out costumes
     $worn_costumes = 0; // Will be implemented when costume inventory system is added
     
 } catch (Exception $e) {
@@ -43,14 +128,14 @@ try {
     $scheduled_events = $scheduled_events ?? 0;
     $worn_costumes = 0;
     
-    // Log the error for debugging (optional)
+    // Log the error for debugging
     error_log("Dashboard statistics error: " . $e->getMessage());
 }
 
-// Get student artists with pagination (active and suspended)
+// Get student artists with pagination (active and suspended) - with campus filtering
 try {
-    $where_conditions = ["status IN ('active', 'suspended')"];
-    $params = [];
+    $where_conditions = ["status IN ('active', 'suspended')", $studentCampusFilter];
+    $params = $studentCampusParams;
     
     if (!empty($search)) {
         $where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
@@ -119,6 +204,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self';">
     <title>Staff Dashboard - Culture and Arts - BatStateU TNEU</title>
     <style>
         * {
@@ -275,6 +361,8 @@ try {
 
         .content-section.active {
             display: block;
+            width: 100%;
+            height: 100%;
         }
 
         /* Dashboard Cards */
@@ -1367,6 +1455,23 @@ try {
             overflow: hidden;
         }
 
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        #costume-inventory {
+            display: none;
+        }
+
+        #costume-inventory.active {
+            display: block;
+            position: relative;
+        }
         /* Responsive */
         @media (max-width: 768px) {
             .main-container {
@@ -1974,7 +2079,16 @@ try {
         <div class="header-right">
             <div class="user-info">
                 <span>👤</span>
-                <span><?= htmlspecialchars($_SESSION['user_name']) ?></span>
+                <?php 
+                $first_name = explode(' ', $_SESSION['user_name'])[0];
+                $role_display = strtoupper($user_role);
+                ?>
+                <span><?= htmlspecialchars($first_name) ?></span>
+                <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
+                <?php if ($isCentralHead): ?>
+                    <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
+                <?php endif; ?>
+                <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -2007,8 +2121,13 @@ try {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link" data-section="costume-inventory">
+                        <a href="inventory.php" class="nav-link">
                             Inventory
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="archives.php" class="nav-link">
+                            Archives
                         </a>
                     </li>
                 </ul>
@@ -2110,7 +2229,7 @@ try {
                         </div>
                         <button type="submit" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; height: 36px; box-sizing: border-box; font-size: 14px;">Search</button>
                         <?php if (!empty($search)): ?>
-                            <a href="?section=student-profiles" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 36px; font-size: 14px;">Clear</a>
+                            <a href="?section=student-profiles<?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 36px; font-size: 14px;">Clear</a>
                         <?php endif; ?>
                     </form>
                 </div>
@@ -2118,16 +2237,23 @@ try {
                 <!-- Dashboard Overview -->
                 <div class="student-overview" style="width: 100%; max-width: 100%;">
                     <div class="overview-left">
-                        <h3 style="margin-bottom: 1rem; color: #666;">Campus Distribution</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; color: #666;">Distribution of Student Artists</h3>
+                            <?php if ($user_campus === 'Pablo Borbon' || $canViewAll): ?>
+                                <select id="campusFilterDropdown" onchange="filterByCampus()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
+                                    <option value="Pablo Borbon" <?= $campus_filter === 'Pablo Borbon' ? 'selected' : '' ?>>Pablo Borbon</option>
+                                    <option value="Alangilan" <?= $campus_filter === 'Alangilan' ? 'selected' : '' ?>>Alangilan</option>
+                                    <option value="Lipa" <?= $campus_filter === 'Lipa' ? 'selected' : '' ?>>Lipa</option>
+                                    <option value="ARASOF Nasugbu" <?= $campus_filter === 'ARASOF Nasugbu' ? 'selected' : '' ?>>ARASOF Nasugbu</option>
+                                    <option value="JPLPC Malvar" <?= $campus_filter === 'JPLPC Malvar' ? 'selected' : '' ?>>JPLPC Malvar</option>
+                                </select>
+                            <?php else: ?>
+                                <select id="campusFilterDropdown" disabled style="padding: 0.5rem; border: 1px solid #eee; border-radius: 4px; font-size: 0.9rem; cursor: default; background: #f8f9fa; color: #333;">
+                                    <option value="<?= htmlspecialchars($campus_filter) ?>"><?= htmlspecialchars($campus_filter) ?></option>
+                                </select>
+                            <?php endif; ?>
+                        </div>
                         <div id="campusDistributionChart" class="campus-distribution">
-                            <div class="chart-section">
-                                <div class="pie-chart-container">
-                                    <canvas id="pieChart" width="200" height="200"></canvas>
-                                </div>
-                                <div class="chart-legend" id="chartLegend">
-                                    <!-- Legend will be populated by JavaScript -->
-                                </div>
-                            </div>
                             <div class="bar-chart-container" id="barChart">
                                 <!-- Bar chart will be populated by JavaScript -->
                             </div>
@@ -2211,7 +2337,7 @@ try {
                         </span>
                         <div class="pagination-controls">
                             <?php if ($current_page > 1): ?>
-                                <a href="?section=student-profiles&page=<?= $current_page - 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                <a href="?section=student-profiles&page=<?= $current_page - 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                    class="pagination-btn">Previous</a>
                             <?php else: ?>
                                 <button class="pagination-btn" disabled>Previous</button>
@@ -2221,13 +2347,13 @@ try {
                                 <?php if ($i == $current_page): ?>
                                     <span class="pagination-number active"><?= $i ?></span>
                                 <?php else: ?>
-                                    <a href="?section=student-profiles&page=<?= $i ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                    <a href="?section=student-profiles&page=<?= $i ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                        class="pagination-number" style="text-decoration: none; color: #666;"><?= $i ?></a>
                                 <?php endif; ?>
                             <?php endfor; ?>
                             
                             <?php if ($current_page < $total_pages): ?>
-                                <a href="?section=student-profiles&page=<?= $current_page + 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                <a href="?section=student-profiles&page=<?= $current_page + 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                    class="pagination-btn">Next</a>
                             <?php else: ?>
                                 <button class="pagination-btn" disabled>Next</button>
@@ -2624,7 +2750,6 @@ try {
                     </div>
                 </div>
             </section>
-
             <!-- Costume Inventory Section -->
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
@@ -3150,6 +3275,12 @@ try {
     <script>
         // Global variable to store applications data for filtering
         let allApplications = [];
+        
+        // User campus and permissions for campus filtering
+        const userCampus = '<?php echo $user_campus ?? ''; ?>';
+        const canViewAll = <?php echo $canViewAll ? 'true' : 'false'; ?>;
+        const canManage = <?php echo $canManage ? 'true' : 'false'; ?>;
+        const userRole = '<?php echo $user_role; ?>';
 
         // Utility function to format dates
         function formatDate(dateString) {
@@ -3166,6 +3297,9 @@ try {
 
         // Navigation functionality
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize campus field for event form
+            initializeCampusField();
+            
             const navLinks = document.querySelectorAll('.nav-link');
             const contentSections = document.querySelectorAll('.content-section');
 
@@ -3208,9 +3342,27 @@ try {
                 if (defaultLink) defaultLink.classList.add('active');
                 if (defaultSection) defaultSection.classList.add('active');
             }
+            
+            // Check for modal parameter in URL and open the appropriate modal
+            const modalParam = urlParams.get('modal');
+            if (modalParam === 'borrow') {
+                setTimeout(() => {
+                    openBorrowRequests();
+                }, 500);
+            } else if (modalParam === 'returns') {
+                setTimeout(() => {
+                    openReturns();
+                }, 500);
+            }
 
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
+                    // Skip navigation handling for external links (like inventory.php)
+                    if (this.getAttribute('href') && this.getAttribute('href') !== '#') {
+                        // Let the browser handle the navigation to external page
+                        return;
+                    }
+                    
                     e.preventDefault();
                     
                     console.log('Navigation clicked:', this.dataset.section);
@@ -3238,11 +3390,6 @@ try {
                         if (sectionId === 'reports-analytics') {
                             loadEventParticipation();
                             initializeEvaluationAnalytics();
-                        }
-                        
-                        // Load inventory items when Costume Inventory section is activated
-                        if (sectionId === 'costume-inventory') {
-                            loadInventoryItems();
                         }
                     } else {
                         console.error('Target section not found:', sectionId);
@@ -3370,7 +3517,7 @@ try {
                 <div style="border-top: 1px solid #e0e0e0; padding-top: 1.5rem;">
                     <h3 style="color: #dc2626; margin-bottom: 1rem;">Cultural Group Assignment</h3>
                     
-                    ${student.desired_cultural_group ? `
+                    ${!currentCulturalGroup && student.desired_cultural_group ? `
                     <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 4px solid #17a2b8; border-radius: 4px;">
                         <p style="margin: 0; color: #333;"><strong>Applied for:</strong> <span style="color: #17a2b8; font-weight: 600;">${student.desired_cultural_group}</span></p>
                         <small style="color: #666; font-style: italic;">This is the cultural group the student originally wanted to join</small>
@@ -3545,7 +3692,12 @@ try {
                                     <p><strong>College:</strong> ${app.college}</p>
                                     <p><strong>Program:</strong> ${app.program}</p>
                                     <p><strong>Year Level:</strong> ${app.year_level}</p>
-                                    <p><strong>Units:</strong> 1st Sem: ${app.first_semester_units}, 2nd Sem: ${app.second_semester_units}</p>
+                                    ${app.first_semester_units && app.first_semester_units > 0 
+                                        ? `<p><strong>Units:</strong> 1st Semester: ${app.first_semester_units}</p>` 
+                                        : ''}
+                                    ${app.second_semester_units && app.second_semester_units > 0 
+                                        ? `<p><strong>Units:</strong> 2nd Semester: ${app.second_semester_units}</p>` 
+                                        : ''}
                                 </div>
                                 <div class="detail-section">
                                     <h4>Performance Type</h4>
@@ -3657,8 +3809,10 @@ try {
         // Initialize search when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             initializeStudentSearch();
-            loadCampusDistribution();
-            loadCulturalGroupDistribution();
+            // Use server-side campus filter to ensure non-Pablo users see their campus
+            const campusFilter = '<?= htmlspecialchars($campus_filter, ENT_QUOTES) ?>' || 'Pablo Borbon';
+            loadCampusDistribution('', campusFilter);
+            loadCulturalGroupDistribution('', campusFilter);
             loadStudentArtistOverview();
             loadUpcomingEventsOverview();
             loadCostumeInventoryOverview();
@@ -3693,15 +3847,28 @@ try {
             });
 
         // Campus Distribution Functions
-        function loadCampusDistribution(searchTerm = '') {
-            console.log('Loading campus distribution with search:', searchTerm);
-            const url = searchTerm ? `get_campus_distribution.php?search=${encodeURIComponent(searchTerm)}` : 'get_campus_distribution.php';
+        function filterByCampus() {
+            const selectedCampus = document.getElementById('campusFilterDropdown').value;
+            // Update URL with campus filter parameter and reload page
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('campus_filter', selectedCampus);
+            urlParams.set('section', 'student-profiles');
+            window.location.href = '?' + urlParams.toString();
+        }
+
+        function loadCampusDistribution(searchTerm = '', filterCampus = 'Pablo Borbon') {
+            console.log('Loading campus distribution with search:', searchTerm, 'campus:', filterCampus);
+            let url = 'get_college_distribution.php';
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (filterCampus) params.append('campus', filterCampus);
+            if (params.toString()) url += '?' + params.toString();
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Campus distribution response:', data);
                     if (data.success) {
-                        displayCampusDistribution(data.campusDistribution, data.totalStudents);
+                        displayCampusDistribution(data.collegeDistribution, data.totalStudents, filterCampus);
                     } else {
                         console.error('Failed to load campus distribution:', data.error);
                         showEmptyCampusChart();
@@ -3713,117 +3880,151 @@ try {
                 });
         }
 
-        function displayCampusDistribution(campusData, totalStudents) {
-            console.log('Campus data received:', campusData);
+        function displayCampusDistribution(collegeData, totalStudents, filterCampus = 'Pablo Borbon') {
+            console.log('College data received:', collegeData, 'filter:', filterCampus);
             
-            if (!campusData || campusData.length === 0) {
-                showEmptyCampusChart();
-                return;
+            // Get selected campus from dropdown if not passed
+            if (!filterCampus) {
+                const dropdown = document.getElementById('campusFilterDropdown');
+                if (dropdown) {
+                    filterCampus = dropdown.value || 'Pablo Borbon';
+                }
             }
+            
+            // Define college lists for each campus
+            const campusColleges = {
+                'Pablo Borbon': [
+                    'College of Accountancy, Business, Economics and International Hospitality Management',
+                    'College of Health Sciences',
+                    'College of Arts and Sciences',
+                    'College of Law',
+                    'College of Teacher Education',
+                    'College of Criminal Justice Education',
+                    'College of Medicine'
+                ],
+                'Alangilan': [
+                    'College of Engineering',
+                    'College of Architecture, Fine Arts and Design',
+                    'College of Engineering Technology',
+                    'College of Informatics and Computing Sciences',
+                    'Lobo Campus',
+                    'Balayan Campus',
+                    'Mabini Campus'
+                ],
+                'JPLPC Malvar': [
+                    'College of Industrial Technology'
+                ],
+                'Lipa': [
+                    'College of Accountancy, Business, Economics, and International Hospitality Management',
+                    'College of Arts and Sciences'
+                ],
+                'ARASOF Nasugbu': [
+                    'College of Agriculture and Forestry',
+                    'College of Accountancy, Business, Economics, and International Hospitality Management'
+                ]
+            };
+            
+            // Get the college order based on selected campus filter
+            let collegeOrder = campusColleges[filterCampus] || [];
+            
+            // Create a map of existing data
+            const dataMap = {};
+            if (collegeData && collegeData.length > 0) {
+                collegeData.forEach(item => {
+                    dataMap[item.college] = item.count;
+                });
+            }
+            
+            // Build ordered data with all colleges, using 0 for missing ones
+            const orderedData = collegeOrder.map(college => ({
+                college: college,
+                count: dataMap[college] || 0,
+                percentage: 0 // Will be calculated below
+            }));
+            
+            // Calculate percentages based on max count
+            const maxCount = Math.max(...orderedData.map(c => c.count), 1); // Ensure at least 1 to avoid division by zero
+            orderedData.forEach(item => {
+                item.percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+            });
 
-            // Colors for different campuses
+            // Red color palette for bars (from light to dark)
             const colors = [
-                '#4285F4', // Blue
-                '#FF6B35', // Orange  
-                '#9C27B0', // Purple
-                '#4CAF50', // Green
-                '#FF9800', // Amber
-                '#607D8B'  // Blue Grey
+                '#ff6b6b', // Light red
+                '#ee5a52', // 
+                '#dc2626', // Medium red
+                '#c91f1f', // 
+                '#b91c1c', // Dark red
+                '#a81818', // 
+                '#991515', // 
+                '#8b1414', // 
+                '#7f1d1d', // Very dark red
+                '#6b1717'  // Darkest red
             ];
-
-            // Draw pie chart
-            drawPieChart(campusData, colors);
             
-            // Draw legend
-            drawLegend(campusData, colors);
-            
-            // Draw bar chart
-            drawBarChart(campusData, colors);
+            // Draw bar chart with ordered data
+            drawBarChart(orderedData, colors);
         }
 
-        function drawPieChart(campusData, colors) {
-            const canvas = document.getElementById('pieChart');
-            const ctx = canvas.getContext('2d');
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const radius = 80;
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // If only one campus, draw full circle
-            if (campusData.length === 1) {
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                ctx.fillStyle = colors[0];
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                return;
-            }
-
-            let currentAngle = -Math.PI / 2; // Start from top
-            
-            campusData.forEach((campus, index) => {
-                const sliceAngle = (campus.percentage / 100) * 2 * Math.PI;
-                
-                // Draw slice
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-                ctx.closePath();
-                ctx.fillStyle = colors[index % colors.length];
-                ctx.fill();
-                
-                // Draw border
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                currentAngle += sliceAngle;
-            });
-        }
-
-        function drawLegend(campusData, colors) {
-            const legendContainer = document.getElementById('chartLegend');
-            legendContainer.innerHTML = '';
-            
-            campusData.forEach((campus, index) => {
-                const legendItem = document.createElement('div');
-                legendItem.className = 'legend-item';
-                
-                legendItem.innerHTML = `
-                    <div class="legend-color" style="background: ${colors[index % colors.length]}"></div>
-                    <div class="legend-text">${campus.campus} (${campus.percentage}%)</div>
-                `;
-                
-                legendContainer.appendChild(legendItem);
-            });
-        }
-
-        function drawBarChart(campusData, colors) {
+        function drawBarChart(collegeData, colors) {
             const barContainer = document.getElementById('barChart');
             barContainer.innerHTML = '';
             
-            const maxCount = Math.max(...campusData.map(c => c.count));
+            const maxCount = Math.max(...collegeData.map(c => c.count), 1); // Ensure at least 1 to avoid division by zero
             
-            campusData.forEach((campus, index) => {
-                const barItem = document.createElement('div');
-                barItem.className = 'bar-item';
+            // Reset container styles for horizontal bars
+            barContainer.style.display = 'block';
+            barContainer.style.padding = '1rem';
+            
+            collegeData.forEach((college, index) => {
+                const barWrapper = document.createElement('div');
+                barWrapper.style.marginBottom = '1rem';
+                barWrapper.style.display = 'flex';
+                barWrapper.style.alignItems = 'center';
+                barWrapper.style.gap = '1rem';
                 
-                const percentage = (campus.count / maxCount) * 100;
+                // Calculate percentage based on the maximum count
+                const percentage = maxCount > 0 ? (college.count / maxCount) * 100 : 0;
                 
-                barItem.innerHTML = `
-                    <div class="bar-label">${campus.campus}</div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width: ${percentage}%; background: ${colors[index % colors.length]}">
-                            <span class="bar-value">${campus.count}</span>
+                barWrapper.innerHTML = `
+                    <div style="
+                        width: 200px;
+                        flex-shrink: 0;
+                        text-align: right;
+                        font-size: 0.75rem;
+                        color: #333;
+                        font-weight: 500;
+                        padding-right: 0.5rem;
+                    ">${college.college}</div>
+                    <div style="
+                        flex: 1;
+                        height: 35px;
+                        background: #f0f0f0;
+                        border-radius: 4px;
+                        position: relative;
+                        overflow: hidden;
+                    ">
+                        <div style="
+                            height: 100%;
+                            width: ${percentage}%;
+                            background: ${colors[index % colors.length]};
+                            display: flex;
+                            align-items: center;
+                            justify-content: flex-end;
+                            padding-right: 0.75rem;
+                            transition: width 0.3s ease;
+                            min-width: ${college.count > 0 ? '30px' : '0'};
+                        ">
+                            <span style="
+                                color: white;
+                                font-weight: bold;
+                                font-size: 0.875rem;
+                            ">${college.count}</span>
                         </div>
                     </div>
                 `;
                 
-                barContainer.appendChild(barItem);
+                barContainer.appendChild(barWrapper);
             });
         }
 
@@ -3832,17 +4033,21 @@ try {
             chartContainer.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; height: 300px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #ddd;">
                     <div style="text-align: center; color: #888;">
-                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No campus distribution data available</p>
-                        <small style="font-size: 0.875rem; color: #aaa;">Chart will appear when student data is available</small>
+                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No data available</p>
+                        <small style="font-size: 0.875rem; color: #aaa;">No student artists found or no college assigned</small>
                     </div>
                 </div>
             `;
         }
 
         // Cultural Group Distribution Functions
-        function loadCulturalGroupDistribution(searchTerm = '') {
-            console.log('Loading cultural group distribution with search:', searchTerm);
-            const url = searchTerm ? `get_cultural_group_distribution.php?search=${encodeURIComponent(searchTerm)}` : 'get_cultural_group_distribution.php';
+        function loadCulturalGroupDistribution(searchTerm = '', filterCampus = '') {
+            console.log('Loading cultural group distribution with search:', searchTerm, 'campus:', filterCampus);
+            let url = 'get_cultural_group_distribution.php';
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (filterCampus) params.append('campus', filterCampus);
+            if (params.toString()) url += '?' + params.toString();
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
@@ -4075,7 +4280,7 @@ try {
             
             container.innerHTML = `
                 <div style="padding: 1rem;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
                         <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
                             <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-style: normal;">${stats.total_items}</div>
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Total Items</div>
@@ -4089,6 +4294,10 @@ try {
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Borrowed</div>
                         </div>
                         <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #6c757d; font-style: normal;">${stats.unavailable_items || 0}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Unavailable</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px; grid-column: 1 / -1; justify-self: center; width: 100%; max-width: calc(50% - 10px);">
                             <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545; font-style: normal;">${stats.damaged_items}</div>
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Damaged</div>
                         </div>
@@ -4705,12 +4914,12 @@ try {
             
             let html = '';
             costumes.forEach(costume => {
-                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getConditionBadge(costume.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(costume) + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 60px 90px 90px 1.5fr; padding: 0.65rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center; font-size: 0.85rem;">';
+                html += '<div style="padding: 0 0.3rem; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.3;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getConditionBadge(costume.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; font-size: 0.8rem; line-height: 1.3;">' + getBorrowerInfo(costume) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
@@ -4725,12 +4934,12 @@ try {
             
             let html = '';
             equipment.forEach(item => {
-                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 80px 100px 100px 1fr; padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getConditionBadge(item.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; text-align: center; display: flex; justify-content: center;">' + getInventoryStatusBadge(item.status) + '</div>';
-                html += '<div style="padding: 0 0.5rem; font-size: 0.85rem;">' + getBorrowerInfo(item) + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 60px 90px 90px 1.5fr; padding: 0.65rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center; font-size: 0.85rem;">';
+                html += '<div style="padding: 0 0.3rem; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.3;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getConditionBadge(item.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; font-size: 0.8rem; line-height: 1.3;">' + getBorrowerInfo(item) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
@@ -4740,14 +4949,14 @@ try {
             if (item.status === 'borrowed') {
                 // Check if there are multiple borrowers
                 if (item.borrowers && item.borrowers.length > 0) {
-                    let html = '<div style="line-height: 1.4;">';
+                    let html = '<div style="line-height: 1.3;">';
                     
                     // Show all borrower names
                     item.borrowers.forEach((borrower, index) => {
                         const borrowDate = new Date(borrower.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.5rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.5rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
-                        html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px;">${borrower.student_name}</div>`;
-                        html += `<div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>`;
+                        html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
+                        html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word; overflow-wrap: break-word;">${borrower.student_name}</div>`;
+                        html += `<div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>`;
                         html += `</div>`;
                     });
                     
@@ -4756,39 +4965,39 @@ try {
                 } else if (item.borrower_name) {
                     // Fallback to single borrower for backward compatibility
                     const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    return `<div style="line-height: 1.4;">
-                        <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${item.borrower_name}</div>
-                        <div style="color: #666; font-size: 0.75rem;">Since: ${borrowDate}</div>
+                    return `<div style="line-height: 1.3;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word; overflow-wrap: break-word;">${item.borrower_name}</div>
+                        <div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>
                     </div>`;
                 } else {
-                    return '<span style="color: #666; font-style: italic;">Borrowed</span>';
+                    return '<span style="color: #666; font-style: italic; font-size: 0.8rem;">Borrowed</span>';
                 }
             }
-            return '<span style="color: #aaa; text-align: center; display: block;">-</span>';
+            return '<span style="color: #aaa; text-align: center; display: block; font-size: 0.8rem;">-</span>';
         }
 
         function getConditionBadge(condition) {
             const badges = {
-                'excellent': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Excellent</span>',
-                'good': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Good</span>',
-                'fair': '<span style="background: #ffc107; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Fair</span>',
-                'poor': '<span style="background: #fd7e14; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Poor</span>',
-                'worn-out': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Worn-out</span>',
-                'damaged': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Damaged</span>',
-                'bad': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Bad</span>'
+                'excellent': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Excellent</span>',
+                'good': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Good</span>',
+                'fair': '<span style="background: #ffc107; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Fair</span>',
+                'poor': '<span style="background: #fd7e14; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Poor</span>',
+                'worn-out': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Worn-out</span>',
+                'damaged': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Damaged</span>',
+                'bad': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Bad</span>'
             };
-            return badges[condition] || `<span style="color: #666; font-size: 0.8rem;">${condition || 'Unknown'}</span>`;
+            return badges[condition] || `<span style="color: #666; font-size: 0.7rem;">${condition || 'Unknown'}</span>`;
         }
 
         function getInventoryStatusBadge(status) {
             const badges = {
-                'available': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Available</span>',
-                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Borrowed</span>',
-                'maintenance': '<span style="background: #fd7e14; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Maintenance</span>',
-                'reserved': '<span style="background: #17a2b8; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Reserved</span>',
-                'retired': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Retired</span>'
+                'available': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Available</span>',
+                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Borrowed</span>',
+                'maintenance': '<span style="background: #fd7e14; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Maintenance</span>',
+                'reserved': '<span style="background: #17a2b8; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Reserved</span>',
+                'retired': '<span style="background: #6c757d; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Retired</span>'
             };
-            return badges[status] || `<span style="color: #666; font-size: 0.8rem;">${status || 'Unknown'}</span>`;
+            return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Unknown'}</span>`;
         }
 
         // Load inventory items when costume inventory section is activated
@@ -4904,7 +5113,7 @@ try {
                 }
                 html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
                 html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
-                html += '<button onclick="deleteEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>';
+                html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
@@ -4956,6 +5165,23 @@ try {
         // Event Management Functions
         let isEditMode = false;
         let currentEditingEventId = null;
+        
+        // Initialize campus field based on user permissions
+        function initializeCampusField() {
+            const municipalityField = document.getElementById('municipality');
+            if (!municipalityField || !userCampus) return;
+            
+            // Set default campus
+            municipalityField.value = userCampus;
+            
+            // If user cannot view all campuses, disable the field
+            if (!canViewAll) {
+                municipalityField.disabled = true;
+                municipalityField.style.backgroundColor = '#f3f4f6';
+                municipalityField.style.cursor = 'not-allowed';
+                municipalityField.title = 'You can only create events for your campus';
+            }
+        }
 
         function editEvent(eventId) {
             isEditMode = true;
@@ -4992,7 +5218,21 @@ try {
             document.getElementById('startDate').value = event.start_date_formatted;
             document.getElementById('endDate').value = event.end_date_formatted;
             document.getElementById('eventLocation').value = event.location;
-            document.getElementById('municipality').value = event.venue || '';
+            
+            // Use campus field (not venue)
+            const municipalityField = document.getElementById('municipality');
+            const eventCampus = event.campus || event.venue || userCampus;
+            
+            // Only allow editing campus if user can view all
+            if (canViewAll) {
+                municipalityField.value = eventCampus;
+                municipalityField.disabled = false;
+            } else {
+                // Lock to user's campus
+                municipalityField.value = userCampus;
+                municipalityField.disabled = true;
+            }
+            
             document.getElementById('eventCategory').value = event.category;
             
             // Handle cultural groups
@@ -5009,18 +5249,25 @@ try {
             // Reset form
             document.getElementById('eventForm').reset();
             updateCulturalGroupsDisplay();
+            
+            // Reset campus to user's campus
+            const municipalityField = document.getElementById('municipality');
+            if (municipalityField && userCampus) {
+                municipalityField.value = userCampus;
+            }
+            
             // Update form title and button
             document.querySelector('.panel-title-event').textContent = 'Input New Event';
             document.querySelector('.save-event-btn').textContent = 'Save Event';
             document.querySelector('.cancel-event-btn').style.display = 'none';
         }
 
-        function deleteEvent(eventId, eventTitle) {
-            if (!confirm('Are you sure you want to delete the event "' + eventTitle + '"? This action cannot be undone.')) {
+        function archiveEvent(eventId, eventTitle) {
+            if (!confirm('Are you sure you want to archive the event "' + eventTitle + '"? You can restore it from the Archives module.')) {
                 return;
             }
             
-            fetch('delete_event.php', {
+            fetch('archive_event.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -5037,12 +5284,12 @@ try {
                         loadAllEvents();
                     }
                 } else {
-                    alert('Error deleting event: ' + data.message);
+                    alert('Error archiving event: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error deleting event');
+                alert('An error occurred while archiving the event');
             });
         }
 
@@ -5054,6 +5301,21 @@ try {
                     e.preventDefault();
                     saveEvent();
                 });
+            }
+            
+            // Set default campus and manage field state
+            const municipalityField = document.getElementById('municipality');
+            if (municipalityField && userCampus) {
+                // If user cannot view all campuses, lock them to their campus
+                if (!canViewAll) {
+                    municipalityField.value = userCampus;
+                    municipalityField.disabled = true;
+                    municipalityField.style.backgroundColor = '#f3f4f6';
+                    municipalityField.style.cursor = 'not-allowed';
+                } else {
+                    // Pablo Borbon users can select any campus, default to their own
+                    municipalityField.value = userCampus;
+                }
             }
         });
 
@@ -5271,8 +5533,8 @@ try {
                             <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
                                 Edit
                             </button>
-                            <button onclick="deleteEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}'); " style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
-                                Delete
+                            <button onclick="archiveEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}');" style="background: #ff9800; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+                                Archive
                             </button>
                         </div>
                     </div>

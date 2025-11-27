@@ -9,10 +9,29 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
     exit;
 }
 
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'] ?? '';
+$user_email = $_SESSION['user_email'] ?? '';
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canManage = !$isCentralHead;
+
+// Build campus filter for SQL
+$campusFilter = '';
+$campusParams = [];
+if (!$canViewAll && $user_campus) {
+    $campusFilter = ' WHERE e.campus = ?';
+    $campusParams[] = $user_campus;
+}
+
 try {
     $pdo = getDBConnection();
     
-    // Get all events with participation statistics
+    // Get all events with participation statistics and campus filtering
+    $whereClause = $campusFilter ? $campusFilter : '';
     $stmt = $pdo->prepare("
         SELECT 
             e.id,
@@ -24,16 +43,18 @@ try {
             e.category,
             e.cultural_groups,
             e.status,
+            e.campus,
             COUNT(ep.student_id) as participants_count,
             e.created_at
         FROM events e
         LEFT JOIN event_participants ep ON e.id = ep.event_id
+        " . $whereClause . "
         GROUP BY e.id, e.title, e.description, e.location, e.start_date, e.end_date, 
-                 e.category, e.cultural_groups, e.status, e.created_at
+                 e.category, e.cultural_groups, e.status, e.campus, e.created_at
         ORDER BY e.created_at DESC
     ");
     
-    $stmt->execute();
+    $stmt->execute($campusParams);
     $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Format the data for display

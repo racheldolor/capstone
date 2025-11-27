@@ -2,7 +2,7 @@
 session_start();
 
 // Check if user is logged in
-if (!isset($_SESSION['user_id']) || $_SESSION['user_table'] !== 'student_artists') {
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'student') {
     header("Location: ../index.php");
     exit();
 }
@@ -30,7 +30,7 @@ try {
     
     // Get all active borrowing requests for this student
     $stmt = $pdo->prepare("
-        SELECT br.*, JSON_EXTRACT(br.approved_items, '$') as items_json
+        SELECT br.* 
         FROM borrowing_requests br 
         WHERE br.student_id = ? AND br.status = 'approved' AND br.current_status = 'active'
         ORDER BY br.created_at DESC
@@ -43,24 +43,23 @@ try {
     
     // Collect all approved items from all active borrowing requests
     foreach ($all_borrowing_requests as $request) {
-        if ($request['items_json']) {
-            $items = json_decode($request['items_json'], true) ?? [];
-            foreach ($items as $item) {
-                // Add borrowing request ID to each item for tracking
-                $item['borrowing_request_id'] = $request['id'];
-                $item['request_date'] = $request['created_at'];
-                // Prefer end_date (set by head/staff) or due_date, fallback to estimated_return_date
-                $item['due_date'] = $request['end_date'] ?? $request['due_date'] ?? $request['estimated_return_date'] ?? null;
-                $all_approved_items[] = $item;
-            }
-            
-            // Store request details for display
-            $borrowing_request_details[] = [
-                'id' => $request['id'],
-                'created_at' => $request['created_at'],
-                'end_date' => $request['end_date'] ?? $request['due_date'] ?? $request['estimated_return_date'] ?? null
-            ];
-        }
+        // Each borrowing request IS an item (item_id and item_name are in the request itself)
+        $item = [
+            'id' => $request['item_id'],
+            'name' => $request['item_name'],
+            'borrowing_request_id' => $request['id'],
+            'request_date' => $request['created_at'],
+            'due_date' => $request['end_date'] ?? $request['due_date'] ?? null,
+            'quantity' => $request['quantity_approved'] ?? $request['quantity_requested'] ?? 1
+        ];
+        $all_approved_items[] = $item;
+        
+        // Store request details for display
+        $borrowing_request_details[] = [
+            'id' => $request['id'],
+            'created_at' => $request['created_at'],
+            'end_date' => $request['end_date'] ?? $request['due_date'] ?? null
+        ];
     }
     
     // For backward compatibility, set the first request as primary if exists
@@ -68,9 +67,9 @@ try {
     $borrowing_request_id = $borrowing_request ? $borrowing_request['id'] : null;
     $approved_items = $all_approved_items;
     
-    // Debug: Check what columns are available
+    // Debug: Check what we found
     if ($borrowing_request) {
-        error_log("Borrowing request columns: " . print_r(array_keys($borrowing_request), true));
+        error_log("Borrowing request ID: " . $borrowing_request['id']);
         error_log("Total approved items found: " . count($all_approved_items));
     }
     

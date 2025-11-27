@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $role = $_POST['role'];
                 $raw_password = $_POST['password'];
                 $sr_code = !empty($_POST['sr_code']) ? trim($_POST['sr_code']) : null;
+                $campus = !empty($_POST['campus']) ? trim($_POST['campus']) : null;
                 
                 // Basic password validation (admin can set any password format)
                 if (empty($raw_password)) {
@@ -64,9 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         throw new Exception("Failed to insert into student_artists table. SQL Error: " . $errorInfo[2]);
                     }
                 } else {
-                    // For other roles, insert into users table (without sr_code)
-                    $stmt = $pdo->prepare("INSERT INTO users (first_name, middle_name, last_name, email, password, role) VALUES (?, ?, ?, ?, ?, ?)");
-                    if (!$stmt->execute([$first_name, $middle_name, $last_name, $email, $password, $role])) {
+                    // For other roles, insert into users table (with campus)
+                    $stmt = $pdo->prepare("INSERT INTO users (first_name, middle_name, last_name, email, password, role, campus) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    if (!$stmt->execute([$first_name, $middle_name, $last_name, $email, $password, $role, $campus])) {
                         throw new Exception("Failed to insert into users table: " . implode(", ", $stmt->errorInfo()));
                     }
                 }
@@ -242,6 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $last_name = trim($_POST['last_name']);
                 $email = trim($_POST['email']);
                 $role = $_POST['role'] ?? null;
+                $campus = !empty($_POST['campus']) ? trim($_POST['campus']) : null;
                 
                 if ($source_table === 'student_artists') {
                     // Update student_artists table (no role field)
@@ -254,14 +256,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $stmt->execute([$first_name, $middle_name, $last_name, $email, $user_id]);
                     }
                 } else {
-                    // Update users table (has role field)
+                    // Update users table (has role and campus fields)
                     if (!empty($_POST['password'])) {
                         $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                        $stmt = $pdo->prepare("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ?, password = ? WHERE id = ?");
-                        $stmt->execute([$first_name, $middle_name, $last_name, $email, $role, $password, $user_id]);
+                        $stmt = $pdo->prepare("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ?, campus = ?, password = ? WHERE id = ?");
+                        $stmt->execute([$first_name, $middle_name, $last_name, $email, $role, $campus, $password, $user_id]);
                     } else {
-                        $stmt = $pdo->prepare("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ? WHERE id = ?");
-                        $stmt->execute([$first_name, $middle_name, $last_name, $email, $role, $user_id]);
+                        $stmt = $pdo->prepare("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ?, campus = ? WHERE id = ?");
+                        $stmt->execute([$first_name, $middle_name, $last_name, $email, $role, $campus, $user_id]);
                     }
                 }
                 
@@ -1757,6 +1759,17 @@ ob_end_clean();
                         </select>
                     </div>
                     <div class="form-group">
+                        <label for="campus">Campus *</label>
+                        <select id="campus" name="campus" required>
+                            <option value="">Select Campus</option>
+                            <option value="Pablo Borbon">Pablo Borbon</option>
+                            <option value="Alangilan">Alangilan</option>
+                            <option value="Lipa">Lipa</option>
+                            <option value="Nasugbu">Nasugbu</option>
+                            <option value="Malvar">Malvar</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="password">Password *</label>
                         <input type="password" id="password" name="password" required minlength="6" maxlength="12">
                         <small>Must be 6-12 characters with at least one letter and one number</small>
@@ -1813,6 +1826,17 @@ ob_end_clean();
                             <option value="head">Head</option>
                             <option value="central">Central</option>
                             <option value="staff">Staff</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editCampus">Campus *</label>
+                        <select id="editCampus" name="campus" required>
+                            <option value="">Select Campus</option>
+                            <option value="Pablo Borbon">Pablo Borbon</option>
+                            <option value="Alangilan">Alangilan</option>
+                            <option value="Lipa">Lipa</option>
+                            <option value="Nasugbu">Nasugbu</option>
+                            <option value="Malvar">Malvar</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1985,6 +2009,7 @@ ob_end_clean();
                     document.getElementById('editLastName').value = user.last_name;
                     document.getElementById('editEmail').value = user.email;
                     document.getElementById('editRole').value = user.role;
+                    document.getElementById('editCampus').value = user.campus || '';
                     document.getElementById('editPassword').value = '';
                     document.getElementById('editConfirmPassword').value = '';
                     

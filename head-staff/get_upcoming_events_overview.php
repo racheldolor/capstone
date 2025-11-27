@@ -9,13 +9,30 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
     exit();
 }
 
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'] ?? '';
+$user_email = $_SESSION['user_email'] ?? '';
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+
+// Build campus filter
+$campusFilter = '';
+$campusParams = [];
+if (!$canViewAll && $user_campus) {
+    $campusFilter = ' AND e.campus = ?';
+    $campusParams[] = $user_campus;
+}
+
 header('Content-Type: application/json');
 
 try {
     $pdo = getDBConnection();
     
-    // Get upcoming events (next 30 days)
-    $upcomingStmt = $pdo->prepare("
+    // Get upcoming events (next 30 days) with campus filtering
+    $sql = "
         SELECT 
             e.id,
             e.title,
@@ -24,16 +41,19 @@ try {
             e.location,
             e.category,
             e.cultural_groups,
+            e.campus,
             COUNT(ep.student_id) as registered_count
         FROM events e
         LEFT JOIN event_participants ep ON e.id = ep.event_id
         WHERE e.start_date >= CURDATE() 
         AND e.start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-        GROUP BY e.id, e.title, e.start_date, e.end_date, e.location, e.category, e.cultural_groups
+        " . $campusFilter . "
+        GROUP BY e.id, e.title, e.start_date, e.end_date, e.location, e.category, e.cultural_groups, e.campus
         ORDER BY e.start_date ASC
         LIMIT 10
-    ");
-    $upcomingStmt->execute();
+    ";
+    $upcomingStmt = $pdo->prepare($sql);
+    $upcomingStmt->execute($campusParams);
     $upcomingEvents = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Process cultural groups for each event
@@ -42,8 +62,8 @@ try {
         $event['days_until'] = (new DateTime($event['start_date']))->diff(new DateTime())->days;
     }
     
-    // Get event statistics
-    $statsStmt = $pdo->prepare("
+    // Get event statistics with campus filtering
+    $statsSql = "
         SELECT 
             COUNT(*) as total_upcoming,
             COUNT(CASE WHEN e.start_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 END) as this_week,
@@ -52,24 +72,28 @@ try {
         FROM events e
         WHERE e.start_date >= CURDATE() 
         AND e.start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-    ");
-    $statsStmt->execute();
+        " . $campusFilter . "
+    ";
+    $statsStmt = $pdo->prepare($statsSql);
+    $statsStmt->execute($campusParams);
     $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
     
-    // Get recent registrations (simplified - just show events with participants)
-    $recentRegistrationsStmt = $pdo->prepare("
+    // Get recent registrations (simplified - just show events with participants) with campus filtering
+    $recentSql = "
         SELECT 
             e.title as event_title,
             COUNT(ep.student_id) as new_registrations
         FROM events e
         INNER JOIN event_participants ep ON e.id = ep.event_id
         WHERE e.start_date >= CURDATE()
+        " . $campusFilter . "
         GROUP BY e.id, e.title
         HAVING COUNT(ep.student_id) > 0
         ORDER BY new_registrations DESC
         LIMIT 5
-    ");
-    $recentRegistrationsStmt->execute();
+    ";
+    $recentRegistrationsStmt = $pdo->prepare($recentSql);
+    $recentRegistrationsStmt->execute($campusParams);
     $recentRegistrations = $recentRegistrationsStmt->fetchAll(PDO::FETCH_ASSOC);
     
     $response = [

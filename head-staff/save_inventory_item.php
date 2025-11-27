@@ -11,22 +11,21 @@ error_reporting(0);
 session_start();
 
 // Check if user is logged in and is admin (head or staff)
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
     ob_clean();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
 
-// Database connection
-$host = 'localhost';
-$dbname = 'capstone_culture_arts';
-$username = 'root';
-$password = '';
+// Get user's campus for the inventory item
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+// Database connection using centralized config
+require_once __DIR__ . '/../config/database.php';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = getDBConnection();
 } catch(PDOException $e) {
     ob_clean();
     echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
@@ -44,13 +43,21 @@ if (!$input) {
 }
 
 // Validate required fields
-$required_fields = ['name', 'category', 'condition'];
+$required_fields = ['name', 'category', 'condition', 'quantity'];
 foreach ($required_fields as $field) {
-    if (empty($input[$field])) {
+    if (!isset($input[$field]) || $input[$field] === '') {
         ob_clean();
         echo json_encode(['success' => false, 'message' => ucfirst($field) . ' is required']);
         exit;
     }
+}
+
+// Validate quantity
+$quantity = intval($input['quantity']);
+if ($quantity < 0) {
+    ob_clean();
+    echo json_encode(['success' => false, 'message' => 'Quantity cannot be negative']);
+    exit;
 }
 
 // Validate category values
@@ -74,38 +81,96 @@ try {
             id INT AUTO_INCREMENT PRIMARY KEY,
             item_name VARCHAR(255) NOT NULL,
             category ENUM('costume', 'equipment') NOT NULL,
+            quantity INT DEFAULT 0,
             condition_status ENUM('good', 'worn-out', 'bad') NOT NULL,
-            status ENUM('available', 'borrowed') DEFAULT 'available',
+            status ENUM('available', 'borrowed', 'maintenance', 'archived') DEFAULT 'available',
             description TEXT,
+            campus VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
     ";
     $pdo->exec($createTableSQL);
 
-    // Insert the new item
-    $sql = "INSERT INTO inventory (item_name, category, condition_status, status, description) 
-            VALUES (:item_name, :category, :condition_status, :status, :description)";
-    
-    $stmt = $pdo->prepare($sql);
-    $result = $stmt->execute([
-        ':item_name' => trim($input['name']),
-        ':category' => $input['category'],
-        ':condition_status' => $input['condition'],
-        ':status' => 'available', // Always set to available as requested
-        ':description' => trim($input['description'] ?? '')
-    ]);
+    // Check if quantity column exists, if not add it
+    $columns = $pdo->query("SHOW COLUMNS FROM inventory LIKE 'quantity'")->rowCount();
+    if ($columns == 0) {
+        $pdo->exec("ALTER TABLE inventory ADD COLUMN quantity INT DEFAULT 0 AFTER category");
+    }
 
-    if ($result) {
-        ob_clean();
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Item added successfully!',
-            'item_id' => $pdo->lastInsertId()
+    // Check if campus column exists, if not add it
+    $columns = $pdo->query("SHOW COLUMNS FROM inventory LIKE 'campus'")->rowCount();
+    if ($columns == 0) {
+        $pdo->exec("ALTER TABLE inventory ADD COLUMN campus VARCHAR(100) AFTER description");
+    }
+
+    // Auto-set status based on quantity
+    // Only set to borrowed if qty is 0 AND there's an actual borrow record
+    // Otherwise, unavailable for qty=0, or available for qty>0
+    $auto_status = $quantity <= 0 ? 'unavailable' : 'available';
+
+    // Check if editing existing item
+    if (isset($input['id']) && !empty($input['id'])) {
+        // Update existing item
+        $sql = "UPDATE inventory 
+                SET item_name = :item_name, 
+                    category = :category, 
+                    quantity = :quantity,
+                    condition_status = :condition_status, 
+                    status = :status, 
+                    description = :description,
+                    updated_at = NOW()
+                WHERE id = :id";
+        
+        $stmt = $pdo->prepare($sql);
+        $result = $stmt->execute([
+            ':item_name' => trim($input['name']),
+            ':category' => $input['category'],
+            ':quantity' => $quantity,
+            ':condition_status' => $input['condition'],
+            ':status' => $auto_status,
+            ':description' => trim($input['description'] ?? ''),
+            ':id' => $input['id']
         ]);
+
+        if ($result) {
+            ob_clean();
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Item updated successfully!',
+                'item_id' => $input['id']
+            ]);
+        } else {
+            ob_clean();
+            echo json_encode(['success' => false, 'message' => 'Failed to update item']);
+        }
     } else {
-        ob_clean();
-        echo json_encode(['success' => false, 'message' => 'Failed to insert item']);
+        // Insert new item with campus
+        $sql = "INSERT INTO inventory (item_name, category, quantity, condition_status, status, description, campus) 
+                VALUES (:item_name, :category, :quantity, :condition_status, :status, :description, :campus)";
+        
+        $stmt = $pdo->prepare($sql);
+        $result = $stmt->execute([
+            ':item_name' => trim($input['name']),
+            ':category' => $input['category'],
+            ':quantity' => $quantity,
+            ':condition_status' => $input['condition'],
+            ':status' => $auto_status,
+            ':description' => trim($input['description'] ?? ''),
+            ':campus' => $user_campus
+        ]);
+
+        if ($result) {
+            ob_clean();
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Item added successfully!',
+                'item_id' => $pdo->lastInsertId()
+            ]);
+        } else {
+            ob_clean();
+            echo json_encode(['success' => false, 'message' => 'Failed to insert item']);
+        }
     }
 
 } catch(PDOException $e) {

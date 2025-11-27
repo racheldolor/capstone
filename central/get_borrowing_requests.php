@@ -7,6 +7,22 @@ require_once '../config/database.php';
 
 header('Content-Type: application/json');
 
+// Check authentication
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized access. Please login.']);
+    exit;
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'] ?? null;
+$user_email = $_SESSION['user_email'] ?? null;
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
+
 try {
     $pdo = getDBConnection();
 
@@ -19,15 +35,22 @@ try {
     // Build WHERE conditions
     $where_conditions = [];
     $params = [];
+    
+    // Apply campus filter for campus-specific users
+    if (!$canViewAll && $user_campus) {
+        $where_conditions[] = "br.student_campus = ?";
+        $params[] = $user_campus;
+    }
 
     if (!empty($status)) {
-        $where_conditions[] = "status = ?";
+        $where_conditions[] = "br.status = ?";
         $params[] = $status;
     }
 
     if (!empty($search)) {
-        $where_conditions[] = "(requester_name LIKE ? OR email LIKE ?)";
+        $where_conditions[] = "(br.student_name LIKE ? OR br.student_email LIKE ? OR br.item_name LIKE ?)";
         $search_param = "%$search%";
+        $params[] = $search_param;
         $params[] = $search_param;
         $params[] = $search_param;
     }
@@ -38,7 +61,7 @@ try {
     }
 
     // Get total count
-    $count_sql = "SELECT COUNT(*) FROM borrowing_requests $where_clause";
+    $count_sql = "SELECT COUNT(*) FROM borrowing_requests br $where_clause";
     $count_stmt = $pdo->prepare($count_sql);
     $count_stmt->execute($params);
     $total_requests = $count_stmt->fetchColumn();
@@ -48,35 +71,35 @@ try {
     $offset = ($page - 1) * $limit;
 
     // Get borrowing requests
-    $sql = "SELECT * FROM borrowing_requests $where_clause ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+    $sql = "SELECT br.* FROM borrowing_requests br $where_clause ORDER BY br.created_at DESC LIMIT $limit OFFSET $offset";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Process the requests
     foreach ($requests as &$request) {
-        // Decode equipment categories JSON
-        if (!empty($request['equipment_categories'])) {
-            $request['equipment_categories'] = json_decode($request['equipment_categories'], true);
-        } else {
-            $request['equipment_categories'] = [];
-        }
-
         // Format dates
-        if (!empty($request['date_of_request'])) {
-            $request['date_of_request_formatted'] = date('M j, Y', strtotime($request['date_of_request']));
+        if (!empty($request['start_date'])) {
+            $request['date_of_request_formatted'] = date('M j, Y', strtotime($request['start_date']));
         }
 
-        if (!empty($request['estimated_return_date'])) {
-            $request['estimated_return_date_formatted'] = date('M j, Y', strtotime($request['estimated_return_date']));
+        if (!empty($request['end_date'])) {
+            $request['estimated_return_date_formatted'] = date('M j, Y', strtotime($request['end_date']));
         }
 
         if (!empty($request['created_at'])) {
             $request['created_at_formatted'] = date('M j, Y g:i A', strtotime($request['created_at']));
         }
 
-        // Use the requester_name from the form submission
-        $request['student_name'] = $request['requester_name'];
+        // Ensure we have the student name
+        if (empty($request['student_name'])) {
+            $request['student_name'] = 'Unknown Student';
+        }
+        
+        // Ensure we have item name
+        if (empty($request['item_name'])) {
+            $request['item_name'] = 'Equipment request (details not specified)';
+        }
     }
 
     // Send response
@@ -88,14 +111,21 @@ try {
             'total_pages' => $total_pages,
             'total_requests' => $total_requests,
             'limit' => $limit
+        ],
+        'debug' => [
+            'can_view_all' => $canViewAll,
+            'user_campus' => $user_campus,
+            'user_role' => $user_role
         ]
     ]);
 
 } catch (Exception $e) {
+    error_log("Error in get_borrowing_requests.php (central): " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => 'Database error: ' . $e->getMessage(),
         'line' => $e->getLine(),
         'file' => basename($e->getFile())
     ]);

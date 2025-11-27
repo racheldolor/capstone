@@ -5,10 +5,19 @@ require_once '../config/database.php';
 header('Content-Type: application/json');
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
 }
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
 
 try {
     $pdo = getDBConnection();
@@ -41,17 +50,24 @@ try {
     $stmt->execute($params);
     $evaluations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get all available events (with or without evaluations)
+    // Get all available events (with or without evaluations) with campus filtering
     $eventsQuery = "SELECT ev.id, ev.title, ev.location, ev.category, 
                     ev.start_date as event_date, ev.start_date,
                     DATE_FORMAT(ev.start_date, '%M %d, %Y') as formatted_date,
                     COUNT(e.id) as evaluation_count
                     FROM events ev
-                    LEFT JOIN event_evaluations e ON ev.id = e.event_id
-                    GROUP BY ev.id, ev.title, ev.location, ev.category, ev.start_date
+                    LEFT JOIN event_evaluations e ON ev.id = e.event_id";
+    
+    $eventParams = [];
+    if (!$canViewAll && $user_campus) {
+        $eventsQuery .= " WHERE ev.campus = ?";
+        $eventParams[] = $user_campus;
+    }
+    
+    $eventsQuery .= " GROUP BY ev.id, ev.title, ev.location, ev.category, ev.start_date
                     ORDER BY ev.start_date DESC";
     $eventsStmt = $pdo->prepare($eventsQuery);
-    $eventsStmt->execute();
+    $eventsStmt->execute($eventParams);
     $events = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Calculate statistics

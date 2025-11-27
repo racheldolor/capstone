@@ -9,6 +9,15 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
     exit;
 }
 
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'] ?? '';
+$user_email = $_SESSION['user_email'] ?? '';
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+
 // Check if event_id is provided
 if (!isset($_GET['event_id']) || !is_numeric($_GET['event_id'])) {
     http_response_code(400);
@@ -23,7 +32,7 @@ try {
     
     // First, check if events table exists and get event details
     $eventStmt = $pdo->prepare("
-        SELECT id, title, start_date, end_date, location, category
+        SELECT id, title, start_date, end_date, location, category, campus
         FROM events 
         WHERE id = ?
     ");
@@ -32,6 +41,12 @@ try {
     
     if (!$event) {
         echo json_encode(['success' => false, 'message' => 'Event not found (ID: ' . $event_id . ')']);
+        exit;
+    }
+    
+    // Check campus permission
+    if (!$canViewAll && $user_campus && $event['campus'] !== $user_campus) {
+        echo json_encode(['success' => false, 'message' => 'You do not have permission to view this event']);
         exit;
     }
     

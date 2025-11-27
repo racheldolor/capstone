@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
     $password = $_POST['password'];
     if ($email !== '' && $password !== '') {
         // Hardcoded admin credential (per request)
-        if ($email === 'admin@g.batstate-u.edu.ph' && $password === 'imongmama') {
+        if ($email === 'admin@g.batstate-u.edu.ph' && $password === 'batstateu') {
             $_SESSION['user_id'] = 0;
             $_SESSION['user_email'] = $email;
             $_SESSION['user_name'] = 'Administrator';
@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
             $pdo = getDBConnection();
             
             // First, check the users table (for admin, staff, head, central)
-            $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, role, status FROM users WHERE email = ?");
+            $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, role, status, campus FROM users WHERE email = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
             
             // If not found in users table, check student_artists table
             if (!$user) {
-                $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status, sr_code FROM student_artists WHERE email = ?");
+                $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status, sr_code, campus FROM student_artists WHERE email = ?");
                 $stmt->execute([$email]);
                 $student = $stmt->fetch(PDO::FETCH_ASSOC);
                 
@@ -62,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
                     $_SESSION['user_name'] = trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'] . ' ' : '') . $user['last_name']);
                     $_SESSION['user_role'] = $user['role'];
                     $_SESSION['user_table'] = $user_table; // Store which table the user is from
+                    $_SESSION['user_campus'] = $user['campus'] ?? null; // Store campus from database
                     $_SESSION['logged_in'] = true;
                     
                     // For students, also store SR code if available

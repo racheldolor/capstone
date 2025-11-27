@@ -7,6 +7,36 @@ require_once '../config/database.php';
 
 header('Content-Type: application/json');
 
+// Check authentication
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized access. Please login.']);
+    exit;
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'] ?? null;
+$user_email = $_SESSION['user_email'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Campus name normalization
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Lemery' => 'Lemery',
+    'Rosario' => 'Rosario',
+    'Balayan' => 'Balayan',
+    'Mabini' => 'Mabini',
+    'San Juan' => 'San Juan',
+    'Lobo' => 'Lobo'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+
 try {
     $pdo = getDBConnection();
 
@@ -19,15 +49,32 @@ try {
     // Build WHERE conditions
     $where_conditions = [];
     $params = [];
+    
+    // Apply campus filter for campus-specific users
+    if (!$canViewAll && $user_campus) {
+        if ($user_campus === 'JPLPC Malvar') {
+            $where_conditions[] = "(br.student_campus = ? OR br.student_campus = ?)";
+            $params[] = 'JPLPC Malvar';
+            $params[] = 'Malvar';
+        } elseif ($user_campus === 'ARASOF Nasugbu') {
+            $where_conditions[] = "(br.student_campus = ? OR br.student_campus = ?)";
+            $params[] = 'ARASOF Nasugbu';
+            $params[] = 'Nasugbu';
+        } else {
+            $where_conditions[] = "br.student_campus = ?";
+            $params[] = $user_campus;
+        }
+    }
 
     if (!empty($status)) {
-        $where_conditions[] = "status = ?";
+        $where_conditions[] = "br.status = ?";
         $params[] = $status;
     }
 
     if (!empty($search)) {
-        $where_conditions[] = "(student_name LIKE ? OR student_email LIKE ?)";
+        $where_conditions[] = "(br.student_name LIKE ? OR br.student_email LIKE ? OR br.item_name LIKE ?)";
         $search_param = "%$search%";
+        $params[] = $search_param;
         $params[] = $search_param;
         $params[] = $search_param;
     }
@@ -38,7 +85,7 @@ try {
     }
 
     // Get total count
-    $count_sql = "SELECT COUNT(*) FROM borrowing_requests $where_clause";
+    $count_sql = "SELECT COUNT(*) FROM borrowing_requests br $where_clause";
     $count_stmt = $pdo->prepare($count_sql);
     $count_stmt->execute($params);
     $total_requests = $count_stmt->fetchColumn();
@@ -48,14 +95,14 @@ try {
     $offset = ($page - 1) * $limit;
 
     // Get borrowing requests
-    $sql = "SELECT * FROM borrowing_requests $where_clause ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+    $sql = "SELECT br.* FROM borrowing_requests br $where_clause ORDER BY br.created_at DESC LIMIT $limit OFFSET $offset";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Process the requests
     foreach ($requests as &$request) {
-        // Format dates using the correct field names from database schema
+        // Format dates
         if (!empty($request['start_date'])) {
             $request['date_of_request_formatted'] = date('M j, Y', strtotime($request['start_date']));
         }
@@ -68,12 +115,12 @@ try {
             $request['created_at_formatted'] = date('M j, Y g:i A', strtotime($request['created_at']));
         }
 
-        // Ensure we have the student name (already in correct field)
+        // Ensure we have the student name
         if (empty($request['student_name'])) {
             $request['student_name'] = 'Unknown Student';
         }
         
-        // Ensure we have item name or provide a default
+        // Ensure we have item name
         if (empty($request['item_name'])) {
             $request['item_name'] = 'Equipment request (details not specified)';
         }
@@ -88,14 +135,21 @@ try {
             'total_pages' => $total_pages,
             'total_requests' => $total_requests,
             'limit' => $limit
+        ],
+        'debug' => [
+            'can_view_all' => $canViewAll,
+            'user_campus' => $user_campus,
+            'user_role' => $user_role
         ]
     ]);
 
 } catch (Exception $e) {
+    error_log("Error in get_borrowing_requests.php (head-staff): " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => 'Database error: ' . $e->getMessage(),
         'line' => $e->getLine(),
         'file' => basename($e->getFile())
     ]);

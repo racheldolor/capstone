@@ -3,10 +3,28 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
+$canManage = !$isCentralHead;
+
+// Build campus filter
+$campusFilter = '';
+$campusParams = [];
+if (!$canViewAll && $user_campus) {
+    $campusFilter = ' AND campus = ?';
+    $campusParams[] = $user_campus;
 }
 
 header('Content-Type: application/json');
@@ -48,11 +66,11 @@ try {
             submitted_at,
             application_status
         FROM applications 
-        WHERE application_status = 'pending' OR application_status IS NULL
+        WHERE (application_status = 'pending' OR application_status IS NULL)" . $campusFilter . "
         ORDER BY submitted_at DESC
     ");
     
-    $stmt->execute();
+    $stmt->execute($campusParams);
     $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Format the data for better display

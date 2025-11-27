@@ -3,9 +3,25 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit();
+}
+
+// RBAC: Determine access level
+$user_role = $_SESSION['user_role'];
+$user_email = $_SESSION['user_email'];
+$user_campus = $_SESSION['user_campus'] ?? null;
+
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
+$isCentralHead = in_array($user_email, $centralHeadEmails);
+$canManage = !$isCentralHead;
+
+// Check write permission
+if (!$canManage) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'You do not have permission to update applications']);
     exit();
 }
 
@@ -47,6 +63,13 @@ try {
         
         if (!$application) {
             throw new Exception('Application not found');
+        }
+        
+        // Verify campus access for campus-specific users
+        if ($user_role !== 'admin' && $user_role !== 'central') {
+            if ($user_campus && $application['campus'] !== $user_campus) {
+                throw new Exception('You do not have permission to update this application');
+            }
         }
         
         // Update application status

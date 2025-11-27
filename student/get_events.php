@@ -2,10 +2,12 @@
 session_start();
 require_once '../config/database.php';
 
+header('Content-Type: application/json');
+
 // Check if user is authenticated as student
-if (!isset($_SESSION['logged_in']) || $_SESSION['user_table'] !== 'student_artists') {
+if (!isset($_SESSION['logged_in']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'student') {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized access. Please login as a student.']);
     exit;
 }
 
@@ -18,15 +20,32 @@ try {
     $student = $studentStmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$student) {
-        echo json_encode(['success' => false, 'message' => 'Student not found']);
+        echo json_encode(['success' => false, 'message' => 'Student profile not found. Please contact administrator.']);
         exit;
     }
     
-    $studentCulturalGroup = $student['cultural_group'];
-    $studentCampus = $student['campus'];
+    $studentCulturalGroup = $student['cultural_group'] ?? '';
+    $studentCampus = $student['campus'] ?? '';
+    
+    // Check if campus column exists in events table, if not use venue
+    try {
+        $checkColumn = $pdo->query("SHOW COLUMNS FROM events LIKE 'campus'");
+        $hasCampusColumn = $checkColumn->rowCount() > 0;
+    } catch (Exception $e) {
+        $hasCampusColumn = false;
+    }
+    
+    // Build query based on available columns
+    if ($hasCampusColumn) {
+        // Use campus column for filtering
+        $campusFilter = "AND (e.campus = ? OR e.campus IS NULL OR e.campus = '')";
+    } else {
+        // Fallback to venue column for campus filtering
+        $campusFilter = "AND (e.venue LIKE ? OR e.venue IS NULL OR e.venue = '')";
+    }
     
     // Get events filtered by cultural group and campus, including participation status
-    $eventsStmt = $pdo->prepare("
+    $query = "
         SELECT e.*, 
                (ep.student_id IS NOT NULL AND ep.attendance_status != 'cancelled') as has_joined,
                ep.registration_date as joined_at,
@@ -38,26 +57,47 @@ try {
                END as event_status
         FROM events e
         LEFT JOIN event_participants ep ON e.id = ep.event_id AND ep.student_id = ?
-        WHERE (e.cultural_groups LIKE ? OR e.cultural_groups LIKE ? OR e.cultural_groups = '[]')
-        AND (e.venue = ? OR e.venue IS NULL OR e.venue = '')
+        WHERE (e.cultural_groups LIKE ? OR e.cultural_groups LIKE ? OR e.cultural_groups = '[]' OR e.cultural_groups IS NULL)
+        $campusFilter
         AND e.end_date >= CURDATE()
         AND e.status IN ('published', 'ongoing')
         ORDER BY e.start_date ASC
         LIMIT 50
-    ");
+    ";
+    
+    $eventsStmt = $pdo->prepare($query);
     
     $groupPattern1 = '%"' . $studentCulturalGroup . '"%';
     $groupPattern2 = '%' . $studentCulturalGroup . '%';
     
-    $eventsStmt->execute([$_SESSION['user_id'], $groupPattern1, $groupPattern2, $studentCampus]);
+    // Execute with appropriate campus parameter
+    if ($hasCampusColumn) {
+        $eventsStmt->execute([$_SESSION['user_id'], $groupPattern1, $groupPattern2, $studentCampus]);
+    } else {
+        // Use LIKE for venue matching
+        $campusPattern = '%' . $studentCampus . '%';
+        $eventsStmt->execute([$_SESSION['user_id'], $groupPattern1, $groupPattern2, $campusPattern]);
+    }
+    
     $events = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Format events for display
     foreach ($events as &$event) {
-        $event['cultural_groups_array'] = json_decode($event['cultural_groups'], true) ?: [];
+        // Parse cultural groups JSON
+        $culturalGroupsData = $event['cultural_groups'];
+        if (is_string($culturalGroupsData)) {
+            $decoded = json_decode($culturalGroupsData, true);
+            $event['cultural_groups_array'] = is_array($decoded) ? $decoded : [];
+        } else {
+            $event['cultural_groups_array'] = [];
+        }
+        
+        // Format dates
         $event['formatted_start_date'] = date('F j, Y', strtotime($event['start_date']));
         $event['formatted_end_date'] = date('F j, Y', strtotime($event['end_date']));
         $event['is_multi_day'] = $event['start_date'] !== $event['end_date'];
+        
+        // Join status
         $event['has_joined'] = (bool)$event['has_joined'];
         $event['can_join'] = !$event['has_joined'] && $event['event_status'] === 'upcoming';
         $event['show_join_button'] = $event['event_status'] === 'upcoming';
@@ -68,11 +108,18 @@ try {
         'success' => true,
         'events' => $events,
         'student_group' => $studentCulturalGroup,
-        'student_campus' => $studentCampus
+        'student_campus' => $studentCampus,
+        'has_campus_column' => $hasCampusColumn,
+        'total_events' => count($events)
     ]);
     
 } catch (Exception $e) {
     error_log("Error getting events: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'An error occurred while fetching events']);
+    error_log("Stack trace: " . $e->getTraceAsString());
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Database error: ' . $e->getMessage(),
+        'error_details' => $e->getMessage()
+    ]);
 }
 ?>

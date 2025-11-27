@@ -904,7 +904,14 @@ try {
         <div class="header-right">
             <div class="user-info">
                 <span>👤</span>
-                <span><?= htmlspecialchars($student_info['first_name'] ?? 'Student') ?> <?= htmlspecialchars($student_info['last_name'] ?? '') ?></span>
+                <?php 
+                $first_name = $student_info['first_name'] ?? 'Student';
+                $campus = $student_info['campus'] ?? '';
+                ?>
+                <span><?= htmlspecialchars($first_name) ?></span>
+                <?php if ($campus): ?>
+                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($campus) ?></span>
+                <?php endif; ?>
             </div>
             <button class="logout-btn" onclick="window.location.href='../index.php'">Logout</button>
         </div>
@@ -1750,9 +1757,18 @@ try {
                     actionsHtml = '<span style="color: #10b981; font-weight: 600;">Returned</span>';
                 }
                 
+                // Build item name display - show approved item with quantity and requested item if different
+                let itemNameDisplay = request.item_name;
+                if (request.quantity) {
+                    itemNameDisplay += ` (Qty: ${request.quantity})`;
+                }
+                if (request.requested_item && request.requested_item !== request.item_name) {
+                    itemNameDisplay += `<br><small style="color: #6b7280;">Requested: ${request.requested_item}</small>`;
+                }
+                
                 html += `
                     <tr>
-                        <td class="item-name-cell">${request.item_name}</td>
+                        <td class="item-name-cell">${itemNameDisplay}</td>
                         <td><span class="item-status ${statusClass}">${getRequestStatusText(request)}</span></td>
                         <td class="date-cell">${formattedRequestDate}</td>
                         <td class="date-cell">${formattedDueDate}</td>
@@ -1864,9 +1880,8 @@ try {
 
         // Open return form for a specific borrowing request
         function openReturnForm(requestId) {
-            if (confirm('Do you want to submit a return request for this borrowing?')) {
-                window.location.href = `return-form.php?request_id=${requestId}`;
-            }
+            // Navigate directly to return form
+            window.location.href = 'return-form.php?request_id=' + requestId;
         }
 
         // Join event function

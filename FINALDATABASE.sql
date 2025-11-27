@@ -1,10 +1,40 @@
 -- ============================================
 -- FINAL DATABASE - BatStateU Culture & Arts Management System
 -- ============================================
--- Complete fresh database with UPDATED event_evaluations (15 questions)
+-- Complete fresh database with ALL FIXES APPLIED:
+-- - Campus filtering support (events, borrowing_requests)
+-- - Updated event_evaluations (15 questions)
+-- - All tables with proper indexes
 -- Ready to paste in phpMyAdmin - Just paste and go!
--- Date: November 17, 2025
+-- Date: November 21, 2025
+-- Version: 2.0 (With Campus Filtering)
 -- ============================================
+
+-- ============================================
+-- DROP EXISTING TABLES (in correct order to avoid foreign key constraints)
+-- ============================================
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS `admin_logs`;
+DROP TABLE IF EXISTS `system_settings`;
+DROP TABLE IF EXISTS `student_certificates`;
+DROP TABLE IF EXISTS `question_analysis`;
+DROP TABLE IF EXISTS `event_participants`;
+DROP TABLE IF EXISTS `event_evaluations`;
+DROP TABLE IF EXISTS `evaluation_summary`;
+DROP TABLE IF EXISTS `deleted_students`;
+DROP TABLE IF EXISTS `return_requests`;
+DROP TABLE IF EXISTS `borrowing_requests`;
+DROP TABLE IF EXISTS `application_participation`;
+DROP TABLE IF EXISTS `application_affiliations`;
+DROP TABLE IF EXISTS `applications`;
+DROP TABLE IF EXISTS `announcements`;
+DROP TABLE IF EXISTS `inventory`;
+DROP TABLE IF EXISTS `events`;
+DROP TABLE IF EXISTS `student_artists`;
+DROP TABLE IF EXISTS `users`;
+
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================
 -- CREATE TABLES
@@ -19,6 +49,7 @@ CREATE TABLE `users` (
   `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` enum('student','staff','head','central','admin') NOT NULL,
+  `campus` varchar(100) DEFAULT NULL,
   `status` enum('active','inactive','suspended') DEFAULT 'active',
   `last_login` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -27,7 +58,8 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   KEY `idx_users_email` (`email`),
   KEY `idx_users_role` (`role`),
-  KEY `idx_users_status` (`status`)
+  KEY `idx_users_status` (`status`),
+  KEY `idx_users_campus` (`campus`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table: student_artists (student accounts)
@@ -129,6 +161,7 @@ CREATE TABLE `events` (
   `is_featured` tinyint(1) DEFAULT 0,
   `allow_registration` tinyint(1) DEFAULT 1,
   `created_by` int(11) DEFAULT NULL,
+  `campus` varchar(100) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
@@ -137,6 +170,7 @@ CREATE TABLE `events` (
   KEY `idx_events_category` (`category`),
   KEY `idx_events_dates` (`start_date`,`end_date`),
   KEY `idx_events_created_at` (`created_at`),
+  KEY `idx_events_campus` (`campus`),
   CONSTRAINT `events_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -176,6 +210,7 @@ CREATE TABLE `inventory` (
   `max_borrowing_days` int(11) DEFAULT 7,
   `notes` text DEFAULT NULL,
   `created_by` int(11) DEFAULT NULL,
+  `campus` varchar(100) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
@@ -186,6 +221,7 @@ CREATE TABLE `inventory` (
   KEY `idx_inventory_condition` (`condition_status`),
   KEY `idx_inventory_name` (`item_name`),
   KEY `idx_inventory_barcode` (`barcode`),
+  KEY `idx_inventory_campus` (`campus`),
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -741,6 +777,18 @@ CREATE TABLE `admin_logs` (
 -- ============================================
 -- DATABASE SETUP COMPLETE!
 -- ============================================
--- All tables created successfully
+-- All tables created successfully with campus filtering support
 -- Ready to use with your Culture & Arts Management System
+-- 
+-- IMPORTANT FEATURES:
+-- ✓ Campus filtering on events table
+-- ✓ Campus filtering on borrowing_requests (via student_campus)
+-- ✓ Campus filtering on users table
+-- ✓ Campus filtering on inventory table
+-- ✓ Proper indexes for performance
+-- ✓ All foreign keys configured
 -- ============================================
+
+-- Note: Assign campuses to users after setup
+-- Example: UPDATE users SET campus = 'Pablo Borbon' WHERE role = 'central';
+-- Example: UPDATE users SET campus = 'Lipa' WHERE email = 'staff.lipa@g.batstate-u.edu.ph';

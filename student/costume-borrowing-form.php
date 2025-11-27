@@ -749,7 +749,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 <!-- Return Form button outside the form to prevent form submission interference -->
                 <div class="btn-group" style="margin-top: 1rem;">
-                    <button type="button" class="btn btn-info" onclick="navigateToReturnForm(); return false;">Return Form</button>
+                    <button type="button" class="btn btn-info" onclick="navigateToReturnForm(event); return false;">Return Form</button>
                 </div>
             </div>
         </div>
@@ -757,22 +757,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script>
         // Navigation function for Return Form button
-        function navigateToReturnForm() {
-            console.log('navigateToReturnForm function called');
-            console.log('Current location:', window.location.href);
-            
+        function navigateToReturnForm(event) {
             // Prevent any default behavior
-            event.preventDefault();
-            event.stopPropagation();
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
             
-            // Use absolute path to ensure correct navigation
-            const returnFormUrl = window.location.origin + window.location.pathname.replace('costume-borrowing-form.php', 'return-form.php');
-            console.log('Navigating to:', returnFormUrl);
-            
-            // Force navigation with a slight delay to ensure console logs are visible
-            setTimeout(() => {
-                window.location.href = returnFormUrl;
-            }, 100);
+            // Navigate directly to return form
+            window.location.href = 'return-form.php';
         }
 
         // Enable/disable equipment description fields based on checkbox selection

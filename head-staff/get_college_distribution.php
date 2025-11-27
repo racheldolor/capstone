@@ -23,15 +23,20 @@ header('Content-Type: application/json');
 try {
     $pdo = getDBConnection();
     
-    // Get search parameter
+    // Get search and campus parameters
     $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $filterCampus = isset($_GET['campus']) ? trim($_GET['campus']) : '';
     
     // Build WHERE clause for search
-    $whereConditions = ["status = 'active'", "campus IS NOT NULL"];
+    $whereConditions = ["status IN ('active', 'suspended')", "college IS NOT NULL", "college != ''"];
     $params = [];
     
-    // Apply campus filter for campus-specific users
-    if (!$canViewAll && $user_campus) {
+    // Apply campus filter
+    // Use filter campus from dropdown if provided, otherwise apply user's campus for non-admin users
+    if ($filterCampus) {
+        $whereConditions[] = "campus = ?";
+        $params[] = $filterCampus;
+    } elseif (!$canViewAll && $user_campus) {
         $whereConditions[] = "campus = ?";
         $params[] = $user_campus;
     }
@@ -45,21 +50,21 @@ try {
     
     $whereClause = implode(' AND ', $whereConditions);
     
-    // Get campus distribution with search filter
+    // Get college distribution with search filter
     $sql = "
         SELECT 
-            campus,
+            college,
             COUNT(*) as count,
             ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM student_artists WHERE $whereClause)), 1) as percentage
         FROM student_artists 
         WHERE $whereClause
-        GROUP BY campus 
+        GROUP BY college 
         ORDER BY count DESC
     ";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge($params, $params)); // params twice for subquery
-    $campusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $collegeData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Get total count with search filter
     $totalSql = "SELECT COUNT(*) as total FROM student_artists WHERE $whereClause";
@@ -70,9 +75,10 @@ try {
     // Prepare response
     $response = [
         'success' => true,
-        'campusDistribution' => $campusData,
+        'collegeDistribution' => $collegeData,
         'totalStudents' => $total,
-        'searchApplied' => !empty($search)
+        'searchApplied' => !empty($search),
+        'campus' => $user_campus // Include campus for debugging
     ];
     
     echo json_encode($response);
@@ -81,7 +87,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to fetch campus distribution data: ' . $e->getMessage()
+        'error' => 'Failed to fetch college distribution data: ' . $e->getMessage()
     ]);
 }
 ?>
