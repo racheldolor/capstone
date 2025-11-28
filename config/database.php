@@ -29,7 +29,7 @@
 define('DB_HOST', 'localhost');  // Change to your database host
 define('DB_NAME', 'capstone_culture_arts');
 define('DB_USER', 'root');       // Change to your MySQL username
-define('DB_PASS', 'damnson');           // Change to your MySQL password
+define('DB_PASS', '');           // Change to your MySQL password
 
 // Create database connection
 function getDBConnection() {
