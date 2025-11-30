@@ -30,7 +30,7 @@ try {
     
     // Get all active borrowing requests for this student
     $stmt = $pdo->prepare("
-        SELECT br.* 
+        SELECT br.*, br.approved_items, br.item_name, br.quantity_requested 
         FROM borrowing_requests br 
         WHERE br.student_id = ? AND br.status = 'approved' AND br.current_status = 'active'
         ORDER BY br.created_at DESC
@@ -43,16 +43,55 @@ try {
     
     // Collect all approved items from all active borrowing requests
     foreach ($all_borrowing_requests as $request) {
-        // Each borrowing request IS an item (item_id and item_name are in the request itself)
-        $item = [
-            'id' => $request['item_id'],
-            'name' => $request['item_name'],
-            'borrowing_request_id' => $request['id'],
-            'request_date' => $request['created_at'],
-            'due_date' => $request['end_date'] ?? $request['due_date'] ?? null,
-            'quantity' => $request['quantity_approved'] ?? $request['quantity_requested'] ?? 1
-        ];
-        $all_approved_items[] = $item;
+        // Debug: Log the request data
+        error_log("Processing request ID: " . $request['id']);
+        error_log("Original item_name: " . ($request['item_name'] ?? 'NULL'));
+        error_log("Approved items JSON: " . ($request['approved_items'] ?? 'NULL'));
+        
+        // If staff approved specific items, use those instead of what student typed
+        if (!empty($request['approved_items'])) {
+            $approved_items = json_decode($request['approved_items'], true);
+            
+            if (is_array($approved_items) && count($approved_items) > 0) {
+                // Create an entry for each approved item
+                foreach ($approved_items as $approved_item) {
+                    $item = [
+                        'id' => $approved_item['id'],
+                        'name' => $approved_item['name'], // This is the staff-approved name
+                        'borrowing_request_id' => $request['id'],
+                        'request_date' => $request['created_at'],
+                        'due_date' => $request['end_date'] ?? $request['due_date'] ?? null,
+                        'quantity' => $approved_item['quantity']
+                    ];
+                    $all_approved_items[] = $item;
+                    error_log("Added approved item: " . $approved_item['name']);
+                }
+            } else {
+                // Fallback to original item if approved_items is empty or invalid
+                $item = [
+                    'id' => $request['item_id'],
+                    'name' => $request['item_name'],
+                    'borrowing_request_id' => $request['id'],
+                    'request_date' => $request['created_at'],
+                    'due_date' => $request['end_date'] ?? $request['due_date'] ?? null,
+                    'quantity' => $request['quantity_approved'] ?? $request['quantity_requested'] ?? 1
+                ];
+                $all_approved_items[] = $item;
+                error_log("Used fallback item: " . $request['item_name']);
+            }
+        } else {
+            // No approved_items field, use original request
+            $item = [
+                'id' => $request['item_id'],
+                'name' => $request['item_name'],
+                'borrowing_request_id' => $request['id'],
+                'request_date' => $request['created_at'],
+                'due_date' => $request['end_date'] ?? $request['due_date'] ?? null,
+                'quantity' => $request['quantity_approved'] ?? $request['quantity_requested'] ?? 1
+            ];
+            $all_approved_items[] = $item;
+            error_log("No approved_items, used original: " . $request['item_name']);
+        }
         
         // Store request details for display
         $borrowing_request_details[] = [

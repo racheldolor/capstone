@@ -257,7 +257,7 @@ $pdo = getDBConnection();
 
         .table-header {
             display: grid;
-            grid-template-columns: 2fr 60px 90px 90px 1.5fr;
+            grid-template-columns: 2fr 60px 90px 90px 120px;
             font-size: 0.8rem;
             padding: 0.75rem 0.5rem;
             background: #dc2626;
@@ -271,7 +271,8 @@ $pdo = getDBConnection();
 
         .table-header > div:nth-child(2),
         .table-header > div:nth-child(3),
-        .table-header > div:nth-child(4) {
+        .table-header > div:nth-child(4),
+        .table-header > div:nth-child(5) {
             text-align: center;
         }
 
@@ -284,7 +285,7 @@ $pdo = getDBConnection();
 
         .table-row {
             display: grid;
-            grid-template-columns: 2fr 60px 90px 90px 1.5fr;
+            grid-template-columns: 2fr 60px 90px 90px 100px 80px;
             padding: 0.65rem 0.5rem;
             border-bottom: 1px solid #e0e0e0;
             align-items: center;
@@ -924,8 +925,9 @@ $pdo = getDBConnection();
             
             let html = '';
             costumes.forEach(costume => {
-                const displayQty = costume.quantity || 0;
-                // Only set to unavailable if qty is 0, otherwise use actual status
+                const displayQty = costume.available_quantity || 0; // Show available quantity in table
+                const totalQty = costume.total_quantity || costume.quantity || 0; // Keep total for status logic
+                // Only set to unavailable if available qty is 0
                 const autoStatus = displayQty <= 0 ? 'unavailable' : (costume.status || 'available');
                 
                 html += '<div class="table-row">';
@@ -952,8 +954,9 @@ $pdo = getDBConnection();
             
             let html = '';
             equipment.forEach(item => {
-                const displayQty = item.quantity || 0;
-                // Only set to unavailable if qty is 0, otherwise use actual status
+                const displayQty = item.available_quantity || 0; // Show available quantity in table
+                const totalQty = item.total_quantity || item.quantity || 0; // Keep total for status logic
+                // Only set to unavailable if available qty is 0
                 const autoStatus = displayQty <= 0 ? 'unavailable' : (item.status || 'available');
                 
                 html += '<div class="table-row">';
@@ -972,26 +975,15 @@ $pdo = getDBConnection();
         }
 
         function getBorrowerInfo(item) {
-            // Only show borrower info if item status is actually 'borrowed' and has borrower data
-            if (item.status === 'borrowed' && item.borrowers && item.borrowers.length > 0) {
-                let html = '<div style="line-height: 1.3;">';
-                item.borrowers.forEach((borrower, index) => {
-                    const borrowDate = new Date(borrower.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
-                    html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word;">${borrower.student_name}</div>`;
-                    html += `<div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>`;
-                    html += `</div>`;
-                });
-                html += '</div>';
-                return html;
-            } else if (item.status === 'borrowed' && item.borrower_name) {
-                const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return `<div style="line-height: 1.3;">
-                    <div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word;">${item.borrower_name}</div>
-                    <div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>
-                </div>`;
+            // Show borrower count if there are active borrowers (regardless of status)
+            if (item.borrowers && item.borrowers.length > 0) {
+                const borrowerCount = item.borrowers.length;
+                return `<span style="color: #666; text-align: center; display: block; font-size: 0.85rem;">${borrowerCount} borrower${borrowerCount > 1 ? 's' : ''}</span>`;
+            } else if (item.borrower_name) {
+                // Fallback for single borrower
+                return `<span style="color: #666; text-align: center; display: block; font-size: 0.85rem;">1 borrower</span>`;
             }
-            // Default: show dash for all other cases (available, unavailable, maintenance, etc.)
+            // Default: show dash for items with no borrowers
             return '<span style="color: #aaa; text-align: center; display: block; font-size: 0.8rem;">-</span>';
         }
 
@@ -1006,14 +998,18 @@ $pdo = getDBConnection();
         }
 
         function getInventoryStatusBadge(status, quantity) {
-            // Auto-set to unavailable/borrowed if quantity is 0
+            // Auto-set to unavailable if quantity is 0, otherwise available if qty > 0
             if (quantity !== undefined && quantity <= 0) {
                 return '<span class="badge badge-unavailable">Unavailable</span>';
             }
             
+            // If quantity > 0, always show as available (borrowed status is shown in borrower modal)
+            if (quantity > 0) {
+                return '<span class="badge badge-available">Available</span>';
+            }
+            
             const badges = {
                 'available': '<span class="badge badge-available">Available</span>',
-                'borrowed': '<span class="badge badge-borrowed">Borrowed</span>',
                 'maintenance': '<span class="badge badge-maintenance">Maintenance</span>',
                 'unavailable': '<span class="badge badge-unavailable">Unavailable</span>'
             };
@@ -1723,7 +1719,7 @@ $pdo = getDBConnection();
                         </div>
                         <div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Borrowed</div>
-                            <div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">${borrowers.length}</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">${item.borrowed_quantity || 0}</div>
                         </div>
                     </div>
                 </div>
@@ -1755,9 +1751,11 @@ $pdo = getDBConnection();
                     month: 'short', day: 'numeric', year: 'numeric' 
                 });
                 
-                // Check if overdue
-                const isOverdue = dueDate < today && borrower.current_status === 'active';
-                const daysOverdue = isOverdue ? Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)) : 0;
+                // Check if overdue - only after 11:59 PM on the due date
+                const endOfDueDate = new Date(dueDate);
+                endOfDueDate.setHours(23, 59, 59, 999); // Set to 11:59:59 PM on due date
+                const isOverdue = endOfDueDate < today && borrower.current_status === 'active';
+                const daysOverdue = isOverdue ? Math.floor((today - endOfDueDate) / (1000 * 60 * 60 * 24)) : 0;
                 
                 let statusBadge = '';
                 if (borrower.current_status === 'returned') {

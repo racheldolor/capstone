@@ -55,7 +55,7 @@ try {
     $stmt->execute();
     $all_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    $borrowers = [];
+    // Calculate available quantity and fix total quantity if needed
     $total_borrowed_qty = 0;
     
     // Filter requests that include this specific item
@@ -85,9 +85,21 @@ try {
         }
     }
     
-    // Calculate available quantity
-    $available_quantity = max(0, $item['total_quantity'] - $total_borrowed_qty);
+    // Fix corrupted total quantity - if there are borrowed items,
+    // the total should be current quantity + borrowed quantity
+    $current_qty = intval($item['total_quantity']);
+    if ($total_borrowed_qty > 0) {
+        // The database quantity was reduced when items were borrowed
+        // So actual total = current DB value + borrowed quantity
+        $actual_total_qty = $current_qty + $total_borrowed_qty;
+        $available_quantity = $current_qty; // Current DB value is actually available
+    } else {
+        // No items borrowed, current quantity is both total and available
+        $actual_total_qty = $current_qty;
+        $available_quantity = $current_qty;
+    }
     
+    $item['total_quantity'] = $actual_total_qty;
     $item['available_quantity'] = $available_quantity;
     $item['borrowed_quantity'] = $total_borrowed_qty;
     

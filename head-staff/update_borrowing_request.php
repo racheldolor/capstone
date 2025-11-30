@@ -97,31 +97,46 @@ try {
                 throw new Exception('Some selected items are no longer available');
             }
 
-            // Update inventory - decrease quantity and change status if needed
+            // Validate quantities but don't modify inventory
             foreach ($selected_items as $selected_item) {
                 $item_id = $selected_item['id'];
                 $borrow_qty = intval($selected_item['quantity']);
                 
-                // Get current quantity
+                // Get current item details
                 $stmt = $pdo->prepare("SELECT quantity FROM inventory WHERE id = ?");
                 $stmt->execute([$item_id]);
                 $current = $stmt->fetch(PDO::FETCH_ASSOC);
                 $current_qty = intval($current['quantity']);
                 
-                // Calculate new quantity
-                $new_qty = $current_qty - $borrow_qty;
+                // Calculate currently borrowed quantity from active requests
+                $borrowedQtySQL = "
+                    SELECT COALESCE(SUM(
+                        JSON_EXTRACT(br.approved_items, CONCAT('$[', json_idx.idx, '].quantity'))
+                    ), 0) as total_borrowed
+                    FROM borrowing_requests br
+                    CROSS JOIN (
+                        SELECT 0 as idx UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+                    ) json_idx
+                    WHERE br.status = 'approved'
+                    AND br.current_status IN ('active', 'pending_return')
+                    AND JSON_VALID(br.approved_items)
+                    AND JSON_EXTRACT(br.approved_items, CONCAT('$[', json_idx.idx, '].id')) = ?
+                ";
+                $borrowedStmt = $pdo->prepare($borrowedQtySQL);
+                $borrowedStmt->execute([$item_id]);
+                $currently_borrowed = $borrowedStmt->fetchColumn() ?: 0;
                 
-                // Update quantity and status
-                $new_status = $new_qty <= 0 ? 'unavailable' : 'borrowed';
+                // Calculate available quantity
+                $available_qty = $current_qty - $currently_borrowed;
                 
-                $stmt = $pdo->prepare("
-                    UPDATE inventory 
-                    SET quantity = ?, 
-                        status = ?, 
-                        updated_at = CURRENT_TIMESTAMP 
-                    WHERE id = ?
-                ");
-                $stmt->execute([$new_qty, $new_status, $item_id]);
+                // Check if requested quantity is available
+                if ($borrow_qty > $available_qty) {
+                    throw new Exception("Not enough quantity available for item: " . $item_id . ". Available: " . $available_qty . ", Requested: " . $borrow_qty);
+                }
+                
+                // Note: We do NOT modify the inventory table quantity
+                // The original quantity should remain unchanged
+                // Available quantity is calculated dynamically based on borrowing records
             }
 
             // Store approved items as JSON in the request

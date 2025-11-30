@@ -204,8 +204,10 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net;">
     <title>Staff Dashboard - Culture and Arts - BatStateU TNEU</title>
+    <!-- Chart.js Library for Interactive Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -3894,12 +3896,11 @@ try {
             // Define college lists for each campus
             const campusColleges = {
                 'Pablo Borbon': [
-                    'College of Accountancy, Business, Economics and International Hospitality Management',
-                    'College of Health Sciences',
+                    'College of Accountancy, Business, Economics, & International Hospitality Management',
                     'College of Arts and Sciences',
                     'College of Law',
+                    'College of Health Sciences / Nursing & Allied Health',
                     'College of Teacher Education',
-                    'College of Criminal Justice Education',
                     'College of Medicine'
                 ],
                 'Alangilan': [
@@ -3912,15 +3913,28 @@ try {
                     'Mabini Campus'
                 ],
                 'JPLPC Malvar': [
-                    'College of Industrial Technology'
+                    'College of Industrial Technology',
+                    'College of Teacher Education',
+                    'College of Engineering',
+                    'College of Informatics and Computing Sciences',
+                    'College of Arts and Sciences',
+                    'College of Accountancy, Business, Economics & International Hospitality Management'
                 ],
                 'Lipa': [
-                    'College of Accountancy, Business, Economics, and International Hospitality Management',
-                    'College of Arts and Sciences'
+                    'College of Accountancy, Business, Economics & International Hospitality Management',
+                    'College of Arts and Sciences',
+                    'College of Engineering',
+                    'College of Engineering Technology',
+                    'College of Informatics and Computing Sciences',
+                    'College of Teacher Education'
                 ],
                 'ARASOF Nasugbu': [
-                    'College of Agriculture and Forestry',
-                    'College of Accountancy, Business, Economics, and International Hospitality Management'
+                    'College of Teacher Education',
+                    'College of Accountancy, Business, Economics & International Hospitality Management',
+                    'College of Informatics & Computing Sciences',
+                    'College of Arts and Sciences',
+                    'College of Health Sciences / Allied Health',
+                    'College of Criminal Justice Education'
                 ]
             };
             
@@ -6406,420 +6420,315 @@ try {
         }
 
         function drawAllEventsChart(events) {
-            const canvas = document.getElementById('participationChart');
-            
-            // Safety check
+            var canvas = document.getElementById('participationChart');
             if (!canvas) {
-                console.warn('Chart canvas not found');
+                console.warn('Participation chart canvas not found');
                 return;
             }
             
-            const ctx = canvas.getContext('2d');
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
+            // Destroy existing chart if any
+            if (window.participationChartInstance) {
+                window.participationChartInstance.destroy();
+            }
+
             if (events.length === 0) {
-                drawEmptyChart(ctx, canvas);
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No events available');
                 return;
             }
-            
-            // Chart dimensions and padding
-            const padding = 60;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const chartX = padding;
-            const chartY = padding;
-            
-            // Prepare data points
-            const dataPoints = events.map((event, index) => {
-                const eligibleMembers = getTotalCulturalGroupMembers(event);
-                const participationRate = eligibleMembers > 0 ? (event.participants_count / eligibleMembers) * 100 : 0;
+
+            // Prepare data for Chart.js
+            var chartData = events.map(function(event) {
+                var eligibleMembers = getTotalCulturalGroupMembers(event);
+                var participationRate = eligibleMembers > 0 ? (event.participants_count / eligibleMembers) * 100 : 0;
                 return {
-                    x: index,
-                    y: participationRate,
-                    label: event.title,
-                    participants: event.participants_count,
-                    eligible: eligibleMembers
+                    x: event.title.length > 15 ? event.title.substring(0, 13) + '...' : event.title,
+                    y: parseFloat(participationRate.toFixed(1)),
+                    fullTitle: event.title,
+                    participants: event.participants_count || 0,
+                    eligible: eligibleMembers,
+                    date: event.start_date || 'N/A'
                 };
             });
-            
-            if (dataPoints.length === 0) {
-                drawEmptyChart(ctx, canvas);
-                return;
-            }
-            
-            // Find min and max values for scaling
-            const maxY = Math.max(100, Math.max(...dataPoints.map(p => p.y)));
-            const minY = 0;
-            
-            // Draw chart background
-            ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(chartX, chartY, chartWidth, chartHeight);
-            
-            // Draw grid lines
-            ctx.strokeStyle = '#e0e0e0';
-            ctx.lineWidth = 1;
-            
-            // Horizontal grid lines (Y-axis)
-            for (let i = 0; i <= 5; i++) {
-                const y = chartY + (chartHeight / 5) * i;
-                ctx.beginPath();
-                ctx.moveTo(chartX, y);
-                ctx.lineTo(chartX + chartWidth, y);
-                ctx.stroke();
-                
-                // Y-axis labels
-                const value = maxY - (maxY / 5) * i;
-                ctx.fillStyle = '#666';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'right';
-                ctx.fillText(value.toFixed(0) + '%', chartX - 10, y + 4);
-            }
-            
-            // Vertical grid lines (X-axis) 
-            const stepX = chartWidth / Math.max(1, dataPoints.length - 1);
-            for (let i = 0; i < dataPoints.length; i++) {
-                const x = chartX + stepX * i;
-                ctx.beginPath();
-                ctx.moveTo(x, chartY);
-                ctx.lineTo(x, chartY + chartHeight);
-                ctx.stroke();
-            }
-            
-            // Draw axes
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            
-            // Y-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY);
-            ctx.lineTo(chartX, chartY + chartHeight);
-            ctx.stroke();
-            
-            // X-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY + chartHeight);
-            ctx.lineTo(chartX + chartWidth, chartY + chartHeight);
-            ctx.stroke();
-            
-            // Draw line chart
-            if (dataPoints.length > 1) {
-                ctx.strokeStyle = '#dc2626';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                
-                dataPoints.forEach((point, index) => {
-                    const x = chartX + stepX * index;
-                    const y = chartY + chartHeight - ((point.y - minY) / (maxY - minY)) * chartHeight;
-                    
-                    if (index === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
+
+            var chartLabels = chartData.map(function(item) { return item.x; });
+            var chartValues = chartData.map(function(item) { return item.y; });
+
+            // Create interactive Chart.js line chart
+            var ctx = canvas.getContext('2d');
+            window.participationChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Participation Rate (%)',
+                        data: chartValues,
+                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 8,
+                        pointHoverRadius: 12,
+                        pointBackgroundColor: '#dc2626',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 3,
+                        pointHoverBorderWidth: 4,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeInOutCubic'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                color: '#666',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Participation Rate (%)',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#666',
+                                font: {
+                                    size: 11
+                                },
+                                maxRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Event Participation Trend',
+                            color: '#333',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                color: '#666',
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                            titleColor: '#333',
+                            bodyColor: '#666',
+                            borderColor: '#dc2626',
+                            borderWidth: 2,
+                            cornerRadius: 12,
+                            padding: 16,
+                            titleFont: {
+                                weight: 'bold',
+                                size: 15
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            displayColors: true,
+                            usePointStyle: true,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    var index = tooltipItems[0].dataIndex;
+                                    return chartData[index].fullTitle;
+                                },
+                                label: function(context) {
+                                    var index = context.dataIndex;
+                                    var data = chartData[index];
+                                    return [
+                                        'Participation Rate: ' + data.y + '%',
+                                        'Participants: ' + data.participants,
+                                        'Eligible Members: ' + data.eligible,
+                                        'Event Date: ' + (data.date !== 'N/A' ? new Date(data.date).toLocaleDateString() : 'Not specified')
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
-                });
-                
-                ctx.stroke();
-            }
-            
-            // Draw data points
-            dataPoints.forEach((point, index) => {
-                const x = chartX + stepX * index;
-                const y = chartY + chartHeight - ((point.y - minY) / (maxY - minY)) * chartHeight;
-                
-                // Draw point circle
-                ctx.fillStyle = '#dc2626';
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fill();
-                
-                // Draw point border
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            });
-            
-            // Draw title
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 18px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Event Participation Trend', canvas.width / 2, 30);
-            
-            // Draw X-axis labels (event names)
-            ctx.fillStyle = '#666';
-            ctx.font = '10px Arial';
-            ctx.textAlign = 'center';
-            dataPoints.forEach((point, index) => {
-                const x = chartX + stepX * index;
-                const labelY = chartY + chartHeight + 15;
-                
-                // Truncate long event names
-                let label = point.label;
-                if (label.length > 12) {
-                    label = label.substring(0, 10) + '...';
                 }
-                ctx.fillText(label, x, labelY);
             });
-            
-            // Draw Y-axis label
-            ctx.save();
-            ctx.translate(20, canvas.height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillStyle = '#666';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Participation Rate (%)', 0, 0);
-            ctx.restore();
-            
-            // Update legend
-            const legendContainer = document.getElementById('chartLegendContainer');
-            if (legendContainer) {
-                const avgParticipation = dataPoints.length > 0 ? 
-                    (dataPoints.reduce((sum, p) => sum + p.y, 0) / dataPoints.length).toFixed(1) : 0;
-                
-                legendContainer.innerHTML = `
-                    <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <div style="width: 20px; height: 3px; background: #dc2626; border-radius: 2px;"></div>
-                            <span style="font-size: 14px; color: #333;">Participation Rate Trend</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 14px; color: #333;">Average: ${avgParticipation}%</span>
-                        </div>
-                    </div>
-                    <div style="text-align: center; margin-top: 1rem; color: #666; font-size: 12px;">
-                        Showing participation rates across ${events.length} event${events.length !== 1 ? 's' : ''}
-                    </div>
-                `;
-            }
-            
-            // Generate analytics for all events
+
+            // Generate analytics
             generateAllEventsAnalytics(events);
         }
 
         function drawPieChartLegend(events, colors, totalParticipants) {
-            const legendContainer = document.getElementById('chartLegendContainer');
+            var legendContainer = document.getElementById('chartLegendContainer');
             if (!legendContainer) return;
             
-            let legendHTML = '';
-            events.forEach((event, index) => {
+            var legendHTML = '';
+            events.forEach(function(event, index) {
                 if (event.participants_count > 0) {
-                    const color = colors[index % colors.length];
-                    const percentage = ((event.participants_count / totalParticipants) * 100).toFixed(1);
-                    legendHTML += `
-                        <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem;">
-                            <div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px;"></div>
-                            <span style="font-size: 12px; color: #333;">${event.title} (${event.participants_count} - ${percentage}%)</span>
-                        </div>
-                    `;
+                    var color = colors[index % colors.length];
+                    var percentage = ((event.participants_count / totalParticipants) * 100).toFixed(1);
+                    legendHTML += 
+                        '<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem;">' +
+                            '<div style="width: 16px; height: 16px; background: ' + color + '; border-radius: 3px;"></div>' +
+                            '<span style="font-size: 12px; color: #333;">' + event.title + ' (' + event.participants_count + ' - ' + percentage + '%)</span>' +
+                        '</div>';
                 }
             });
             legendContainer.innerHTML = legendHTML;
         }
 
         function drawIndividualEventChart(event) {
-            const canvas = document.getElementById('participationChart');
-            
-            // Safety check
+            var canvas = document.getElementById('participationChart');
             if (!canvas) {
                 console.warn('Chart canvas not found');
                 return;
             }
             
-            const ctx = canvas.getContext('2d');
+            // Destroy existing chart if any
+            if (window.participationChartInstance) {
+                window.participationChartInstance.destroy();
+            }
             
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Chart dimensions and padding
-            const padding = 60;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const chartX = padding;
-            const chartY = padding;
-            
-            // Get cultural groups involved in this event
-            const culturalGroups = event.cultural_groups_array || ['All Groups'];
-            const totalMembers = getTotalCulturalGroupMembers(event);
-            const participants = event.participants_count;
-            
-            if (totalMembers === 0) {
-                drawEmptyChart(ctx, canvas);
+            if (!event) {
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No event data available');
                 return;
             }
-            
-            // Create simulated participation data over time (e.g., registration periods)
-            // In a real scenario, this would come from historical data
-            const timePoints = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Final'];
-            const participationProgress = [
-                Math.round(participants * 0.2), // 20% early registration
-                Math.round(participants * 0.4), // 40% by week 2
-                Math.round(participants * 0.7), // 70% by week 3
-                Math.round(participants * 0.9), // 90% by week 4
-                participants // Final count
-            ];
-            
-            // Find max value for scaling
-            const maxY = Math.max(totalMembers, Math.max(...participationProgress));
-            const minY = 0;
-            
-            // Draw chart background
-            ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(chartX, chartY, chartWidth, chartHeight);
-            
-            // Draw grid lines
-            ctx.strokeStyle = '#e0e0e0';
-            ctx.lineWidth = 1;
-            
-            // Horizontal grid lines (Y-axis)
-            for (let i = 0; i <= 5; i++) {
-                const y = chartY + (chartHeight / 5) * i;
-                ctx.beginPath();
-                ctx.moveTo(chartX, y);
-                ctx.lineTo(chartX + chartWidth, y);
-                ctx.stroke();
-                
-                // Y-axis labels
-                const value = Math.round(maxY - (maxY / 5) * i);
-                ctx.fillStyle = '#666';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'right';
-                ctx.fillText(value.toString(), chartX - 10, y + 4);
+
+            var culturalGroups = event.cultural_groups_array || ['All Groups'];
+            var totalMembers = getTotalCulturalGroupMembers(event);
+            var participants = event.participants_count;
+
+            if (totalMembers === 0) {
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No eligible members data available');
+                return;
             }
-            
-            // Vertical grid lines (X-axis)
-            const stepX = chartWidth / (timePoints.length - 1);
-            for (let i = 0; i < timePoints.length; i++) {
-                const x = chartX + stepX * i;
-                ctx.beginPath();
-                ctx.moveTo(x, chartY);
-                ctx.lineTo(x, chartY + chartHeight);
-                ctx.stroke();
-            }
-            
-            // Draw axes
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            
-            // Y-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY);
-            ctx.lineTo(chartX, chartY + chartHeight);
-            ctx.stroke();
-            
-            // X-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY + chartHeight);
-            ctx.lineTo(chartX + chartWidth, chartY + chartHeight);
-            ctx.stroke();
-            
-            // Draw capacity line (total available spots)
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#999';
-            ctx.lineWidth = 2;
-            const capacityY = chartY + chartHeight - ((totalMembers - minY) / (maxY - minY)) * chartHeight;
-            ctx.beginPath();
-            ctx.moveTo(chartX, capacityY);
-            ctx.lineTo(chartX + chartWidth, capacityY);
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
-            
-            // Draw participation line
-            ctx.strokeStyle = '#dc2626';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            
-            participationProgress.forEach((count, index) => {
-                const x = chartX + stepX * index;
-                const y = chartY + chartHeight - ((count - minY) / (maxY - minY)) * chartHeight;
-                
-                if (index === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
+
+            // Prepare data for Chart.js pie chart
+            var participationRate = (participants / totalMembers) * 100;
+            var nonParticipationRate = 100 - participationRate;
+
+            var chartData = {
+                labels: ['Participants', 'Non-Participants'],
+                datasets: [{
+                    data: [participants, totalMembers - participants],
+                    backgroundColor: ['#dc2626', '#e5e7eb'],
+                    borderColor: ['#dc2626', '#9ca3af'],
+                    borderWidth: 2
+                }]
+            };
+
+            // Create Chart.js pie chart
+            var ctx = canvas.getContext('2d');
+            window.participationChartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutCubic'
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: event.title + ' - Participation Overview',
+                            color: '#333',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                color: '#666',
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                            titleColor: '#333',
+                            bodyColor: '#666',
+                            borderColor: '#dc2626',
+                            borderWidth: 2,
+                            cornerRadius: 12,
+                            padding: 16,
+                            titleFont: {
+                                weight: 'bold',
+                                size: 15
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label;
+                                    var value = context.raw;
+                                    var percentage = ((value / totalMembers) * 100).toFixed(1);
+                                    return [
+                                        label + ': ' + value + ' members',
+                                        'Percentage: ' + percentage + '%',
+                                        'Event: ' + event.title,
+                                        'Total Eligible: ' + totalMembers + ' members'
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+                    }
                 }
             });
-            
-            ctx.stroke();
-            
-            // Draw data points
-            participationProgress.forEach((count, index) => {
-                const x = chartX + stepX * index;
-                const y = chartY + chartHeight - ((count - minY) / (maxY - minY)) * chartHeight;
-                
-                // Draw point circle
-                ctx.fillStyle = '#dc2626';
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fill();
-                
-                // Draw point border
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Draw value labels on points
-                ctx.fillStyle = '#333';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(count.toString(), x, y - 10);
-            });
-            
-            // Draw title
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 18px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(event.title + ' - Registration Progress', canvas.width / 2, 30);
-            
-            // Draw X-axis labels
-            ctx.fillStyle = '#666';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            timePoints.forEach((label, index) => {
-                const x = chartX + stepX * index;
-                ctx.fillText(label, x, chartY + chartHeight + 20);
-            });
-            
-            // Draw Y-axis label
-            ctx.save();
-            ctx.translate(20, canvas.height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillStyle = '#666';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Number of Participants', 0, 0);
-            ctx.restore();
-            
-            // Draw capacity label
-            ctx.fillStyle = '#999';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText(`Capacity: ${totalMembers}`, chartX + chartWidth - 100, capacityY - 5);
-            
-            // Update legend
-            const legendContainer = document.getElementById('chartLegendContainer');
-            if (legendContainer) {
-                const participationRate = ((participants / totalMembers) * 100).toFixed(1);
-                
-                legendContainer.innerHTML = `
-                    <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <div style="width: 20px; height: 3px; background: #dc2626; border-radius: 2px;"></div>
-                            <span style="font-size: 14px; color: #333;">Registration Progress</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <div style="width: 20px; height: 3px; background: #999; border-radius: 2px; border: 1px dashed #999;"></div>
-                            <span style="font-size: 14px; color: #333;">Total Capacity</span>
-                        </div>
-                    </div>
-                    <div style="text-align: center; margin-top: 1rem; color: #666; font-size: 12px;">
-                        Final Participation: ${participants} of ${totalMembers} (${participationRate}%) | 
-                        Cultural Groups: ${culturalGroups.join(', ')}
-                    </div>
-                `;
-            }
-            
+
             // Generate analytics for individual event
             generateIndividualEventAnalytics(event);
         }
@@ -7225,49 +7134,56 @@ try {
 
         function loadEvaluationAnalytics() {
             console.log('Loading evaluation analytics...');
-            const loadingDiv = document.getElementById('evaluationAnalyticsLoading');
-            const contentDiv = document.getElementById('evaluationAnalyticsContent');
+            var loadingDiv = document.getElementById('evaluationAnalyticsLoading');
+            var contentDiv = document.getElementById('evaluationAnalyticsContent');
 
-            if (!loadingDiv || !contentDiv) {
-                console.error('Evaluation analytics elements not found');
-                return;
+            if (loadingDiv) {
+                loadingDiv.style.display = 'block';
+            }
+            if (contentDiv) {
+                contentDiv.style.display = 'none';
             }
 
-            loadingDiv.style.display = 'block';
-            contentDiv.style.display = 'none';
-
-            const params = new URLSearchParams({
-                mode: currentEvaluationMode
+            var params = new URLSearchParams({
+                mode: currentEvaluationMode || 'all'
             });
 
             if (currentEvaluationMode === 'individual') {
-                const selectedEventId = window.selectedEvaluationEventId;
+                var selectedEventId = window.selectedEvaluationEventId;
                 if (selectedEventId) {
                     params.append('event_id', selectedEventId);
                 }
             }
 
             console.log('Fetching evaluation analytics with params:', params.toString());
-            console.log('Current evaluation mode:', currentEvaluationMode);
-            console.log('Selected event ID:', window.selectedEvaluationEventId);
-            fetch(`get_evaluation_analytics.php?${params.toString()}`)
-                .then(response => response.json())
-                .then(data => {
+            
+            fetch('get_evaluation_analytics.php?' + params.toString())
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
                     console.log('Evaluation analytics response:', data);
-                    loadingDiv.style.display = 'none';
+                    if (loadingDiv) {
+                        loadingDiv.style.display = 'none';
+                    }
+                    
                     if (data.success) {
                         evaluationData = data.evaluations;
                         evaluationEvents = data.events;
                         displayEvaluationAnalytics(data);
-                        contentDiv.style.display = 'block';
+                        if (contentDiv) {
+                            contentDiv.style.display = 'block';
+                        }
                     } else {
                         console.error('Evaluation analytics API error:', data.message);
                         showEvaluationError(data.message);
                     }
                 })
-                .catch(error => {
+                .catch(function(error) {
                     console.error('Evaluation analytics fetch error:', error);
-                    loadingDiv.style.display = 'none';
+                    if (loadingDiv) {
+                        loadingDiv.style.display = 'none';
+                    }
                     showEvaluationError('Error loading evaluation analytics: ' + error.message);
                 });
         }
@@ -7275,60 +7191,84 @@ try {
 
 
         function displayEvaluationAnalytics(data) {
-            // Update statistics cards
-            document.getElementById('totalEvaluations').textContent = data.statistics.total_evaluations;
-            document.getElementById('averageRating').textContent = data.statistics.average_rating.toFixed(1);
-            document.getElementById('responseRate').textContent = data.statistics.response_rate + '%';
-            document.getElementById('satisfactionScore').textContent = data.statistics.satisfaction_score + '%';
+            // Update statistics cards if they exist
+            var statsElements = [
+                { id: 'totalEvaluations', value: data.statistics.total_evaluations },
+                { id: 'averageRating', value: data.statistics.average_rating.toFixed(1) },
+                { id: 'responseRate', value: data.statistics.response_rate + '%' },
+                { id: 'satisfactionScore', value: data.statistics.satisfaction_score + '%' }
+            ];
 
-            // Draw charts
-            drawRatingDistributionChart(data.rating_distribution);
-            drawQuestionScoresChart(data.question_scores);
-            drawEvaluationTrendsChart(data.trends);
+            statsElements.forEach(function(stat) {
+                var element = document.getElementById(stat.id);
+                if (element) {
+                    element.textContent = stat.value;
+                }
+            });
+
+            // Draw charts with staggered timing for smooth loading
+            setTimeout(function() {
+                drawRatingDistributionChart(data.rating_distribution);
+            }, 100);
+            
+            setTimeout(function() {
+                drawQuestionScoresChart(data.question_scores);
+            }, 300);
+            
+            setTimeout(function() {
+                drawEvaluationTrendsChart(data.trends);
+            }, 500);
 
             // Display detailed insights
-            displayEvaluationInsights(data.insights);
+            setTimeout(function() {
+                displayEvaluationInsights(data.insights);
+            }, 700);
 
             // Display comments analysis
-            displayCommentsAnalysis(data.comments);
+            setTimeout(function() {
+                displayCommentsAnalysis(data.comments);
+            }, 900);
         }
 
         function drawRatingDistributionChart(ratingData) {
-            const canvas = document.getElementById('ratingDistributionChart');
-            const ctx = canvas.getContext('2d');
+            var canvas = document.getElementById('ratingDistributionChart');
+            if (!canvas) {
+                console.warn('Rating distribution canvas not found');
+                return;
+            }
             
-            // Clear canvas
+            var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (!ratingData || ratingData.length === 0) {
-                drawEmptyChart(ctx, canvas, 'No rating data available');
+                drawEmptyChart(ctx, canvas);
                 return;
             }
 
             // Chart setup
-            const padding = 50;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const barWidth = chartWidth / ratingData.length;
+            var padding = 50;
+            var chartWidth = canvas.width - (padding * 2);
+            var chartHeight = canvas.height - (padding * 2);
+            var barWidth = chartWidth / ratingData.length;
 
             // Find max value for scaling
-            const maxValue = Math.max(...ratingData.map(d => d.count));
+            var maxValue = Math.max.apply(Math, ratingData.map(function(d) { return d.count; }));
 
             // Draw bars
-            ratingData.forEach((data, index) => {
-                const barHeight = (data.count / maxValue) * chartHeight;
-                const x = padding + (index * barWidth);
-                const y = padding + chartHeight - barHeight;
+            ratingData.forEach(function(data, index) {
+                var barHeight = (data.count / maxValue) * chartHeight;
+                var x = padding + (index * barWidth);
+                var y = padding + chartHeight - barHeight;
 
                 // Draw bar
-                ctx.fillStyle = `hsl(${120 - (data.rating * 12)}, 70%, 50%)`;
+                ctx.fillStyle = 'hsl(' + (120 - (data.rating * 12)) + ', 70%, 50%)';
                 ctx.fillRect(x + 5, y, barWidth - 10, barHeight);
 
                 // Draw rating label
                 ctx.fillStyle = '#333';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${data.rating}★`, x + barWidth/2, canvas.height - 20);
+                ctx.fillText(data.rating + '★', x + barWidth/2, canvas.height - 20);
 
                 // Draw count label
                 ctx.fillText(data.count, x + barWidth/2, y - 5);
@@ -7342,10 +7282,13 @@ try {
         }
 
         function drawQuestionScoresChart(questionData) {
-            const canvas = document.getElementById('questionScoresChart');
-            const ctx = canvas.getContext('2d');
+            var canvas = document.getElementById('questionScoresChart');
+            if (!canvas) {
+                console.warn('Question scores canvas not found');
+                return;
+            }
             
-            // Clear canvas
+            var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (!questionData || questionData.length === 0) {
@@ -7354,34 +7297,34 @@ try {
             }
 
             // Chart setup
-            const padding = 60;
-            const paddingTop = 40;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - paddingTop - 20;
-            const barHeight = 18;
+            var padding = 60;
+            var paddingTop = 40;
+            var chartWidth = canvas.width - (padding * 2);
+            var chartHeight = canvas.height - paddingTop - 20;
+            var barHeight = 18;
             // Calculate dynamic spacing to fit all questions
-            const totalBars = questionData.length;
-            const barSpacing = chartHeight / totalBars;
+            var totalBars = questionData.length;
+            var barSpacing = chartHeight / totalBars;
 
             // Draw horizontal bars
-            questionData.forEach((question, index) => {
-                const barWidth = (question.average_score / 5) * chartWidth;
-                const y = paddingTop + (index * barSpacing);
+            questionData.forEach(function(question, index) {
+                var barWidth = (question.average_score / 5) * chartWidth;
+                var y = paddingTop + (index * barSpacing);
 
                 // Draw bar background
                 ctx.fillStyle = '#f0f0f0';
                 ctx.fillRect(padding, y + 15, chartWidth, barHeight);
 
                 // Draw bar
-                const hue = (question.average_score / 5) * 120; // Green for high scores
-                ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+                var hue = (question.average_score / 5) * 120; // Green for high scores
+                ctx.fillStyle = 'hsl(' + hue + ', 70%, 50%)';
                 ctx.fillRect(padding, y + 15, barWidth, barHeight);
 
                 // Draw question label
                 ctx.fillStyle = '#333';
                 ctx.font = '11px Arial';
                 ctx.textAlign = 'left';
-                const questionText = question.question.length > 45 ? 
+                var questionText = question.question.length > 45 ? 
                     question.question.substring(0, 45) + '...' : question.question;
                 ctx.fillText(questionText, padding, y + 12);
 
@@ -7399,111 +7342,201 @@ try {
         }
 
         function drawEvaluationTrendsChart(trendsData) {
-            const canvas = document.getElementById('evaluationTrendsChart');
-            const ctx = canvas.getContext('2d');
+            var canvas = document.getElementById('evaluationTrendsChart');
+            if (!canvas) {
+                console.warn('Evaluation trends canvas not found');
+                return;
+            }
             
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Destroy existing chart if any
+            if (window.evaluationTrendsChartInstance) {
+                window.evaluationTrendsChartInstance.destroy();
+            }
 
             if (!trendsData || trendsData.length === 0) {
-                drawEmptyChart(ctx, canvas, 'No trend data available');
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No evaluation trends data available');
                 return;
             }
 
-            // Chart setup
-            const padding = 60;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
+            // Prepare data for Chart.js
+            var labels = trendsData.map(function(item) {
+                return item.period || 'Period ' + (trendsData.indexOf(item) + 1);
+            });
+            var data = trendsData.map(function(item) { return parseFloat(item.average_rating.toFixed(2)); });
 
-            // Find min/max values
-            const ratings = trendsData.map(d => d.average_rating);
-            const minRating = Math.min(...ratings);
-            const maxRating = Math.max(...ratings);
-            const ratingRange = maxRating - minRating || 1;
-
-            // Draw grid lines
-            ctx.strokeStyle = '#e0e0e0';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 5; i++) {
-                const y = padding + (i / 5) * chartHeight;
-                ctx.beginPath();
-                ctx.moveTo(padding, y);
-                ctx.lineTo(canvas.width - padding, y);
-                ctx.stroke();
-
-                // Y-axis labels
-                ctx.fillStyle = '#666';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'right';
-                ctx.fillText((5 - i).toFixed(1), padding - 10, y + 3);
-            }
-
-            // Draw trend line
-            if (trendsData.length > 1) {
-                ctx.strokeStyle = '#dc2626';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-
-                trendsData.forEach((point, index) => {
-                    const x = padding + (index / (trendsData.length - 1)) * chartWidth;
-                    const y = padding + ((5 - point.average_rating) / 5) * chartHeight;
-
-                    if (index === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
+            // Create interactive Chart.js line chart
+            var ctx = canvas.getContext('2d');
+            window.evaluationTrendsChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Average Rating',
+                        data: data,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 8,
+                        pointHoverRadius: 12,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 3,
+                        pointHoverBorderWidth: 4,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeInOutCubic'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        y: {
+                            min: 1,
+                            max: 5,
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                stepSize: 0.5,
+                                color: '#666',
+                                font: {
+                                    size: 12
+                                },
+                                callback: function(value) {
+                                    return value.toFixed(1);
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Average Rating',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#666',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time Period',
+                                color: '#333',
+                                font: {
+                                    size: 13,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Evaluation Trends Over Time',
+                            color: '#333',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                color: '#666',
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                            titleColor: '#333',
+                            bodyColor: '#666',
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            cornerRadius: 12,
+                            padding: 16,
+                            titleFont: {
+                                weight: 'bold',
+                                size: 15
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            displayColors: true,
+                            usePointStyle: true,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    var index = tooltipItems[0].dataIndex;
+                                    return 'Period: ' + labels[index];
+                                },
+                                label: function(context) {
+                                    var index = context.dataIndex;
+                                    var rating = trendsData[index].average_rating;
+                                    var responses = trendsData[index].total_responses || 'Unknown';
+                                    var trend = '';
+                                    
+                                    if (index > 0) {
+                                        var previousRating = trendsData[index - 1].average_rating;
+                                        var change = rating - previousRating;
+                                        if (change > 0) {
+                                            trend = ' (↑' + change.toFixed(2) + ')';
+                                        } else if (change < 0) {
+                                            trend = ' (↓' + Math.abs(change).toFixed(2) + ')';
+                                        } else {
+                                            trend = ' (→ no change)';
+                                        }
+                                    }
+                                    
+                                    return [
+                                        'Average Rating: ' + rating.toFixed(2) + ' / 5.0' + trend,
+                                        'Total Responses: ' + responses,
+                                        'Performance: ' + (rating >= 4.0 ? 'Excellent' : rating >= 3.0 ? 'Good' : rating >= 2.0 ? 'Fair' : 'Needs Improvement')
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
-                });
-
-                ctx.stroke();
-
-                // Draw data points
-                ctx.fillStyle = '#dc2626';
-                trendsData.forEach((point, index) => {
-                    const x = padding + (index / (trendsData.length - 1)) * chartWidth;
-                    const y = padding + ((5 - point.average_rating) / 5) * chartHeight;
-
-                    ctx.beginPath();
-                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                    ctx.fill();
-
-                    // Date labels
-                    ctx.fillStyle = '#666';
-                    ctx.font = '10px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.save();
-                    ctx.translate(x, canvas.height - padding + 15);
-                    ctx.rotate(-Math.PI / 4);
-                    ctx.fillText(point.date, 0, 0);
-                    ctx.restore();
-                });
-            }
-
-            // Draw title
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Evaluation Trends Over Time', canvas.width / 2, 20);
-
-            // Draw Y-axis label
-            ctx.save();
-            ctx.translate(15, canvas.height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.textAlign = 'center';
-            ctx.font = '12px Arial';
-            ctx.fillText('Average Rating', 0, 0);
-            ctx.restore();
+                }
+            });
         }
 
         function displayEvaluationInsights(insights) {
-            const container = document.getElementById('evaluationInsightsContent');
+            var container = document.getElementById('evaluationInsightsContent');
             
             if (!insights) {
                 container.innerHTML = '<p style="color: #666; margin: 0;">No insights available</p>';
                 return;
             }
 
-            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">';
+            var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">';
 
             // Overall Performance
             if (insights.overall) {

@@ -87,20 +87,59 @@ try {
     $costumesStmt->execute($campusParams);
     $costumes = $costumesStmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // For each costume, fetch all active borrowers
+    // For each costume, fetch all active borrowers and calculate quantities
     foreach ($costumes as &$costume) {
+        // Get total borrowed quantity for this item
+        $borrowedQtySQL = "
+            SELECT COALESCE(SUM(
+                CASE 
+                    WHEN JSON_VALID(br.approved_items) THEN
+                        JSON_EXTRACT(br.approved_items, CONCAT('$[', json_idx.idx, '].quantity'))
+                    ELSE 1
+                END
+            ), 0) as total_borrowed
+            FROM borrowing_requests br
+            CROSS JOIN (
+                SELECT 0 as idx UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+            ) json_idx
+            WHERE br.status = 'approved'
+            AND br.current_status IN ('active', 'pending_return')
+            AND JSON_VALID(br.approved_items)
+            AND JSON_EXTRACT(br.approved_items, CONCAT('$[', json_idx.idx, '].id')) = ?
+        ";
+        $borrowedQtyStmt = $pdo->prepare($borrowedQtySQL);
+        $borrowedQtyStmt->execute([$costume['id']]);
+        $borrowedQty = $borrowedQtyStmt->fetchColumn() ?: 0;
+        
+        // Calculate total quantity - if there are borrowed items but quantity seems low, 
+        // assume total = current quantity + borrowed (fixing corrupted data)
+        $current_qty = intval($costume['quantity']);
+        if ($borrowedQty > 0 && $current_qty < $borrowedQty) {
+            // Data seems corrupted, fix it
+            $total_qty = $current_qty + $borrowedQty;
+        } else {
+            // If there are borrowed items and current qty seems reasonable, 
+            // the total should be current + borrowed
+            $total_qty = $borrowedQty > 0 ? $current_qty + $borrowedQty : $current_qty;
+        }
+        
+        // Set calculated quantities
+        $costume['total_quantity'] = $total_qty;
+        $costume['available_quantity'] = $current_qty; // Current DB value is actually available
+        $costume['borrowed_quantity'] = $borrowedQty;
+        
         $borrowersSQL = "
             SELECT 
                 br.student_name,
-                br.start_date as borrow_date,
-                br.end_date as return_due_date,
+                br.dates_of_use as borrow_date,
+                br.due_date as return_due_date,
                 br.student_email,
-                br.student_course
+                br.approved_items
             FROM borrowing_requests br
-            WHERE br.item_id = ? 
-                AND br.status IN ('approved', 'borrowed') 
+            WHERE br.status = 'approved'
                 AND br.current_status IN ('active', 'pending_return')
-            ORDER BY br.start_date DESC
+                AND JSON_SEARCH(br.approved_items, 'one', ?, NULL, '$[*].id') IS NOT NULL
+            ORDER BY br.dates_of_use DESC
         ";
         $borrowersStmt = $pdo->prepare($borrowersSQL);
         $borrowersStmt->execute([$costume['id']]);
@@ -112,7 +151,6 @@ try {
             $costume['borrow_date'] = $costume['borrowers'][0]['borrow_date'];
             $costume['return_due_date'] = $costume['borrowers'][0]['return_due_date'];
             $costume['borrower_email'] = $costume['borrowers'][0]['student_email'];
-            $costume['borrower_course'] = $costume['borrowers'][0]['student_course'];
         }
     }
 
@@ -122,20 +160,59 @@ try {
     $equipmentStmt->execute($campusParams);
     $equipment = $equipmentStmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // For each equipment, fetch all active borrowers
+    // For each equipment, fetch all active borrowers and calculate quantities
     foreach ($equipment as &$item) {
+        // Get total borrowed quantity for this item
+        $borrowedQtySQL = "
+            SELECT COALESCE(SUM(
+                CASE 
+                    WHEN JSON_VALID(br.approved_items) THEN
+                        JSON_EXTRACT(br.approved_items, CONCAT('$[', json_idx.idx, '].quantity'))
+                    ELSE 1
+                END
+            ), 0) as total_borrowed
+            FROM borrowing_requests br
+            CROSS JOIN (
+                SELECT 0 as idx UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+            ) json_idx
+            WHERE br.status = 'approved'
+            AND br.current_status IN ('active', 'pending_return')
+            AND JSON_VALID(br.approved_items)
+            AND JSON_EXTRACT(br.approved_items, CONCAT('$[', json_idx.idx, '].id')) = ?
+        ";
+        $borrowedQtyStmt = $pdo->prepare($borrowedQtySQL);
+        $borrowedQtyStmt->execute([$item['id']]);
+        $borrowedQty = $borrowedQtyStmt->fetchColumn() ?: 0;
+        
+        // Calculate total quantity - if there are borrowed items but quantity seems low, 
+        // assume total = current quantity + borrowed (fixing corrupted data)
+        $current_qty = intval($item['quantity']);
+        if ($borrowedQty > 0 && $current_qty < $borrowedQty) {
+            // Data seems corrupted, fix it
+            $total_qty = $current_qty + $borrowedQty;
+        } else {
+            // If there are borrowed items and current qty seems reasonable, 
+            // the total should be current + borrowed
+            $total_qty = $borrowedQty > 0 ? $current_qty + $borrowedQty : $current_qty;
+        }
+        
+        // Set calculated quantities
+        $item['total_quantity'] = $total_qty;
+        $item['available_quantity'] = $current_qty; // Current DB value is actually available
+        $item['borrowed_quantity'] = $borrowedQty;
+        
         $borrowersSQL = "
             SELECT 
                 br.student_name,
-                br.start_date as borrow_date,
-                br.end_date as return_due_date,
+                br.dates_of_use as borrow_date,
+                br.due_date as return_due_date,
                 br.student_email,
-                br.student_course
+                br.approved_items
             FROM borrowing_requests br
-            WHERE br.item_id = ? 
-                AND br.status IN ('approved', 'borrowed') 
+            WHERE br.status = 'approved'
                 AND br.current_status IN ('active', 'pending_return')
-            ORDER BY br.start_date DESC
+                AND JSON_SEARCH(br.approved_items, 'one', ?, NULL, '$[*].id') IS NOT NULL
+            ORDER BY br.dates_of_use DESC
         ";
         $borrowersStmt = $pdo->prepare($borrowersSQL);
         $borrowersStmt->execute([$item['id']]);
@@ -147,7 +224,6 @@ try {
             $item['borrow_date'] = $item['borrowers'][0]['borrow_date'];
             $item['return_due_date'] = $item['borrowers'][0]['return_due_date'];
             $item['borrower_email'] = $item['borrowers'][0]['student_email'];
-            $item['borrower_course'] = $item['borrowers'][0]['student_course'];
         }
     }
 

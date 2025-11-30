@@ -72,12 +72,11 @@ try {
     
     if ($tableExists) {
         // Get inventory statistics using the real inventory table with campus filtering
-        // Note: Available items must have quantity > 0 AND status = 'available'
-        // Items with quantity = 0 are unavailable regardless of their status
-        $statsSql = "
+        // Calculate available items based on actual availability (quantity - borrowed)
+        // First get basic stats
+        $basicStatsSql = "
             SELECT 
                 COUNT(*) as total_items,
-                COUNT(CASE WHEN status = 'available' AND quantity > 0 THEN 1 END) as available_items,
                 COUNT(CASE WHEN quantity = 0 OR status = 'unavailable' THEN 1 END) as unavailable_items,
                 COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as maintenance_items,
                 COUNT(CASE WHEN condition_status IN ('poor', 'damaged') THEN 1 END) as damaged_items,
@@ -85,30 +84,79 @@ try {
             FROM inventory
             " . $campusFilter . "
         ";
-        $statsStmt = $pdo->prepare($statsSql);
+        $statsStmt = $pdo->prepare($basicStatsSql);
         $statsStmt->execute($campusParams);
         $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         
-        // Borrowed items count: number of inventory rows currently marked as 'borrowed'.
-        // This aligns with dashboard expectation (distinct items showing Borrowed status).
-        $borrowedFilter = "WHERE status = 'borrowed'";
-        $borrowedParams = [];
+        // Calculate borrowed count from active borrowing requests
+        $borrowedCountSql = "
+            SELECT COUNT(DISTINCT borrowed.item_id) as borrowed_count
+            FROM (
+                SELECT DISTINCT JSON_EXTRACT(br.approved_items, CONCAT('$[', idx.n, '].id')) as item_id
+                FROM borrowing_requests br
+                CROSS JOIN (SELECT 0 as n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4) idx
+                WHERE br.status = 'approved'
+                AND br.current_status IN ('active', 'pending_return')
+                AND JSON_VALID(br.approved_items)
+                AND JSON_EXTRACT(br.approved_items, CONCAT('$[', idx.n, '].id')) IS NOT NULL
+            ) borrowed
+            INNER JOIN inventory ON inventory.id = borrowed.item_id
+            WHERE inventory.status != 'archived'
+        ";
+        
         if (!$canViewAll && $normalized_campus) {
             if ($normalized_campus === 'JPLPC Malvar') {
-                $borrowedFilter .= " AND (campus = ? OR campus = ?)";
-                $borrowedParams = ['JPLPC Malvar', 'Malvar'];
+                $borrowedCountSql .= " AND (inventory.campus = 'JPLPC Malvar' OR inventory.campus = 'Malvar')";
             } elseif ($normalized_campus === 'ARASOF Nasugbu') {
-                $borrowedFilter .= " AND (campus = ? OR campus = ?)";
-                $borrowedParams = ['ARASOF Nasugbu', 'Nasugbu'];
+                $borrowedCountSql .= " AND (inventory.campus = 'ARASOF Nasugbu' OR inventory.campus = 'Nasugbu')";
             } else {
-                $borrowedFilter .= " AND campus = ?";
-                $borrowedParams = [$normalized_campus];
+                $borrowedCountSql .= " AND inventory.campus = '" . $normalized_campus . "'";
             }
         }
-        $borrowedSql = "SELECT COUNT(*) AS borrowed_count FROM inventory $borrowedFilter";
-        $borrowedStmt = $pdo->prepare($borrowedSql);
-        $borrowedStmt->execute($borrowedParams);
+        
+        $borrowedStmt = $pdo->prepare($borrowedCountSql);
+        $borrowedStmt->execute();
         $stats['borrowed_items'] = (int)$borrowedStmt->fetch(PDO::FETCH_ASSOC)['borrowed_count'];
+        
+        // Calculate available items: items that have quantity > 0 and are not marked as unavailable/maintenance
+        // and are not fully borrowed out (this counts ITEMS, not quantities)
+        $availableCountSql = "
+            SELECT COUNT(*) as available_count
+            FROM inventory
+            WHERE inventory.status != 'archived'
+            AND inventory.status NOT IN ('unavailable', 'maintenance') 
+            AND inventory.quantity > 0
+            AND inventory.id NOT IN (
+                SELECT DISTINCT item_id_cast FROM (
+                    SELECT 
+                        CAST(JSON_EXTRACT(br.approved_items, CONCAT('$[', idx.n, '].id')) AS UNSIGNED) as item_id_cast,
+                        SUM(JSON_EXTRACT(br.approved_items, CONCAT('$[', idx.n, '].quantity'))) as total_borrowed
+                    FROM borrowing_requests br
+                    CROSS JOIN (SELECT 0 as n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4) idx
+                    WHERE br.status = 'approved'
+                    AND br.current_status IN ('active', 'pending_return')
+                    AND JSON_VALID(br.approved_items)
+                    AND JSON_EXTRACT(br.approved_items, CONCAT('$[', idx.n, '].id')) IS NOT NULL
+                    GROUP BY CAST(JSON_EXTRACT(br.approved_items, CONCAT('$[', idx.n, '].id')) AS UNSIGNED)
+                ) borrowed_summary
+                INNER JOIN inventory inv2 ON inv2.id = borrowed_summary.item_id_cast
+                WHERE borrowed_summary.total_borrowed >= inv2.quantity
+            )
+        ";
+        
+        if (!$canViewAll && $normalized_campus) {
+            if ($normalized_campus === 'JPLPC Malvar') {
+                $availableCountSql .= " AND (inventory.campus = 'JPLPC Malvar' OR inventory.campus = 'Malvar')";
+            } elseif ($normalized_campus === 'ARASOF Nasugbu') {
+                $availableCountSql .= " AND (inventory.campus = 'ARASOF Nasugbu' OR inventory.campus = 'Nasugbu')";
+            } else {
+                $availableCountSql .= " AND inventory.campus = '" . $normalized_campus . "'";
+            }
+        }
+        
+        $availableStmt = $pdo->prepare($availableCountSql);
+        $availableStmt->execute();
+        $stats['available_items'] = (int)$availableStmt->fetch(PDO::FETCH_ASSOC)['available_count'];
         
         // Debug: Log the actual query results
         error_log("Costume Inventory Debug - Campus: " . ($normalized_campus ?? 'all') . " - Stats: " . json_encode($stats));

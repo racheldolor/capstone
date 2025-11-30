@@ -1738,19 +1738,18 @@ try {
                 const formattedRequestDate = formatDate(request.request_date);
                 const formattedDueDate = formatDate(request.due_date);
                 
-                // Determine if item is overdue
+                // Determine if item is overdue - only after 11:59 PM on the due date
                 const now = new Date();
                 const dueDate = new Date(request.due_date);
-                const isOverdue = request.status === 'approved' && request.current_status === 'active' && dueDate < now;
+                const endOfDueDate = new Date(dueDate);
+                endOfDueDate.setHours(23, 59, 59, 999); // Set to 11:59:59 PM on due date
+                const isOverdue = request.status === 'approved' && request.current_status === 'active' && endOfDueDate < now;
                 
                 // Determine actions based on status
                 let actionsHtml = '';
                 if (request.status === 'approved' && request.current_status === 'active') {
-                    if (isOverdue) {
-                        actionsHtml = '<span class="overdue-text" style="color: #dc2626; font-weight: 600;">OVERDUE</span>';
-                    } else {
-                        actionsHtml = `<button class="action-btn return-btn" onclick="openReturnForm(${request.id})" style="background: #28a745; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">Return Items</button>`;
-                    }
+                    // Always show return button for active items, regardless of overdue status
+                    actionsHtml = `<button class="action-btn return-btn" onclick="openReturnForm(${request.id})" style="background: #28a745; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">Return Items</button>`;
                 } else if (request.current_status === 'pending_return') {
                     actionsHtml = '<span style="color: #f59e0b; font-weight: 600;">Return Pending</span>';
                 } else if (request.current_status === 'returned') {
@@ -1880,6 +1879,12 @@ try {
 
         // Open return form for a specific borrowing request
         function openReturnForm(requestId) {
+            console.log('Opening return form for request ID:', requestId);
+            if (!requestId) {
+                console.error('No request ID provided');
+                alert('Error: No request ID provided');
+                return;
+            }
             // Navigate directly to return form
             window.location.href = 'return-form.php?request_id=' + requestId;
         }
@@ -2482,10 +2487,83 @@ try {
                 });
         }
 
+        // Load costume returns for dashboard (active borrowed items)
+        function loadDashboardCostumeReturns() {
+            fetch('get_borrowed_costumes.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.requests && data.requests.length > 0) {
+                        const panel = document.querySelector('#dashboard .content-panel:nth-child(3) .panel-content');
+                        // Filter for active borrowed items
+                        const activeBorrows = data.requests.filter(request => 
+                            request.status === 'approved' && request.current_status === 'active'
+                        ).slice(0, 3);
+                        
+                        if (activeBorrows.length > 0) {
+                            let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+                            activeBorrows.forEach(request => {
+                                const dueDate = new Date(request.due_date);
+                                const now = new Date();
+                                const endOfDueDate = new Date(dueDate);
+                                endOfDueDate.setHours(23, 59, 59, 999);
+                                const isOverdue = endOfDueDate < now;
+                                const dueDateText = formatDate(request.due_date);
+                                
+                                const itemName = request.approved_item_name || request.item_name || 'Item';
+                                const quantity = request.approved_quantity || request.quantity || 1;
+                                
+                                html += `
+                                    <div style="border-left: 3px solid ${isOverdue ? '#dc2626' : '#dc2626'}; padding-left: 0.75rem;">
+                                        <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">${itemName}</div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem;">
+                                            Qty: ${quantity} | Due: ${dueDateText}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: ${isOverdue ? '#dc2626' : '#dc2626'};">
+                                            ${isOverdue ? 'OVERDUE' : 'Active'}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            html += '</div>';
+                            panel.innerHTML = html;
+                        } else {
+                            panel.innerHTML = `
+                                <div class="empty-state">
+                                    <p>No costume returns due</p>
+                                    <small>Your borrowed costumes will appear here</small>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        const panel = document.querySelector('#dashboard .content-panel:nth-child(3) .panel-content');
+                        panel.innerHTML = `
+                            <div class="empty-state">
+                                <p>No costume returns due</p>
+                                <small>Your borrowed costumes will appear here</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading dashboard costume returns:', error);
+                    const panel = document.querySelector('#dashboard .content-panel:nth-child(3) .panel-content');
+                    panel.innerHTML = `
+                        <div class="empty-state">
+                            <p>Error loading costume returns</p>
+                            <small>Please refresh the page</small>
+                        </div>
+                    `;
+                });
+        }
+
         // Load stats when dashboard is loaded
         document.addEventListener('DOMContentLoaded', function() {
             // Load stats after a short delay to ensure DOM is ready
             setTimeout(loadDashboardStats, 500);
+            // Load dashboard content panels
+            setTimeout(loadDashboardAnnouncements, 700);
+            setTimeout(loadDashboardEvents, 800);
+            setTimeout(loadDashboardCostumeReturns, 900);
         });
 
         // Close modal when clicking outside
