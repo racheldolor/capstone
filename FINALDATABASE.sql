@@ -775,6 +775,32 @@ CREATE TABLE `admin_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================
+-- REPAIR ITEMS TABLE
+-- ============================================
+-- Table for managing damaged and under repair items
+
+DROP TABLE IF EXISTS `repair_items`;
+CREATE TABLE `repair_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `item_id` int(11) NOT NULL,
+  `item_name` varchar(255) NOT NULL,
+  `category` enum('costume','equipment') NOT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `repair_status` enum('damaged','under_repair','repaired') NOT NULL DEFAULT 'damaged',
+  `date_reported` datetime NOT NULL DEFAULT current_timestamp(),
+  `reported_by_student_id` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_item_id` (`item_id`),
+  KEY `idx_repair_status` (`repair_status`),
+  KEY `idx_date_reported` (`date_reported`),
+  KEY `idx_repair_items_student` (`reported_by_student_id`),
+  CONSTRAINT `repair_items_ibfk_1` FOREIGN KEY (`reported_by_student_id`) REFERENCES `student_artists` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
 -- DATABASE SETUP COMPLETE!
 -- ============================================
 -- All tables created successfully with campus filtering support

@@ -62,13 +62,22 @@ try {
         ");
         $stmt->execute([$_SESSION['user_id'], $request_id]);
 
-        // Update inventory item status back to available
-        $stmt = $pdo->prepare("
-            UPDATE inventory 
-            SET status = 'available', updated_at = NOW()
-            WHERE id = ?
-        ");
-        $stmt->execute([$return_request['item_id']]);
+        // Check if item was returned with damage
+        $has_damage = strpos($return_request['condition_notes'], 'with damage') !== false;
+        
+        if ($has_damage) {
+            // Don't update main inventory - item should already be in repair_items
+            // Just mark as processed
+            error_log("Item {$return_request['item_name']} returned with damage - routed to repairs");
+        } else {
+            // Update inventory item status back to available for good condition items
+            $stmt = $pdo->prepare("
+                UPDATE inventory 
+                SET available_quantity = available_quantity + ?, updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$return_request['quantity_returned'], $return_request['item_id']]);
+        }
 
         // Check if all items for this borrowing request have been returned
         $stmt = $pdo->prepare("

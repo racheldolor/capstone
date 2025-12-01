@@ -186,6 +186,25 @@ try {
             throw new Exception('Failed to update request status');
         }
 
+        // Update inventory quantities when request is approved
+        if ($status === 'approved' && !empty($selected_items)) {
+            foreach ($selected_items as $item) {
+                $item_id = $item['id'] ?? null;
+                $quantity = intval($item['quantity'] ?? 1);
+                
+                if ($item_id && $quantity > 0) {
+                    // Reduce available_quantity when item is borrowed
+                    $inventory_stmt = $pdo->prepare("
+                        UPDATE inventory 
+                        SET available_quantity = GREATEST(0, available_quantity - ?), 
+                            updated_at = NOW() 
+                        WHERE id = ?
+                    ");
+                    $inventory_stmt->execute([$quantity, $item_id]);
+                }
+            }
+        }
+
         // Get the updated request details for logging
         $stmt = $pdo->prepare("SELECT * FROM borrowing_requests WHERE id = ?");
         $stmt->execute([$request_id]);

@@ -376,55 +376,89 @@ function getCommentsAnalysis($evaluations) {
     $allComments = [];
     
     foreach ($evaluations as $evaluation) {
-        // Collect all text responses (q13, q14, q15)
-        $textResponses = [];
-        if (!empty($evaluation['q13_opinion'])) {
-            $textResponses[] = ['type' => 'Opinion', 'text' => $evaluation['q13_opinion']];
-        }
-        if (!empty($evaluation['q14_suggestions'])) {
-            $textResponses[] = ['type' => 'Suggestions', 'text' => $evaluation['q14_suggestions']];
-        }
-        if (!empty($evaluation['q15_comments'])) {
-            $textResponses[] = ['type' => 'Comments', 'text' => $evaluation['q15_comments']];
-        }
+        $avgRating = calculateCommentRating($evaluation);
         
-        foreach ($textResponses as $response) {
-            $comment = [
-                'type' => $response['type'],
-                'text' => $response['text'],
-                'event_title' => $evaluation['event_title'],
-                'date' => date('M j, Y', strtotime($evaluation['start_date'])),
-                'rating_context' => calculateCommentRating($evaluation)
-            ];
+        // Areas for Improvement: Specifically from Comments (Q15)
+        if (!empty($evaluation['q15_comments'])) {
+            $commentText = trim($evaluation['q15_comments']);
             
-            // Check for improvement keywords
-            $improvementKeywords = ['improve', 'better', 'should', 'could', 'need', 'more', 'less', 
-                                   'change', 'fix', 'issue', 'problem', 'suggest', 'recommend', 
-                                   'enhancement', 'upgrade', 'update', 'adjust', 'modify'];
-            
-            $textLower = strtolower($response['text']);
-            $hasImprovementKeyword = false;
-            foreach ($improvementKeywords as $keyword) {
-                if (strpos($textLower, $keyword) !== false) {
-                    $hasImprovementKeyword = true;
+            // Filter out non-meaningful responses
+            $skipKeywords = ['none', 'n/a', 'na', 'nothing', 'no comment', 'good', 'ok', 'okay'];
+            $isSkippable = false;
+            foreach ($skipKeywords as $skip) {
+                if (strtolower($commentText) === $skip || strlen($commentText) <= 3) {
+                    $isSkippable = true;
                     break;
                 }
             }
             
-            // Classify comments
-            $avgRating = calculateCommentRating($evaluation);
-            
-            // If it's a suggestion type or contains improvement keywords, add to improvements
-            if ($response['type'] === 'Suggestions' || $hasImprovementKeyword || $avgRating <= 3.5) {
+            if (!$isSkippable) {
+                $comment = [
+                    'type' => 'Comments',
+                    'text' => $commentText,
+                    'event_title' => $evaluation['event_title'],
+                    'date' => date('M j, Y', strtotime($evaluation['start_date'])),
+                    'rating_context' => $avgRating
+                ];
+                
                 $improvementComments[] = $comment;
-            } 
+                $allComments[] = $comment;
+            }
+        }
+        
+        // Positive Comments: From Opinion (Q13) and Suggestions (Q14)  
+        if (!empty($evaluation['q13_opinion'])) {
+            $opinionText = trim($evaluation['q13_opinion']);
             
-            // If high rating and no improvement keywords, add to positive
-            if ($avgRating >= 4.0 && !$hasImprovementKeyword) {
-                $positiveComments[] = $comment;
+            // Filter out non-meaningful responses
+            $skipKeywords = ['none', 'n/a', 'na', 'nothing', 'no opinion', 'no comment'];
+            $isSkippable = false;
+            foreach ($skipKeywords as $skip) {
+                if (strtolower($opinionText) === $skip || strlen($opinionText) <= 3) {
+                    $isSkippable = true;
+                    break;
+                }
             }
             
-            $allComments[] = $comment;
+            if (!$isSkippable && $avgRating >= 3.5) {
+                $comment = [
+                    'type' => 'Opinion',
+                    'text' => $opinionText,
+                    'event_title' => $evaluation['event_title'],
+                    'date' => date('M j, Y', strtotime($evaluation['start_date'])),
+                    'rating_context' => $avgRating
+                ];
+                
+                $positiveComments[] = $comment;
+                $allComments[] = $comment;
+            }
+        }
+        
+        if (!empty($evaluation['q14_suggestions'])) {
+            $suggestionText = trim($evaluation['q14_suggestions']);
+            
+            // Filter out non-meaningful responses
+            $skipKeywords = ['none', 'n/a', 'na', 'nothing', 'no suggestions', 'no comment'];
+            $isSkippable = false;
+            foreach ($skipKeywords as $skip) {
+                if (strtolower($suggestionText) === $skip || strlen($suggestionText) <= 3) {
+                    $isSkippable = true;
+                    break;
+                }
+            }
+            
+            if (!$isSkippable && $avgRating >= 3.5) {
+                $comment = [
+                    'type' => 'Suggestions',
+                    'text' => $suggestionText,
+                    'event_title' => $evaluation['event_title'],
+                    'date' => date('M j, Y', strtotime($evaluation['start_date'])),
+                    'rating_context' => $avgRating
+                ];
+                
+                $positiveComments[] = $comment;
+                $allComments[] = $comment;
+            }
         }
     }
     

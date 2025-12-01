@@ -22,7 +22,8 @@ try {
         SELECT 
             id,
             item_name,
-            quantity as total_quantity,
+            quantity,
+            available_quantity,
             category,
             status
         FROM inventory 
@@ -36,6 +37,7 @@ try {
     }
 
     // Get all borrowers for this item
+    $borrowers = []; // Initialize empty array
     $stmt = $pdo->prepare("
         SELECT 
             br.id,
@@ -85,23 +87,17 @@ try {
         }
     }
     
-    // Fix corrupted total quantity - if there are borrowed items,
-    // the total should be current quantity + borrowed quantity
-    $current_qty = intval($item['total_quantity']);
-    if ($total_borrowed_qty > 0) {
-        // The database quantity was reduced when items were borrowed
-        // So actual total = current DB value + borrowed quantity
-        $actual_total_qty = $current_qty + $total_borrowed_qty;
-        $available_quantity = $current_qty; // Current DB value is actually available
-    } else {
-        // No items borrowed, current quantity is both total and available
-        $actual_total_qty = $current_qty;
-        $available_quantity = $current_qty;
-    }
+    // Use the correct quantities from database
+    // quantity = total quantity (NEVER changes - this is the original amount)
+    // available_quantity = what's currently available to borrow
+    // borrowed = total - available
+    $total_quantity = intval($item['quantity']); // This should NEVER be modified
+    $available_quantity = intval($item['available_quantity']);
+    $calculated_borrowed = $total_quantity - $available_quantity;
     
-    $item['total_quantity'] = $actual_total_qty;
+    $item['total_quantity'] = $total_quantity;
     $item['available_quantity'] = $available_quantity;
-    $item['borrowed_quantity'] = $total_borrowed_qty;
+    $item['borrowed_quantity'] = $calculated_borrowed;
     
     echo json_encode([
         'success' => true,

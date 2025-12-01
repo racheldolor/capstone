@@ -111,21 +111,16 @@ try {
         $borrowedQtyStmt->execute([$costume['id']]);
         $borrowedQty = $borrowedQtyStmt->fetchColumn() ?: 0;
         
-        // Calculate total quantity - if there are borrowed items but quantity seems low, 
-        // assume total = current quantity + borrowed (fixing corrupted data)
-        $current_qty = intval($costume['quantity']);
-        if ($borrowedQty > 0 && $current_qty < $borrowedQty) {
-            // Data seems corrupted, fix it
-            $total_qty = $current_qty + $borrowedQty;
-        } else {
-            // If there are borrowed items and current qty seems reasonable, 
-            // the total should be current + borrowed
-            $total_qty = $borrowedQty > 0 ? $current_qty + $borrowedQty : $current_qty;
-        }
+        // Use the database values correctly:
+        // - quantity = total quantity (fixed, never changes)
+        // - available_quantity = what's currently available to borrow
+        // - borrowed = calculated from borrowing_requests
+        $total_qty = intval($costume['quantity']);
+        $available_qty = intval($costume['available_quantity']);
         
-        // Set calculated quantities
+        // Override the calculated borrowed quantity with database calculation
         $costume['total_quantity'] = $total_qty;
-        $costume['available_quantity'] = $current_qty; // Current DB value is actually available
+        $costume['available_quantity'] = $available_qty;
         $costume['borrowed_quantity'] = $borrowedQty;
         
         $borrowersSQL = "
@@ -184,21 +179,16 @@ try {
         $borrowedQtyStmt->execute([$item['id']]);
         $borrowedQty = $borrowedQtyStmt->fetchColumn() ?: 0;
         
-        // Calculate total quantity - if there are borrowed items but quantity seems low, 
-        // assume total = current quantity + borrowed (fixing corrupted data)
-        $current_qty = intval($item['quantity']);
-        if ($borrowedQty > 0 && $current_qty < $borrowedQty) {
-            // Data seems corrupted, fix it
-            $total_qty = $current_qty + $borrowedQty;
-        } else {
-            // If there are borrowed items and current qty seems reasonable, 
-            // the total should be current + borrowed
-            $total_qty = $borrowedQty > 0 ? $current_qty + $borrowedQty : $current_qty;
-        }
+        // Use the database values correctly:
+        // - quantity = total quantity (fixed, never changes)
+        // - available_quantity = what's currently available to borrow
+        // - borrowed = calculated from borrowing_requests
+        $total_qty = intval($item['quantity']);
+        $available_qty = intval($item['available_quantity']);
         
-        // Set calculated quantities
+        // Override the calculated borrowed quantity with database calculation
         $item['total_quantity'] = $total_qty;
-        $item['available_quantity'] = $current_qty; // Current DB value is actually available
+        $item['available_quantity'] = $available_qty;
         $item['borrowed_quantity'] = $borrowedQty;
         
         $borrowersSQL = "

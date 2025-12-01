@@ -112,10 +112,28 @@ try {
     // Check if editing existing item
     if (isset($input['id']) && !empty($input['id'])) {
         // Update existing item
+        // Get current quantities to preserve borrowed amount
+        $current_stmt = $pdo->prepare("SELECT quantity, available_quantity FROM inventory WHERE id = :id");
+        $current_stmt->execute([':id' => $input['id']]);
+        $current = $current_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($current) {
+            $old_total = intval($current['quantity']);
+            $old_available = intval($current['available_quantity']);
+            $currently_borrowed = $old_total - $old_available; // Calculate current borrowed amount
+            
+            // New available = new total - currently borrowed (preserve borrowed amount)
+            $new_available = $quantity - $currently_borrowed;
+            $new_available = max(0, $new_available); // Ensure it's not negative
+        } else {
+            $new_available = $quantity; // If no record found, set available = total
+        }
+        
         $sql = "UPDATE inventory 
                 SET item_name = :item_name, 
                     category = :category, 
                     quantity = :quantity,
+                    available_quantity = :available_quantity,
                     condition_status = :condition_status, 
                     status = :status, 
                     description = :description,
@@ -127,6 +145,7 @@ try {
             ':item_name' => trim($input['name']),
             ':category' => $input['category'],
             ':quantity' => $quantity,
+            ':available_quantity' => $new_available,
             ':condition_status' => $input['condition'],
             ':status' => $auto_status,
             ':description' => trim($input['description'] ?? ''),

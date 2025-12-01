@@ -36,11 +36,13 @@ try {
     
     // Process condition notes
     $condition_notes = [];
+    $has_damage = false;
     if (in_array('good_condition', $condition)) {
         $condition_notes[] = 'Properties returned in good condition';
     }
     if (in_array('with_damage', $condition)) {
         $condition_notes[] = 'Properties returned with damage';
+        $has_damage = true;
     }
     $condition_text = implode('; ', $condition_notes);
     
@@ -95,6 +97,21 @@ try {
                 $qty,
                 $condition_text
             ]);
+            
+            // If item is returned with damage, create repair entry
+            if ($has_damage) {
+                $repair_stmt = $pdo->prepare("
+                    INSERT INTO repair_items (item_id, item_name, category, quantity, repair_status, date_reported, reported_by_student_id, notes)
+                    VALUES (?, ?, (SELECT category FROM inventory WHERE id = ?), ?, 'damaged', NOW(), ?, 'Item returned with damage')
+                ");
+                $repair_stmt->execute([
+                    $item_data['id'],
+                    $item_data['name'],
+                    $item_data['id'],
+                    $qty,
+                    $student_id
+                ]);
+            }
         }
         
         // Update all affected borrowing requests to pending_return status

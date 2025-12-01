@@ -1442,33 +1442,42 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     // College mapping by campus
                     this.collegesByCampus = {
                         'Pablo Borbon': [
-                            'College of Accountancy, Business, Economics and International Hospitality Management',
-                            'College of Health Sciences',
+                            'College of Accountancy, Business, Economics, & International Hospitality Management',
                             'College of Arts and Sciences',
                             'College of Law',
+                            'College of Health Sciences / Nursing & Allied Health',
                             'College of Teacher Education',
-                            'College of Criminal Justice Education',
                             'College of Medicine'
                         ],
                         'Alangilan': [
                             'College of Engineering',
                             'College of Architecture, Fine Arts and Design',
                             'College of Engineering Technology',
-                            'College of Informatics and Computing Sciences',
-                            'Lobo Campus',
-                            'Balayan Campus',
-                            'Mabini Campus'
+                            'College of Informatics and Computing Sciences'
                         ],
                         'JPLPC Malvar': [
-                            'College of Industrial Technology'
+                            'College of Industrial Technology',
+                            'College of Teacher Education',
+                            'College of Engineering',
+                            'College of Informatics and Computing Sciences',
+                            'College of Arts and Sciences',
+                            'College of Accountancy, Business, Economics & International Hospitality Management'
                         ],
                         'Lipa': [
-                            'College of Accountancy, Business, Economics, and International Hospitality Management',
-                            'College of Arts and Sciences'
+                            'College of Accountancy, Business, Economics & International Hospitality Management',
+                            'College of Arts and Sciences',
+                            'College of Engineering',
+                            'College of Engineering Technology',
+                            'College of Informatics and Computing Sciences',
+                            'College of Teacher Education'
                         ],
                         'ARASOF Nasugbu': [
-                            'College of Agriculture and Forestry',
-                            'College of Accountancy, Business, Economics, and International Hospitality Management'
+                            'College of Teacher Education',
+                            'College of Accountancy, Business, Economics & International Hospitality Management',
+                            'College of Informatics & Computing Sciences',
+                            'College of Arts and Sciences',
+                            'College of Health Sciences / Allied Health',
+                            'College of Criminal Justice Education'
                         ]
                     };
                     
@@ -1680,18 +1689,74 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             setupRealTimeValidation() {
-                const requiredFields = this.form.querySelectorAll('input[required], select[required]');
-                
-                requiredFields.forEach(field => {
-                    field.addEventListener('blur', () => this.validateField(field));
-                    field.addEventListener('input', () => this.clearFieldError(field));
+                // Name field validation (no numbers or special characters)
+                const nameFields = ['first_name', 'middle_name', 'last_name', 'father_name', 'mother_name', 'guardian'];
+                nameFields.forEach(fieldName => {
+                    const field = document.querySelector(`input[name="${fieldName}"]`);
+                    if (field) {
+                        field.addEventListener('input', () => this.validateNameField(field));
+                        field.addEventListener('blur', () => this.validateNameField(field));
+                    }
                 });
+                
+                // SR Code validation
+                const srCodeField = document.querySelector('input[name="sr_code"]');
+                if (srCodeField) {
+                    let srTimeout;
+                    srCodeField.addEventListener('input', () => {
+                        if (srTimeout) clearTimeout(srTimeout);
+                        srTimeout = setTimeout(() => {
+                            this.validateSRCode(srCodeField);
+                        }, 300);
+                    });
+                    srCodeField.addEventListener('blur', () => {
+                        if (srTimeout) clearTimeout(srTimeout);
+                        if (this.validateSRCode(srCodeField)) {
+                            this.checkDuplicateSRCode(srCodeField);
+                        }
+                    });
+                }
                 
                 // Email validation
                 const emailField = document.getElementById('emailAddress');
                 if (emailField) {
-                    emailField.addEventListener('blur', () => this.validateEmail(emailField));
+                    let emailTimeout;
+                    emailField.addEventListener('input', () => {
+                        // Clear previous timeout
+                        if (emailTimeout) clearTimeout(emailTimeout);
+                        
+                        // Only clear error if field is empty
+                        if (!emailField.value.trim()) {
+                            this.clearFieldError(emailField);
+                        } else {
+                            // Debounce validation to avoid flickering
+                            emailTimeout = setTimeout(() => {
+                                this.validateEmailFormat(emailField);
+                            }, 500);
+                        }
+                    });
+                    emailField.addEventListener('blur', () => {
+                        if (emailTimeout) clearTimeout(emailTimeout);
+                        this.validateEmailComplete(emailField);
+                    });
                 }
+                
+                // Handle other required fields that don't have specific validation
+                const requiredFields = this.form.querySelectorAll('input[required], select[required]');
+                const specialFields = ['first_name', 'middle_name', 'last_name', 'father_name', 'mother_name', 'guardian', 'sr_code', 'email'];
+                
+                requiredFields.forEach(field => {
+                    const fieldName = field.name || field.id;
+                    if (!specialFields.includes(fieldName) && !specialFields.includes(field.getAttribute('name'))) {
+                        field.addEventListener('blur', () => this.validateField(field));
+                        field.addEventListener('input', () => {
+                            // Only clear error if field has content or is empty
+                            if (field.value.trim()) {
+                                this.clearFieldError(field);
+                            }
+                        });
+                    }
+                });
                 
                 // Contact number validation
                 const contactField = document.getElementById('contactNumber');
@@ -1699,15 +1764,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     contactField.addEventListener('input', () => this.formatContactNumber(contactField));
                 }
                 
-                // Age calculation
+                const guardianContactField = document.querySelector('input[name="guardian_contact"]');
+                if (guardianContactField) {
+                    guardianContactField.addEventListener('input', () => this.formatContactNumber(guardianContactField));
+                }
+                
+                // Age calculation and validation
                 const birthdateField = document.getElementById('birthdate');
                 const ageField = document.getElementById('age');
                 if (birthdateField && ageField) {
                     birthdateField.addEventListener('change', () => {
                         const age = this.calculateAge(birthdateField.value);
                         ageField.value = age;
+                        this.validateAge(ageField);
                     });
+                    ageField.addEventListener('input', () => this.validateAge(ageField));
                 }
+                
+                // Program field validation (no numbers at start)
+                const programField = document.querySelector('input[name="program"]');
+                if (programField) {
+                    programField.addEventListener('input', () => this.validateProgramField(programField));
+                }
+                
+                // Units validation (numbers only)
+                const unitsFields = ['first_semester_units', 'second_semester_units'];
+                unitsFields.forEach(fieldName => {
+                    const field = document.getElementById(fieldName.replace('_', '').replace('semester', 'Semester').replace('units', 'Units'));
+                    if (field) {
+                        field.addEventListener('input', () => this.validateUnitsField(field));
+                    }
+                });
             }
 
             setupSignatureCanvas() {
@@ -1936,6 +2023,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     value = value.slice(0, 11);
                 }
                 
+                // Validate Philippine mobile number format
+                if (value.length > 0) {
+                    // Should start with 09 for mobile or area codes for landline
+                    if (value.length >= 2 && !value.startsWith('09') && !value.startsWith('02') && !value.startsWith('03')) {
+                        this.showFieldError(field, 'Philippine numbers should start with 09 (mobile) or area codes like 02, 03 (landline).');
+                    } else if (value.length === 11 && value.startsWith('09')) {
+                        this.clearFieldError(field);
+                    } else if (value.length > 0 && value.length < 11 && value.startsWith('09')) {
+                        // Still typing, don't show error yet
+                        this.clearFieldError(field);
+                    }
+                }
+                
                 // Format as Philippine mobile number
                 if (value.length >= 4) {
                     value = value.replace(/(\d{4})(\d{0,3})(\d{0,4})/, (match, p1, p2, p3) => {
@@ -1961,12 +2061,186 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 return true;
             }
 
-            validateEmail(field) {
+            validateNameField(field) {
+                const value = field.value.trim();
+                const nameRegex = /^[a-zA-Z\s.'\-]*$/; // Allow letters, spaces, periods, apostrophes, and hyphens
+                
+                if (value && !nameRegex.test(value)) {
+                    this.showFieldError(field, 'Name should only contain letters, spaces, and common punctuation (. \' -).');
+                    return false;
+                }
+                
+                // Check for numbers
+                if (value && /\d/.test(value)) {
+                    this.showFieldError(field, 'Numbers are not allowed in name fields.');
+                    return false;
+                }
+                
+                this.clearFieldError(field);
+                return true;
+            }
+
+            validateSRCode(field) {
+                const value = field.value.trim();
+                // SR Code format: typically 2 digits, dash, 4 digits (e.g., 22-1234)
+                const srCodeRegex = /^\d{2}-\d{4}$/;
+                
+                if (value && !srCodeRegex.test(value)) {
+                    // Auto-format if it's just numbers
+                    if (/^\d{6}$/.test(value)) {
+                        field.value = value.substring(0, 2) + '-' + value.substring(2);
+                        this.clearFieldError(field);
+                        return true;
+                    } else {
+                        this.showFieldError(field, 'SR Code format should be XX-XXXX (e.g., 22-1234).');
+                        return false;
+                    }
+                }
+                
+                this.clearFieldError(field);
+                return true;
+            }
+
+            async checkDuplicateSRCode(field) {
+                const srCode = field.value.trim();
+                if (!srCode) return true;
+                
+                try {
+                    const response = await fetch('check-duplicate.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `action=check_sr_code&sr_code=${encodeURIComponent(srCode)}`
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.exists) {
+                        this.showFieldError(field, 'This SR Code is already registered. Please check your SR Code.');
+                        return false;
+                    } else {
+                        // Only clear error if there's no format error
+                        if (this.validateSRCode(field)) {
+                            this.clearFieldError(field);
+                        }
+                        return true;
+                    }
+                } catch (error) {
+                    console.warn('Could not check SR Code duplication:', error);
+                    return true; // Continue if check fails
+                }
+            }
+
+            validateEmailFormat(field) {
                 const email = field.value.trim();
+                if (!email) return true;
+                
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 
-                if (email && !emailRegex.test(email)) {
+                if (!emailRegex.test(email)) {
                     this.showFieldError(field, 'Please enter a valid email address.');
+                    return false;
+                }
+                
+                // Check if it's a BatStateU email
+                if (!email.toLowerCase().includes('batstate-u.edu.ph') && !email.toLowerCase().includes('g.batstate-u.edu.ph')) {
+                    this.showFieldError(field, 'Please use your official BatStateU email address (@g.batstate-u.edu.ph).');
+                    return false;
+                }
+                
+                return true;
+            }
+
+            async validateEmailComplete(field) {
+                // First check format
+                if (!this.validateEmailFormat(field)) {
+                    return false;
+                }
+                
+                // Then check for duplicates if format is valid
+                const email = field.value.trim();
+                if (email) {
+                    return await this.checkDuplicateEmail(field);
+                }
+                
+                return true;
+            }
+
+            validateEmail(field) {
+                // Legacy method for form validation - just check format
+                return this.validateEmailFormat(field);
+            }
+
+            async checkDuplicateEmail(field) {
+                const email = field.value.trim();
+                if (!email) return true;
+                
+                try {
+                    const response = await fetch('check-duplicate.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `action=check_email&email=${encodeURIComponent(email)}`
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.exists) {
+                        this.showFieldError(field, 'This email address is already registered. Please use a different email.');
+                        return false;
+                    } else {
+                        // Only clear error if there's no format error
+                        if (this.validateEmailFormat(field)) {
+                            this.clearFieldError(field);
+                        }
+                        return true;
+                    }
+                } catch (error) {
+                    console.warn('Could not check email duplication:', error);
+                    return true; // Continue if check fails
+                }
+            }
+
+            validateAge(field) {
+                const age = parseInt(field.value);
+                
+                if (field.value && (isNaN(age) || age < 15 || age > 50)) {
+                    this.showFieldError(field, 'Please enter a valid age between 15 and 50.');
+                    return false;
+                }
+                
+                this.clearFieldError(field);
+                return true;
+            }
+
+            validateProgramField(field) {
+                const value = field.value.trim();
+                
+                // Check if it starts with a number
+                if (value && /^\d/.test(value)) {
+                    this.showFieldError(field, 'Program name should not start with a number.');
+                    return false;
+                }
+                
+                this.clearFieldError(field);
+                return true;
+            }
+
+            validateUnitsField(field) {
+                const value = field.value;
+                
+                // Only allow numbers
+                if (value && !/^\d*$/.test(value)) {
+                    field.value = value.replace(/\D/g, '');
+                    this.showFieldError(field, 'Units field should only contain numbers.');
+                    return false;
+                }
+                
+                const units = parseInt(value);
+                if (value && (units < 1 || units > 30)) {
+                    this.showFieldError(field, 'Units should be between 1 and 30.');
                     return false;
                 }
                 
@@ -2004,7 +2278,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 return true;
             }
 
-            validateForm() {
+            async validateForm() {
                 console.log('Starting form validation...'); // Debug log
                 let isValid = true;
                 
@@ -2026,15 +2300,90 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                 });
                 
-                // Validate email
+                // Validate name fields
+                console.log('Validating name fields...'); // Debug log
+                const nameFields = ['first_name', 'middle_name', 'last_name', 'father_name', 'mother_name', 'guardian'];
+                nameFields.forEach(fieldName => {
+                    const field = document.querySelector(`input[name=\"${fieldName}\"]`);
+                    if (field && field.value && !this.validateNameField(field)) {
+                        console.log('Name field validation failed:', fieldName); // Debug log
+                        isValid = false;
+                    }
+                });
+                
+                // Validate SR Code format and duplicates
+                console.log('Validating SR Code...'); // Debug log
+                const srCodeField = document.querySelector('input[name="sr_code"]');
+                if (srCodeField && srCodeField.value) {
+                    if (!this.validateSRCode(srCodeField)) {
+                        console.log('SR Code format validation failed'); // Debug log
+                        isValid = false;
+                    } else {
+                        // Check for duplicates
+                        const isDuplicate = await this.checkDuplicateSRCode(srCodeField);
+                        if (!isDuplicate) {
+                            console.log('SR Code duplicate validation failed'); // Debug log
+                            isValid = false;
+                        }
+                    }
+                }
+                
+                // Validate email format and duplicates
                 console.log('Validating email...'); // Debug log
                 const emailField = document.getElementById('emailAddress');
                 if (emailField && emailField.value) {
                     if (!this.validateEmail(emailField)) {
-                        console.log('Email validation failed'); // Debug log
+                        console.log('Email format validation failed'); // Debug log
                         isValid = false;
+                    } else {
+                        // Check for duplicates
+                        const isDuplicate = await this.checkDuplicateEmail(emailField);
+                        if (!isDuplicate) {
+                            console.log('Email duplicate validation failed'); // Debug log
+                            isValid = false;
+                        }
                     }
                 }
+                
+                // Validate age
+                console.log('Validating age...'); // Debug log
+                const ageField = document.getElementById('age');
+                if (ageField && ageField.value && !this.validateAge(ageField)) {
+                    console.log('Age validation failed'); // Debug log
+                    isValid = false;
+                }
+                
+                // Validate program field
+                const programField = document.querySelector('input[name="program"]');
+                if (programField && programField.value && !this.validateProgramField(programField)) {
+                    console.log('Program validation failed'); // Debug log
+                    isValid = false;
+                }
+                
+                // Validate units fields
+                const unitsFields = ['firstSemesterUnits', 'secondSemesterUnits'];
+                unitsFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field && field.value && !this.validateUnitsField(field)) {
+                        console.log('Units validation failed:', fieldId); // Debug log
+                        isValid = false;
+                    }
+                });
+                
+                // Validate contact numbers
+                const contactFields = [document.getElementById('contactNumber'), document.querySelector('input[name="guardian_contact"]')];
+                contactFields.forEach(field => {
+                    if (field && field.value) {
+                        const value = field.value.replace(/\D/g, '');
+                        if (value.length > 0 && value.length !== 11) {
+                            this.showFieldError(field, 'Contact number must be exactly 11 digits.');
+                            isValid = false;
+                        } else if (value.length === 11 && !value.startsWith('09')) {
+                            this.showFieldError(field, 'Mobile number should start with 09.');
+                            isValid = false;
+                        }
+                    }
+                });
                 
                 // Validate consent
                 console.log('Validating consent...'); // Debug log
@@ -2150,6 +2499,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 return formData;
             }
+
             async handleSubmit(e) {
                 console.log('Form submit event triggered'); // Debug log
                 e.preventDefault();
@@ -2165,7 +2515,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 console.log('About to validate form...'); // Debug log
                 // Validate form
-                if (!this.validateForm()) {
+                if (!(await this.validateForm())) {
                     console.log('Form validation failed'); // Debug log
                     this.showAlert('Please correct the errors above before submitting.', 'error');
                     return;

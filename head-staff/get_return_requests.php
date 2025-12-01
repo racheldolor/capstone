@@ -37,6 +37,9 @@ try {
     $where_conditions = [];
     $params = [];
 
+    // Exclude items returned with damage - they go to Under Repair instead
+    $where_conditions[] = "(rr.condition_notes IS NULL OR rr.condition_notes NOT LIKE '%with damage%')";
+
     // Apply campus filter for campus-specific users (via student_artists table)
     if (!$canViewAll && $user_campus) {
         $where_conditions[] = 'sa.campus = ?';

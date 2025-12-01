@@ -2712,14 +2712,14 @@ try {
                                 </div>
                             </div>
 
-                            <!-- Evaluation Trends Chart -->
-                            <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
-                                <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Evaluation Trends Over Time</h4>
-                                <canvas id="evaluationTrendsChart" width="800" height="400" style="max-width: 100%; height: auto;"></canvas>
-                            </div>
-                            </div>
-
-                            <!-- Detailed Analytics -->
+            <!-- Evaluation Trends Chart -->
+            <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+                <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Evaluation Trends Over Time</h4>
+                <div style="position: relative; height: 400px; width: 100%;">
+                    <canvas id="evaluationTrendsChart"></canvas>
+                </div>
+            </div>
+            </div>                            <!-- Detailed Analytics -->
                             <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #dc2626;">
                                 <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">📈 Detailed Analytics & Insights</h4>
                                 <div id="evaluationInsightsContent">
@@ -3250,9 +3250,9 @@ try {
                             <span id="participantsCount" style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">0 participants</span>
                         </div>
                     </div>
-                    <div class="table-container">
-                        <table id="participantsTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <thead style="background: #dc2626; color: white;">
+                    <div class="table-container" style="max-height: 400px; overflow-y: auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <table id="participantsTable" style="width: 100%; border-collapse: collapse; background: white;">
+                            <thead style="background: #dc2626; color: white; position: sticky; top: 0; z-index: 10;">
                                 <tr>
                                     <th style="padding: 1rem; text-align: left; font-weight: 600;">Student Info</th>
                                     <th style="padding: 1rem; text-align: left; font-weight: 600;">Cultural Group</th>
@@ -6834,6 +6834,9 @@ try {
             loadingDiv.style.display = 'block';
             contentDiv.style.display = 'none';
             
+            // Prevent background scrolling
+            document.body.style.overflow = 'hidden';
+            
             fetch(`get_event_participants.php?event_id=${eventId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -6969,7 +6972,6 @@ try {
                                 <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">${participant.full_name}</div>
                                 <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem;">${participant.display_sr_code || 'N/A'}</div>
                                 <div style="color: #666; font-size: 0.8rem;">${participant.display_email || 'N/A'}</div>
-                                ${participant.display_contact ? `<div style="color: #666; font-size: 0.8rem;">📞 ${participant.display_contact}</div>` : ''}
                             </td>
                             <td style="padding: 1rem; vertical-align: top;">
                                 <div style="color: #333; font-weight: 500;">${participant.cultural_group || 'Not specified'}</div>
@@ -7006,6 +7008,9 @@ try {
             const modal = document.getElementById('eventParticipantsModal');
             modal.classList.remove('show');
             modal.style.display = 'none';
+            
+            // Restore background scrolling
+            document.body.style.overflow = '';
             
             // Clear modal content
             document.getElementById('participantsModalTitle').textContent = 'Event Participants';
@@ -7390,6 +7395,7 @@ try {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    resizeDelay: 200,
                     animation: {
                         duration: 1200,
                         easing: 'easeInOutCubic'
@@ -7558,15 +7564,7 @@ try {
                 `;
             }
 
-            // Areas for Improvement
-            if (insights.improvements) {
-                html += `
-                    <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid #dc3545;">
-                        <h5 style="margin: 0 0 0.5rem 0; color: #dc3545; font-size: 0.9rem;">🎯 Areas for Improvement</h5>
-                        <p style="margin: 0; color: #666; font-size: 0.85rem; line-height: 1.4;">${insights.improvements}</p>
-                    </div>
-                `;
-            }
+
 
             // Trends
             if (insights.trends) {

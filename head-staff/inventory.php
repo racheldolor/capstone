@@ -379,10 +379,13 @@ $pdo = getDBConnection();
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            max-height: 90vh;
-            overflow-y: auto;
             max-width: 600px;
             width: 90%;
+        }
+        
+        .modal-content.scrollable {
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .modal-header {
@@ -561,6 +564,10 @@ $pdo = getDBConnection();
             background: linear-gradient(135deg, #059669, #047857);
         }
 
+        .fab-repair {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
         .fab-tooltip {
             position: absolute;
             right: 70px;
@@ -689,6 +696,91 @@ $pdo = getDBConnection();
             background: #dc2626;
             color: white;
         }
+
+        /* Action button styles */
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn.small {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .pagination-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 0 0.25rem;
+        }
+        
+        .pagination-btn:hover {
+            background: #f8f9fa;
+        }
+        
+        .pagination-btn.active {
+            background: #dc2626;
+            color: white;
+            border-color: #dc2626;
+        }
+
+        /* Search Styles */
+        .search-container {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        .search-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 3rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            background: white;
+            color: #374151;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 1.1rem;
+        }
+
+        .search-input:focus + .search-icon {
+            color: #dc2626;
+        }
     </style>
 </head>
 <body>
@@ -773,6 +865,10 @@ $pdo = getDBConnection();
                         <i class="fas fa-undo"></i>
                         Returns
                     </button>
+                    <button class="add-btn" onclick="openUnderRepair()" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                        <i class="fas fa-tools"></i>
+                        Under Repair
+                    </button>
                 </div>
             </div>
 
@@ -790,6 +886,18 @@ $pdo = getDBConnection();
                     <span class="fab-tooltip">Returns</span>
                     <i class="fas fa-undo"></i>
                 </button>
+                <button class="fab fab-repair" onclick="openUnderRepair()" title="Under Repair">
+                    <span class="fab-tooltip">Under Repair</span>
+                    <i class="fas fa-tools"></i>
+                </button>
+            </div>
+
+            <!-- Search Section -->
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <input type="text" id="inventorySearchInput" class="search-input" placeholder="Search by item name or status..." oninput="performInventorySearch()">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
             </div>
 
             <!-- Inventory Grid -->
@@ -897,6 +1005,11 @@ $pdo = getDBConnection();
     </div>
 
     <script>
+        // Global variables for search
+        let allCostumes = [];
+        let allEquipment = [];
+        let searchTimeout;
+
         // Load inventory items
         function loadInventoryItems() {
             console.log('Loading inventory items...');
@@ -905,8 +1018,12 @@ $pdo = getDBConnection();
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        displayCostumes(data.costumes);
-                        displayEquipment(data.equipment);
+                        // Store original data for search
+                        allCostumes = data.costumes || [];
+                        allEquipment = data.equipment || [];
+                        
+                        displayCostumes(allCostumes);
+                        displayEquipment(allEquipment);
                     } else {
                         console.error('Error loading inventory:', data.message);
                     }
@@ -916,24 +1033,89 @@ $pdo = getDBConnection();
                 });
         }
 
+        // Search functionality
+        function performInventorySearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const searchTerm = document.getElementById('inventorySearchInput').value.toLowerCase().trim();
+                
+                if (!searchTerm) {
+                    // Show all items if search is empty
+                    displayCostumes(allCostumes);
+                    displayEquipment(allEquipment);
+                    return;
+                }
+                
+                // Filter costumes
+                const filteredCostumes = allCostumes.filter(costume => {
+                    const itemName = (costume.item_name || costume.name || '').toLowerCase();
+                    // Check all possible quantity fields - prioritize total quantity
+                    const displayQty = costume.quantity || costume.total_quantity || costume.available_quantity || 0;
+                    
+                    // Determine status based on quantity (same logic as display functions)
+                    const statusText = displayQty > 0 ? 'available' : 'unavailable';
+                    
+                    // Also check condition status
+                    const conditionText = (costume.condition_status || costume.condition || '').toLowerCase();
+                    
+                    // Special handling for "available" search - only show items that are actually available
+                    if (searchTerm === 'available') {
+                        return statusText === 'available';
+                    }
+                    
+                    return itemName.includes(searchTerm) || 
+                           statusText.includes(searchTerm) ||
+                           conditionText.includes(searchTerm);
+                });
+                
+                // Filter equipment  
+                const filteredEquipment = allEquipment.filter(item => {
+                    const itemName = (item.item_name || item.name || '').toLowerCase();
+                    // Check all possible quantity fields
+                    const displayQty = item.available_quantity || item.quantity || item.total_quantity || 0;
+                    
+                    // Determine status based on quantity (same logic as display functions)
+                    const statusText = displayQty > 0 ? 'available' : 'unavailable';
+                    
+                    // Also check condition status
+                    const conditionText = (item.condition_status || item.condition || '').toLowerCase();
+                    
+                    // Special handling for "available" search - only show items that are actually available
+                    if (searchTerm === 'available') {
+                        return statusText === 'available';
+                    }
+                    
+                    return itemName.includes(searchTerm) || 
+                           statusText.includes(searchTerm) ||
+                           conditionText.includes(searchTerm);
+                });
+                
+                displayCostumes(filteredCostumes);
+                displayEquipment(filteredEquipment);
+            }, 300);
+        }
+
         function displayCostumes(costumes) {
             const tableBody = document.getElementById('costumesTableBody');
             if (!costumes || costumes.length === 0) {
-                tableBody.innerHTML = '<div class="empty-state"><p>No costumes found.</p><small>Click "Add Item" to get started.</small></div>';
+                const searchTerm = document.getElementById('inventorySearchInput').value.trim();
+                const message = searchTerm ? 'No costumes match your search.' : 'No costumes found.';
+                const subMessage = searchTerm ? 'Try different search terms.' : 'Click "Add Item" to get started.';
+                tableBody.innerHTML = `<div class="empty-state"><p>${message}</p><small>${subMessage}</small></div>`;
                 return;
             }
             
             let html = '';
             costumes.forEach(costume => {
-                const displayQty = costume.available_quantity || 0; // Show available quantity in table
-                const totalQty = costume.total_quantity || costume.quantity || 0; // Keep total for status logic
-                // Only set to unavailable if available qty is 0
-                const autoStatus = displayQty <= 0 ? 'unavailable' : (costume.status || 'available');
+                const displayQty = costume.quantity || costume.total_quantity || costume.available_quantity || 0;
+                const totalQty = costume.total_quantity || costume.quantity || 0;
+                const autoStatus = displayQty <= 0 ? 'unavailable' : 'available';
+                const conditionStatus = costume.condition_status || costume.condition || 'good';
                 
                 html += '<div class="table-row">';
                 html += '<div>' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
                 html += '<div>' + displayQty + '</div>';
-                html += '<div>' + getConditionBadge(costume.condition_status) + '</div>';
+                html += '<div>' + getConditionBadge(conditionStatus) + '</div>';
                 html += '<div>' + getInventoryStatusBadge(autoStatus, displayQty) + '</div>';
                 html += '<div class="item-actions">';
                 html += '<button class="icon-btn icon-btn-info" onclick="viewBorrowerInfo(' + costume.id + ', \'' + (costume.item_name || costume.name || 'this item') + '\')" title="View Info"><i class="fas fa-info-circle"></i></button>';
@@ -948,21 +1130,24 @@ $pdo = getDBConnection();
         function displayEquipment(equipment) {
             const tableBody = document.getElementById('equipmentTableBody');
             if (!equipment || equipment.length === 0) {
-                tableBody.innerHTML = '<div class="empty-state"><p>No equipment found.</p><small>Click "Add Item" to get started.</small></div>';
+                const searchTerm = document.getElementById('inventorySearchInput').value.trim();
+                const message = searchTerm ? 'No equipment matches your search.' : 'No equipment found.';
+                const subMessage = searchTerm ? 'Try different search terms.' : 'Click "Add Item" to get started.';
+                tableBody.innerHTML = `<div class="empty-state"><p>${message}</p><small>${subMessage}</small></div>`;
                 return;
             }
             
             let html = '';
             equipment.forEach(item => {
-                const displayQty = item.available_quantity || 0; // Show available quantity in table
-                const totalQty = item.total_quantity || item.quantity || 0; // Keep total for status logic
-                // Only set to unavailable if available qty is 0
-                const autoStatus = displayQty <= 0 ? 'unavailable' : (item.status || 'available');
+                const displayQty = item.quantity || item.total_quantity || item.available_quantity || 0;
+                const totalQty = item.total_quantity || item.quantity || 0;
+                const autoStatus = displayQty <= 0 ? 'unavailable' : 'available';
+                const conditionStatus = item.condition_status || item.condition || 'good';
                 
                 html += '<div class="table-row">';
                 html += '<div>' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
                 html += '<div>' + displayQty + '</div>';
-                html += '<div>' + getConditionBadge(item.condition_status) + '</div>';
+                html += '<div>' + getConditionBadge(conditionStatus) + '</div>';
                 html += '<div>' + getInventoryStatusBadge(autoStatus, displayQty) + '</div>';
                 html += '<div class="item-actions">';
                 html += '<button class="icon-btn icon-btn-info" onclick="viewBorrowerInfo(' + item.id + ', \'' + (item.item_name || item.name || 'this item') + '\')" title="View Info"><i class="fas fa-info-circle"></i></button>';
@@ -1024,6 +1209,8 @@ $pdo = getDBConnection();
             document.querySelector('#addItemModal h2').textContent = 'Add Costume/Equipment';
             document.getElementById('addItemForm').removeAttribute('data-edit-id');
             clearFormErrors();
+            // Prevent background scroll
+            document.body.style.overflow = 'hidden';
         }
 
         function closeAddItemModal() {
@@ -1031,6 +1218,8 @@ $pdo = getDBConnection();
             document.getElementById('addItemForm').reset();
             document.getElementById('addItemForm').removeAttribute('data-edit-id');
             clearFormErrors();
+            // Restore background scroll
+            document.body.style.overflow = '';
         }
 
         // Edit item function
@@ -1172,22 +1361,30 @@ $pdo = getDBConnection();
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'flex';
             loadBorrowRequests();
+            // Prevent background scroll
+            document.body.style.overflow = 'hidden';
         }
 
         function closeBorrowRequestsModal() {
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'none';
+            // Restore background scroll
+            document.body.style.overflow = '';
         }
 
         function openReturns() {
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'flex';
             loadReturnRequests();
+            // Prevent background scroll
+            document.body.style.overflow = 'hidden';
         }
 
         function closeReturnsModal() {
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'none';
+            // Restore background scroll
+            document.body.style.overflow = '';
         }
 
         // Add item form submission
@@ -1561,6 +1758,8 @@ $pdo = getDBConnection();
             
             // Show modal
             modal.style.display = 'flex';
+            // Prevent background scroll
+            document.body.style.overflow = 'hidden';
         }
 
         function loadAvailableInventoryForApproval() {
@@ -1655,6 +1854,8 @@ $pdo = getDBConnection();
 
         function closeApprovalModal() {
             document.getElementById('approvalModal').style.display = 'none';
+            // Restore background scroll
+            document.body.style.overflow = '';
         }
 
         function viewBorrowerInfo(itemId, itemName) {
@@ -1666,6 +1867,8 @@ $pdo = getDBConnection();
             titleElement.textContent = `Borrower Information: ${itemName}`;
             modal.style.display = 'block';
             loadingDiv.style.display = 'block';
+            // Prevent background scroll
+            document.body.style.overflow = 'hidden';
             contentDiv.style.display = 'none';
             
             // Fetch borrower information
@@ -1690,6 +1893,148 @@ $pdo = getDBConnection();
 
         function closeBorrowerInfoModal() {
             document.getElementById('borrowerInfoModal').style.display = 'none';
+            // Restore background scroll
+            document.body.style.overflow = '';
+        }
+
+        function openUnderRepair() {
+            const modal = document.getElementById('underRepairModal');
+            modal.style.display = 'flex';
+            loadUnderRepairItems();
+            // Prevent background scroll
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeUnderRepairModal() {
+            const modal = document.getElementById('underRepairModal');
+            modal.style.display = 'none';
+            // Restore background scroll
+            document.body.style.overflow = '';
+        }
+
+        function loadUnderRepairItems(page = 1) {
+            const loadingDiv = document.getElementById('underRepairLoading');
+            const contentDiv = document.getElementById('underRepairContent');
+            const tableBody = document.getElementById('underRepairTableBody');
+            
+            loadingDiv.style.display = 'block';
+            contentDiv.style.display = 'none';
+            
+            const status = document.getElementById('repairStatusFilter').value;
+            const search = document.getElementById('repairSearchInput').value;
+            
+            const params = new URLSearchParams({ page: page, limit: 10 });
+            if (status) params.append('repair_status', status);
+            if (search) params.append('search', search);
+            
+            // Simulate API call - you'll need to create get_repair_items.php
+            fetch(`get_repair_items.php?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    
+                    if (data.success) {
+                        displayUnderRepairItems(data.items);
+                    } else {
+                        tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #dc3545;">Error: ${data.error || 'Failed to load repair items'}</td></tr>`;
+                    }
+                })
+                .catch(error => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #dc3545;">Error loading repair items</td></tr>`;
+                });
+        }
+        
+        function displayUnderRepairItems(items) {
+            const tableBody = document.getElementById('underRepairTableBody');
+            if (!items || items.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">No repair items found</td></tr>`;
+                return;
+            }
+            
+            let html = '';
+            items.forEach(item => {
+                const statusBadge = getRepairStatusBadge(item.repair_status || item.status);
+                const actions = getRepairItemActions(item.id, item.repair_status || item.status);
+                
+                html += `
+                    <tr>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e0e0e0;">${item.item_name || item.name || 'Unknown Item'}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e0e0e0;">${item.category || 'Unknown'}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e0e0e0;">${item.quantity || 0}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e0e0e0;">${statusBadge}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e0e0e0;">${item.date_reported || 'Unknown'}</td>
+                        <td style="padding: 0.75rem; border-bottom: 1px solid #e0e0e0;">${actions}</td>
+                    </tr>
+                `;
+            });
+            tableBody.innerHTML = html;
+        }
+        
+        function getRepairStatusBadge(status) {
+            const badges = {
+                'damaged': '<span style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">Damaged</span>',
+                'under_repair': '<span style="background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">Under Repair</span>',
+                'repaired': '<span style="background: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">Repaired</span>'
+            };
+            return badges[status] || `<span style="color: #666;">${status || 'Unknown'}</span>`;
+        }
+        
+        function getRepairItemActions(itemId, status) {
+            if (status === 'damaged') {
+                return `<button class="icon-btn icon-btn-edit" onclick="markUnderRepair(${itemId})" title="Mark Under Repair" style="background: #f59e0b;"><i class="fas fa-tools"></i></button>`;
+            } else if (status === 'under_repair') {
+                return `<button class="icon-btn icon-btn-edit" onclick="markRepaired(${itemId})" title="Mark Repaired" style="background: #10b981;"><i class="fas fa-check"></i></button>`;
+            } else {
+                return `<button class="icon-btn icon-btn-info" onclick="viewRepairDetails(${itemId})" title="View Details"><i class="fas fa-info-circle"></i></button>`;
+            }
+        }
+        
+        function markUnderRepair(itemId) {
+            if (confirm('Mark this item as under repair?')) {
+                // You'll need to implement the backend for this
+                updateRepairStatus(itemId, 'under_repair');
+            }
+        }
+        
+        function markRepaired(itemId) {
+            if (confirm('Mark this item as repaired and return to inventory?')) {
+                updateRepairStatus(itemId, 'repaired');
+            }
+        }
+        
+        function updateRepairStatus(itemId, status) {
+            fetch('update_repair_status.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    item_id: itemId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Status updated successfully!');
+                    loadUnderRepairItems();
+                    loadInventoryItems(); // Refresh main inventory
+                } else {
+                    alert('Error updating status: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating status');
+            });
+        }
+        
+        function viewRepairDetails(itemId) {
+            alert('View repair details for item: ' + itemId);
+            // Implement repair details view
         }
 
         function displayBorrowerInfo(borrowers, item) {
@@ -1904,7 +2249,7 @@ $pdo = getDBConnection();
 
     <!-- Borrow Requests Modal -->
     <div id="borrowRequestsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 1000px; width: 95%;">
+        <div class="modal-content scrollable" style="max-width: 1000px; width: 95%;">
             <div class="modal-header">
                 <h2>Student Borrow Requests</h2>
                 <span class="close" onclick="closeBorrowRequestsModal()">&times;</span>
@@ -1948,7 +2293,7 @@ $pdo = getDBConnection();
 
     <!-- Returns Modal -->
     <div id="returnsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 1200px; width: 95%;">
+        <div class="modal-content scrollable" style="max-width: 1200px; width: 95%;">
             <div class="modal-header">
                 <h2>Return Requests</h2>
                 <span class="close" onclick="closeReturnsModal()">&times;</span>
@@ -1992,7 +2337,7 @@ $pdo = getDBConnection();
 
     <!-- Approval Modal -->
     <div id="approvalModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 900px; width: 95%;">
+        <div class="modal-content scrollable" style="max-width: 900px; width: 95%;">
             <div class="modal-header">
                 <h2>Approve Borrow Request</h2>
                 <span class="close" onclick="closeApprovalModal()">&times;</span>
@@ -2053,7 +2398,7 @@ $pdo = getDBConnection();
 
     <!-- Borrower Info Modal -->
     <div id="borrowerInfoModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 800px; width: 95%; margin: 5% auto;">
+        <div class="modal-content scrollable" style="max-width: 800px; width: 95%; margin: 5% auto;">
             <div class="modal-header">
                 <h2 id="borrowerInfoTitle">Item Borrower Information</h2>
                 <span class="close" onclick="closeBorrowerInfoModal()">&times;</span>
@@ -2065,6 +2410,50 @@ $pdo = getDBConnection();
                 <div id="borrowerInfoContent" style="display: none;">
                     <!-- Content will be populated by JavaScript -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Under Repair Modal -->
+    <div id="underRepairModal" class="modal" style="display: none;">
+        <div class="modal-content scrollable" style="max-width: 1000px; width: 95%;">
+            <div class="modal-header">
+                <h2>Under Repair Items</h2>
+                <span class="close" onclick="closeUnderRepairModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem;">Filter by Status:</label>
+                        <select id="repairStatusFilter" onchange="loadUnderRepairItems()" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px;">
+                            <option value="damaged">Damaged</option>
+                            <option value="under_repair">Under Repair</option>
+                            <option value="">All Repair Items</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem;">Search:</label>
+                        <input type="text" id="repairSearchInput" placeholder="Search items..." style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; width: 250px;">
+                    </div>
+                    <button onclick="loadUnderRepairItems()" style="padding: 0.75rem 1rem; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; align-self: end;">Refresh</button>
+                </div>
+                <div id="underRepairLoading" style="text-align: center; padding: 2rem;"><p>Loading...</p></div>
+                <div id="underRepairContent" style="display: none;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa; text-align: left;">
+                                <th style="padding: 1rem; border-bottom: 2px solid #ddd;">Item Name</th>
+                                <th style="padding: 1rem; border-bottom: 2px solid #ddd;">Category</th>
+                                <th style="padding: 1rem; border-bottom: 2px solid #ddd;">Quantity</th>
+                                <th style="padding: 1rem; border-bottom: 2px solid #ddd;">Status</th>
+                                <th style="padding: 1rem; border-bottom: 2px solid #ddd;">Date Reported</th>
+                                <th style="padding: 1rem; border-bottom: 2px solid #ddd;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="underRepairTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="underRepairPagination"></div>
             </div>
         </div>
     </div>
