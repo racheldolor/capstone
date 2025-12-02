@@ -35,12 +35,15 @@ $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstat
 $isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
 $isCentralStaff = ($user_role === 'central' && !$isCentralHead);
 
+// Pablo Borbon Head users have view-only access
+$isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
+
 // Campus filtering logic:
 // - Admin: see all campuses
 // - Pablo Borbon staff/head: see all campuses
 // - Other campus staff/head: see only their campus
 $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
-$canManage = !$isCentralHead; // Central Head is view-only
+$canManage = !$isCentralHead && !$isPabloBorbonHead; // Central Head and Pablo Borbon Head are view-only
 
 // Build campus filter for SQL
 if ($canViewAll) {
@@ -118,8 +121,16 @@ try {
     $stmt->execute($campusParams);
     $scheduled_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count worn out costumes
-    $worn_costumes = 0; // Will be implemented when costume inventory system is added
+    // Count damaged items (items in repair_items table with status 'damaged' or 'under_repair')
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM repair_items WHERE repair_status IN ('damaged', 'under_repair')");
+    $stmt->execute();
+    $worn_costumes = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    
+    // Count for cultural groups card (matches the API and campus distribution chart - use same campus filter)
+    // Use the same campus filter logic as the student queries for consistency
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status = 'active' AND $studentCampusFilter");
+    $stmt->execute($studentCampusParams);
+    $cultural_groups_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
 } catch (Exception $e) {
     // If any query fails, set safe default values
@@ -127,6 +138,7 @@ try {
     $cultural_groups = $cultural_groups ?? 0;
     $scheduled_events = $scheduled_events ?? 0;
     $worn_costumes = 0;
+    $cultural_groups_count = 0;
     
     // Log the error for debugging
     error_log("Dashboard statistics error: " . $e->getMessage());
@@ -222,6 +234,13 @@ try {
             width: 100%;
             max-width: 100vw;
             overflow-x: hidden;
+        }
+
+        /* Prevent background scrolling when modals are open */
+        body.modal-open {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
         }
 
         /* Header */
@@ -2054,6 +2073,16 @@ try {
             font-weight: 600;
         }
 
+        /* Profile photo styling in application details */
+        .detail-section img {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .detail-section img:hover {
+            transform: scale(1.05);
+        }
+
         .empty-state {
             text-align: center;
             padding: 2rem;
@@ -2087,7 +2116,7 @@ try {
                 ?>
                 <span><?= htmlspecialchars($first_name) ?></span>
                 <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
-                <?php if ($isCentralHead): ?>
+                <?php if ($isCentralHead || $isPabloBorbonHead): ?>
                     <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
                 <?php endif; ?>
                 <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
@@ -2127,11 +2156,13 @@ try {
                             Inventory
                         </a>
                     </li>
+                    <?php if (!$isPabloBorbonHead): ?>
                     <li class="nav-item">
                         <a href="archives.php" class="nav-link">
                             Archives
                         </a>
                     </li>
+                    <?php endif; ?>
                 </ul>
             </nav>
         </aside>
@@ -2214,10 +2245,12 @@ try {
             <section class="content-section" id="student-profiles">
                 <div class="page-header">
                     <h1 class="page-title">Student Artist Profiles</h1>
+                    <?php if (!$isPabloBorbonHead): ?>
                     <button class="add-btn" onclick="openApplicationsModal()">
                         <span>+</span>
                         View Applications
                     </button>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Search and Filter Section -->
@@ -2266,7 +2299,7 @@ try {
                         <div class="record-count-card">
                             <h3>Cultural Groups</h3>
                             <div class="record-count-section" id="culturalGroupCounts">
-                                <div class="record-number"><?= $total_students ?></div>
+                                <div class="record-number"><?= $cultural_groups_count ?></div>
                                 <div class="record-label">student artists</div>
                                 <div class="record-sublabel">Loading group distribution...</div>
                             </div>
@@ -2756,6 +2789,7 @@ try {
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
                     <h1 class="page-title">Inventory</h1>
+                    <?php if (!$isPabloBorbonHead): ?>
                     <div style="display: flex; gap: 1rem;">
                         <button class="add-btn" onclick="openAddItemModal()">
                             <span>+</span>
@@ -2768,6 +2802,7 @@ try {
                             Returns
                         </button>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Inventory Grid -->
@@ -2888,12 +2923,12 @@ try {
 
     <!-- All Events Modal -->
     <div id="allEventsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 1200px; width: 95%;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <h2>All Events</h2>
                 <span class="close" onclick="closeAllEventsModal()">&times;</span>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="flex: 1; overflow-y: auto; max-height: calc(90vh - 120px);">
                 <div id="eventsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
                     <div>
                         <label for="statusFilter">Status:</label>
@@ -3455,6 +3490,7 @@ try {
         function viewStudentProfile(studentId) {
             const modal = document.getElementById('studentProfileModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             loadStudentProfile(studentId);
         }
 
@@ -3462,6 +3498,7 @@ try {
         function closeStudentModal() {
             const modal = document.getElementById('studentProfileModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function loadStudentProfile(studentId) {
@@ -3502,16 +3539,33 @@ try {
             
             const html = `
                 <div style="margin-bottom: 2rem;">
-                    <div>
-                        <h3 style="color: #dc2626; margin-bottom: 1rem; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem;">Personal Information</h3>
-                        <div style="space-y: 0.75rem;">
-                            <p><strong>SR Code:</strong> ${student.sr_code}</p>
-                            <p><strong>Full Name:</strong> ${student.first_name} ${student.middle_name || ''} ${student.last_name}</p>
-                            <p><strong>Email:</strong> ${student.email}</p>
-                            <p><strong>Campus:</strong> ${student.campus}</p>
-                            <p><strong>Program:</strong> ${student.program}</p>
-                            <p><strong>Year Level:</strong> ${student.year_level}</p>
-                            <p><strong>Date Registered:</strong> ${new Date(student.created_at).toLocaleDateString()}</p>
+                    <div style="display: flex; gap: 2rem; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <h3 style="color: #dc2626; margin-bottom: 1rem; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem;">Personal Information</h3>
+                            <div style="space-y: 0.75rem;">
+                                <p><strong>SR Code:</strong> ${student.sr_code}</p>
+                                <p><strong>Full Name:</strong> ${student.first_name} ${student.middle_name || ''} ${student.last_name}</p>
+                                <p><strong>Email:</strong> ${student.email}</p>
+                                <p><strong>Campus:</strong> ${student.campus}</p>
+                                <p><strong>Program:</strong> ${student.program}</p>
+                                <p><strong>Year Level:</strong> ${student.year_level}</p>
+                                <p><strong>Date Registered:</strong> ${new Date(student.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <div style="flex-shrink: 0;">
+                            ${student.profile_photo ? `
+                                <img src="get_profile_photo.php?file=${student.profile_photo}" 
+                                     alt="Profile Photo" 
+                                     style="width: 150px; height: 150px; border-radius: 8px; object-fit: cover; border: 3px solid #dc2626; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 150px; height: 150px; background: #f8f9fa; border: 2px dashed #dc2626; border-radius: 8px; align-items: center; justify-content: center; color: #666; text-align: center; font-size: 0.85rem;">
+                                    <span>No Photo<br>Available</span>
+                                </div>
+                            ` : `
+                                <div style="width: 150px; height: 150px; background: #f8f9fa; border: 2px dashed #dc2626; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #666; text-align: center; font-size: 0.85rem;">
+                                    <span>No Photo<br>Available</span>
+                                </div>
+                            `}
                         </div>
                     </div>
                 </div>
@@ -3543,14 +3597,25 @@ try {
                             <option value="Melophiles" ${currentCulturalGroup === 'Melophiles' ? 'selected' : ''}>Melophiles</option>
                             <option value="Sindayog" ${currentCulturalGroup === 'Sindayog' ? 'selected' : ''}>Sindayog</option>
                         </select>
-                        <button onclick="updateCulturalGroup(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
-                            Update Assignment
-                        </button>
+                        ${student.status === 'suspended' ? 
+                            `<button disabled style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: not-allowed; opacity: 0.6;" title="Cannot update assignment - student account is suspended">
+                                Update Assignment (Suspended)
+                            </button>` :
+                            `<button onclick="updateCulturalGroup(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                                Update Assignment
+                            </button>`
+                        }
                     </div>
                 </div>
             `;
             
             contentDiv.innerHTML = html;
+        }
+
+        function getCurrentCampusFilter() {
+            // Get current campus filter from URL parameters or default
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('campus_filter') || 'Alangilan';
         }
 
         function updateCulturalGroup(studentId) {
@@ -3571,8 +3636,15 @@ try {
             .then(data => {
                 if (data.success) {
                     alert('Cultural group assignment updated successfully!');
-                    // Reload the page to reflect changes in the table
-                    window.location.reload();
+                    // Force refresh cultural groups data with cache-busting
+                    setTimeout(() => {
+                        loadCulturalGroupDistribution('', getCurrentCampusFilter());
+                    }, 500);
+                    closeStudentModal();
+                    // Refresh the student list to show updated assignments
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 } else {
                     alert('Error updating cultural group: ' + data.message);
                 }
@@ -3582,10 +3654,20 @@ try {
             });
         }
 
+        // Modal scroll prevention functions
+        function preventBackgroundScroll() {
+            document.body.classList.add('modal-open');
+        }
+
+        function allowBackgroundScroll() {
+            document.body.classList.remove('modal-open');
+        }
+
         // Applications Modal Functions
         function openApplicationsModal() {
             const modal = document.getElementById('applicationsModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             loadApplications();
         }
 
@@ -3594,6 +3676,7 @@ try {
             const searchInput = document.getElementById('applicationSearchInput');
             
             modal.style.display = 'none';
+            allowBackgroundScroll();
             // Clear search input when closing modal
             if (searchInput) {
                 searchInput.value = '';
@@ -3670,6 +3753,12 @@ try {
                             </div>
                         </div>
                         <div class="application-details" id="details-${index}" style="display: none;">
+                            ${app.profile_photo ? `
+                                <div class="detail-section" style="text-align: center; margin-bottom: 1rem;">
+                                    <h4>Profile Photo</h4>
+                                    <img src="../${app.profile_photo}" alt="Profile Photo" style="max-width: 150px; max-height: 150px; border: 2px solid #ddd; border-radius: 8px; object-fit: cover;">
+                                </div>
+                            ` : ''}
                             <div class="details-grid">
                                 <div class="detail-section">
                                     <h4>Personal Information</h4>
@@ -4061,6 +4150,8 @@ try {
             const params = new URLSearchParams();
             if (searchTerm) params.append('search', searchTerm);
             if (filterCampus) params.append('campus', filterCampus);
+            // Add cache-busting parameter
+            params.append('t', new Date().getTime());
             if (params.toString()) url += '?' + params.toString();
             fetch(url)
                 .then(response => response.json())
@@ -4358,11 +4449,13 @@ try {
             const modal = document.getElementById('allEventsModal');
             modal.style.display = 'flex';
             loadAllEvents();
+            preventBackgroundScroll();
         }
 
         function closeAllEventsModal() {
             const modal = document.getElementById('allEventsModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         // Costume Inventory Functions
@@ -4370,12 +4463,14 @@ try {
             // Show the borrow requests modal
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             loadBorrowRequests();
         }
 
         function closeBorrowRequestsModal() {
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function loadBorrowRequests(page = 1) {
@@ -4609,12 +4704,14 @@ try {
             // Show the returns modal
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             loadReturnRequests();
         }
 
         function closeReturnsModal() {
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function loadReturnRequests(page = 1) {
@@ -4834,6 +4931,7 @@ try {
         function openAddItemModal() {
             const modal = document.getElementById('addItemModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             // Reset form
             document.getElementById('addItemForm').reset();
         }
@@ -4841,6 +4939,7 @@ try {
         function closeAddItemModal() {
             const modal = document.getElementById('addItemModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         // Handle Add Item Form Submission
@@ -6073,12 +6172,14 @@ try {
             
             populateEventSelectionModal();
             modal.style.display = 'flex';
+            preventBackgroundScroll();
         }
 
         function closeEventSelectionModal() {
             const modal = document.getElementById('eventSelectionModal');
             if (modal) {
                 modal.style.display = 'none';
+                allowBackgroundScroll();
                 // Clear search input when closing modal
                 const searchInput = document.getElementById('eventSearchInput');
                 if (searchInput) {
@@ -7650,11 +7751,13 @@ try {
             
             modal.style.display = 'flex';
             populateEventEvaluationSelectionModal();
+            preventBackgroundScroll();
         }
 
         function closeEventEvaluationSelectionModal() {
             const modal = document.getElementById('eventEvaluationSelectionModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function filterEvaluationEvents() {
@@ -7743,6 +7846,55 @@ try {
                     initializeEvaluationAnalytics();
                 }, 100);
             }
+
+            // Add click-outside-to-close functionality for all modals
+            const modals = [
+                'applicationsModal',
+                'studentProfileModal', 
+                'allEventsModal',
+                'borrowRequestsModal',
+                'returnsModal',
+                'addItemModal',
+                'itemSelectionModal',
+                'eventParticipantsModal'
+            ];
+
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            // Close the modal based on its type
+                            switch(modalId) {
+                                case 'applicationsModal':
+                                    closeApplicationsModal();
+                                    break;
+                                case 'studentProfileModal':
+                                    closeStudentModal();
+                                    break;
+                                case 'allEventsModal':
+                                    closeAllEventsModal();
+                                    break;
+                                case 'borrowRequestsModal':
+                                    closeBorrowRequestsModal();
+                                    break;
+                                case 'returnsModal':
+                                    closeReturnsModal();
+                                    break;
+                                case 'addItemModal':
+                                    closeAddItemModal();
+                                    break;
+                                case 'itemSelectionModal':
+                                    closeItemSelectionModal();
+                                    break;
+                                case 'eventParticipantsModal':
+                                    closeParticipantsModal();
+                                    break;
+                            }
+                        }
+                    });
+                }
+            });
         });
     </script>
 </body>

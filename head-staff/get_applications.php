@@ -83,6 +83,8 @@ try {
             program,
             first_semester_units,
             second_semester_units,
+            profile_photo,
+            signature_image,
             certification,
             signature_date,
             submitted_at,

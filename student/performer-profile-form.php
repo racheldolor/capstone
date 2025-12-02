@@ -2083,7 +2083,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             validateSRCode(field) {
                 const value = field.value.trim();
                 // SR Code format: typically 2 digits, dash, 4 digits (e.g., 22-1234)
-                const srCodeRegex = /^\d{2}-\d{4}$/;
+                const srCodeRegex = /^\d{2}-\d{5}$/;
                 
                 if (value && !srCodeRegex.test(value)) {
                     // Auto-format if it's just numbers
@@ -2092,7 +2092,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         this.clearFieldError(field);
                         return true;
                     } else {
-                        this.showFieldError(field, 'SR Code format should be XX-XXXX (e.g., 22-1234).');
+                        this.showFieldError(field, 'SR Code format should be XX-XXXXX (e.g., 22-12345).');
                         return false;
                     }
                 }

@@ -32,8 +32,12 @@ $display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_cam
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
 $isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
 $isCentralStaff = ($user_role === 'central' && !$isCentralHead);
+
+// Pablo Borbon Head users have view-only access
+$isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
+
 $canViewAll = in_array($user_role, ['central', 'admin']) || $isCentralHead || $isCentralStaff;
-$canManage = !$isCentralHead; // Central Head is view-only
+$canManage = !$isCentralHead && !$isPabloBorbonHead; // Central Head and Pablo Borbon Head are view-only
 
 $pdo = getDBConnection();
 ?>
@@ -58,6 +62,13 @@ $pdo = getDBConnection();
             width: 100%;
             max-width: 100vw;
             overflow-x: hidden;
+        }
+
+        /* Prevent background scrolling when modals are open */
+        body.modal-open {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
         }
 
         /* Header */
@@ -839,11 +850,13 @@ $pdo = getDBConnection();
                             Inventory
                         </a>
                     </li>
+                    <?php if (!$isPabloBorbonHead): ?>
                     <li class="nav-item">
                         <a href="archives.php" class="nav-link">
                             Archives
                         </a>
                     </li>
+                    <?php endif; ?>
                 </ul>
             </nav>
         </aside>
@@ -852,6 +865,7 @@ $pdo = getDBConnection();
         <main class="main-content">
             <div class="page-header" id="pageHeader">
                 <h1 class="page-title">Inventory</h1>
+                <?php if (!$isPabloBorbonHead): ?>
                 <div style="display: flex; gap: 1rem;">
                     <button class="add-btn" onclick="openAddItemModal()">
                         <i class="fas fa-plus"></i>
@@ -870,9 +884,11 @@ $pdo = getDBConnection();
                         Under Repair
                     </button>
                 </div>
+                <?php endif; ?>
             </div>
 
             <!-- Floating Action Buttons (shown when header is scrolled out of view) -->
+            <?php if (!$isPabloBorbonHead): ?>
             <div class="floating-actions">
                 <button class="fab fab-add" onclick="openAddItemModal()" title="Add Item">
                     <span class="fab-tooltip">Add Item</span>
@@ -891,6 +907,7 @@ $pdo = getDBConnection();
                     <i class="fas fa-tools"></i>
                 </button>
             </div>
+            <?php endif; ?>
 
             <!-- Search Section -->
             <div class="search-container">
@@ -1009,6 +1026,15 @@ $pdo = getDBConnection();
         let allCostumes = [];
         let allEquipment = [];
         let searchTimeout;
+
+        // Modal scroll prevention functions
+        function preventBackgroundScroll() {
+            document.body.classList.add('modal-open');
+        }
+
+        function allowBackgroundScroll() {
+            document.body.classList.remove('modal-open');
+        }
 
         // Load inventory items
         function loadInventoryItems() {
@@ -1210,7 +1236,7 @@ $pdo = getDBConnection();
             document.getElementById('addItemForm').removeAttribute('data-edit-id');
             clearFormErrors();
             // Prevent background scroll
-            document.body.style.overflow = 'hidden';
+            preventBackgroundScroll();
         }
 
         function closeAddItemModal() {
@@ -1219,7 +1245,7 @@ $pdo = getDBConnection();
             document.getElementById('addItemForm').removeAttribute('data-edit-id');
             clearFormErrors();
             // Restore background scroll
-            document.body.style.overflow = '';
+            allowBackgroundScroll();
         }
 
         // Edit item function
@@ -1246,6 +1272,8 @@ $pdo = getDBConnection();
                             
                             // Open modal
                             document.getElementById('addItemModal').classList.add('show');
+                            // Prevent background scroll
+                            preventBackgroundScroll();
                         }
                     }
                 })
@@ -1362,14 +1390,14 @@ $pdo = getDBConnection();
             modal.style.display = 'flex';
             loadBorrowRequests();
             // Prevent background scroll
-            document.body.style.overflow = 'hidden';
+            preventBackgroundScroll();
         }
 
         function closeBorrowRequestsModal() {
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'none';
             // Restore background scroll
-            document.body.style.overflow = '';
+            allowBackgroundScroll();
         }
 
         function openReturns() {
@@ -1377,14 +1405,14 @@ $pdo = getDBConnection();
             modal.style.display = 'flex';
             loadReturnRequests();
             // Prevent background scroll
-            document.body.style.overflow = 'hidden';
+            preventBackgroundScroll();
         }
 
         function closeReturnsModal() {
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'none';
             // Restore background scroll
-            document.body.style.overflow = '';
+            allowBackgroundScroll();
         }
 
         // Add item form submission
@@ -1759,7 +1787,7 @@ $pdo = getDBConnection();
             // Show modal
             modal.style.display = 'flex';
             // Prevent background scroll
-            document.body.style.overflow = 'hidden';
+            preventBackgroundScroll();
         }
 
         function loadAvailableInventoryForApproval() {
@@ -1855,7 +1883,7 @@ $pdo = getDBConnection();
         function closeApprovalModal() {
             document.getElementById('approvalModal').style.display = 'none';
             // Restore background scroll
-            document.body.style.overflow = '';
+            allowBackgroundScroll();
         }
 
         function viewBorrowerInfo(itemId, itemName) {
@@ -1868,7 +1896,7 @@ $pdo = getDBConnection();
             modal.style.display = 'block';
             loadingDiv.style.display = 'block';
             // Prevent background scroll
-            document.body.style.overflow = 'hidden';
+            preventBackgroundScroll();
             contentDiv.style.display = 'none';
             
             // Fetch borrower information
@@ -1894,7 +1922,7 @@ $pdo = getDBConnection();
         function closeBorrowerInfoModal() {
             document.getElementById('borrowerInfoModal').style.display = 'none';
             // Restore background scroll
-            document.body.style.overflow = '';
+            allowBackgroundScroll();
         }
 
         function openUnderRepair() {
@@ -1902,14 +1930,14 @@ $pdo = getDBConnection();
             modal.style.display = 'flex';
             loadUnderRepairItems();
             // Prevent background scroll
-            document.body.style.overflow = 'hidden';
+            preventBackgroundScroll();
         }
 
         function closeUnderRepairModal() {
             const modal = document.getElementById('underRepairModal');
             modal.style.display = 'none';
             // Restore background scroll
-            document.body.style.overflow = '';
+            allowBackgroundScroll();
         }
 
         function loadUnderRepairItems(page = 1) {
@@ -2023,7 +2051,12 @@ $pdo = getDBConnection();
                     loadUnderRepairItems();
                     loadInventoryItems(); // Refresh main inventory
                 } else {
-                    alert('Error updating status: ' + (data.message || 'Unknown error'));
+                    console.error('Full error details:', data);
+                    let errorMsg = 'Error updating status: ' + (data.error || data.message || 'Unknown error');
+                    if (data.details) {
+                        errorMsg += '\nDetails: ' + JSON.stringify(data.details);
+                    }
+                    alert(errorMsg);
                 }
             })
             .catch(error => {
@@ -2219,6 +2252,47 @@ $pdo = getDBConnection();
             
             // Initialize floating action buttons visibility
             initFloatingButtons();
+
+            // Click outside modal to close functionality
+            const modals = [
+                'addItemModal',
+                'borrowRequestsModal', 
+                'returnsModal',
+                'approvalModal',
+                'borrowerInfoModal',
+                'underRepairModal'
+            ];
+
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            // Call appropriate close function
+                            switch(modalId) {
+                                case 'addItemModal':
+                                    closeAddItemModal();
+                                    break;
+                                case 'borrowRequestsModal':
+                                    closeBorrowRequestsModal();
+                                    break;
+                                case 'returnsModal':
+                                    closeReturnsModal();
+                                    break;
+                                case 'approvalModal':
+                                    closeApprovalModal();
+                                    break;
+                                case 'borrowerInfoModal':
+                                    closeBorrowerInfoModal();
+                                    break;
+                                case 'underRepairModal':
+                                    closeUnderRepairModal();
+                                    break;
+                            }
+                        }
+                    });
+                }
+            });
         });
 
         // Show/hide floating action buttons based on scroll position

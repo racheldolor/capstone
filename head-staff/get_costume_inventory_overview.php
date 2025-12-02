@@ -88,6 +88,15 @@ try {
         $statsStmt->execute($campusParams);
         $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         
+        // Add damaged items from repair_items table (items that are damaged or under repair)
+        $repairItemsCountSql = "SELECT COUNT(*) as repair_items_count FROM repair_items WHERE repair_status IN ('damaged', 'under_repair')";
+        $repairStmt = $pdo->prepare($repairItemsCountSql);
+        $repairStmt->execute();
+        $repairItemsCount = $repairStmt->fetch(PDO::FETCH_ASSOC)['repair_items_count'];
+        
+        // Add repair items to damaged items count
+        $stats['damaged_items'] = (int)$stats['damaged_items'] + (int)$repairItemsCount;
+        
         // Calculate borrowed count from active borrowing requests
         $borrowedCountSql = "
             SELECT COUNT(DISTINCT borrowed.item_id) as borrowed_count

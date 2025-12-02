@@ -47,14 +47,26 @@ try {
     $whereConditions = ["status = 'active'"];
     $params = [];
     
-    // Apply campus filter
+    // Apply campus filter (same logic as dashboard for consistency)
     // Use filter campus from dropdown if provided, otherwise apply user's campus for non-admin users
     if ($filterCampus) {
-        $whereConditions[] = "campus = ?";
-        $params[] = $filterCampus;
+        if ($filterCampus === 'JPLPC Malvar') {
+            $whereConditions[] = "(campus = 'JPLPC Malvar' OR campus = 'Malvar')";
+        } elseif ($filterCampus === 'ARASOF Nasugbu') {
+            $whereConditions[] = "(campus = 'ARASOF Nasugbu' OR campus = 'Nasugbu')";
+        } else {
+            $whereConditions[] = "campus = ?";
+            $params[] = $filterCampus;
+        }
     } elseif (!$canViewAll && $user_campus) {
-        $whereConditions[] = "campus = ?";
-        $params[] = $user_campus;
+        if ($user_campus === 'JPLPC Malvar') {
+            $whereConditions[] = "(campus = 'JPLPC Malvar' OR campus = 'Malvar')";
+        } elseif ($user_campus === 'ARASOF Nasugbu') {
+            $whereConditions[] = "(campus = 'ARASOF Nasugbu' OR campus = 'Nasugbu')";
+        } else {
+            $whereConditions[] = "campus = ?";
+            $params[] = $user_campus;
+        }
     }
     
     if (!empty($search)) {
@@ -65,6 +77,8 @@ try {
     }
     
     $whereClause = implode(' AND ', $whereConditions);
+    
+
     
     // Get actual student counts for each group with search filter
     $sql = "

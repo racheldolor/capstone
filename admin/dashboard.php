@@ -671,6 +671,11 @@ ob_end_clean();
             color: #333;
         }
 
+        /* Prevent background scrolling when modals are open */
+        body.modal-open {
+            overflow: hidden;
+        }
+
         /* Header */
         .header {
             background: white;
@@ -909,27 +914,76 @@ ob_end_clean();
         .table-container {
             background: white;
             border-radius: 8px;
-            overflow: hidden;
+            overflow-x: auto;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 1rem;
         }
 
         .users-table {
             width: 100%;
+            min-width: 900px;
             border-collapse: collapse;
         }
 
         .users-table th {
             background: #f8f9fa;
-            padding: 1rem;
+            padding: 0.875rem 1rem;
             text-align: left;
             font-weight: 600;
             color: #555;
             border-bottom: 1px solid #e0e0e0;
+            white-space: nowrap;
+        }
+
+        .users-table th:nth-child(1) {
+            width: 6%;
+            min-width: 60px;
+        }
+
+        .users-table th:nth-child(2) {
+            width: 18%;
+            min-width: 150px;
+        }
+
+        .users-table th:nth-child(3) {
+            width: 24%;
+            min-width: 200px;
+        }
+
+        .users-table th:nth-child(4) {
+            width: 12%;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .users-table th:nth-child(5) {
+            width: 12%;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .users-table th:nth-child(6) {
+            width: 28%;
+            min-width: 240px;
+            text-align: center;
+        }
+
+        .users-table td:nth-child(4),
+        .users-table td:nth-child(5),
+        .users-table td:nth-child(6) {
+            text-align: center;
         }
 
         .users-table td {
-            padding: 1rem;
+            padding: 0.875rem 1rem;
             border-bottom: 1px solid #e0e0e0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            vertical-align: middle;
+        }
+
+        .users-table tbody td:nth-child(1) {
+            font-weight: 500;
         }
 
         .users-table tr:hover {
@@ -1753,7 +1807,6 @@ ob_end_clean();
                         <select id="role" name="role" required onchange="toggleSrCodeField()">
                             <option value="">Select Role</option>
                             <option value="head">Head</option>
-                            <option value="central">Central</option>
                             <option value="student">Student</option>
                             <option value="staff">Staff</option>
                         </select>
@@ -1824,7 +1877,6 @@ ob_end_clean();
                         <select id="editRole" name="role" required>
                             <option value="">Select Role</option>
                             <option value="head">Head</option>
-                            <option value="central">Central</option>
                             <option value="staff">Staff</option>
                         </select>
                     </div>
@@ -1862,6 +1914,15 @@ ob_end_clean();
     </div>
 
     <script>
+        // Modal scroll prevention functions
+        function preventBackgroundScroll() {
+            document.body.classList.add('modal-open');
+        }
+
+        function allowBackgroundScroll() {
+            document.body.classList.remove('modal-open');
+        }
+
         // Load current system settings
         function loadSystemSettings() {
             const formData = new FormData();
@@ -1915,20 +1976,24 @@ ob_end_clean();
         // Modal Functions
         function openModal() {
             document.getElementById('addUserModal').style.display = 'block';
+            preventBackgroundScroll();
         }
 
         function closeModal() {
             document.getElementById('addUserModal').style.display = 'none';
             document.getElementById('addUserForm').reset();
+            allowBackgroundScroll();
         }
 
         function openEditModal() {
             document.getElementById('editUserModal').style.display = 'block';
+            preventBackgroundScroll();
         }
 
         function closeEditModal() {
             document.getElementById('editUserModal').style.display = 'none';
             document.getElementById('editUserForm').reset();
+            allowBackgroundScroll();
         }
 
         // Click outside modal to close
@@ -1970,7 +2035,7 @@ ob_end_clean();
                 if (data.success) {
                     alert('User added successfully!');
                     closeModal();
-                    location.reload(); // Refresh to show new user
+                    reloadWithTab(); // Refresh to show new user
                 } else {
                     alert('Error: ' + data.message);
                 }
@@ -2054,7 +2119,7 @@ ob_end_clean();
                 if (data.success) {
                     alert('User updated successfully!');
                     closeEditModal();
-                    location.reload(); // Refresh to show updated data
+                    reloadWithTab(); // Refresh to show updated data
                 } else {
                     alert('Error: ' + data.message);
                 }
@@ -2096,7 +2161,7 @@ ob_end_clean();
                 .then(data => {
                     if (data.success) {
                         alert('User archived successfully!');
-                        location.reload();
+                        reloadWithTab();
                     } else {
                         alert('Error: ' + data.message);
                     }
@@ -2123,7 +2188,7 @@ ob_end_clean();
                 .then(data => {
                     if (data.success) {
                         alert('User permanently deleted!');
-                        location.reload();
+                        reloadWithTab();
                     } else {
                         alert('Error: ' + data.message);
                     }
@@ -2153,7 +2218,7 @@ ob_end_clean();
             .then(data => {
                 if (data.success) {
                     alert(`User ${status} successfully!`);
-                    location.reload();
+                    reloadWithTab();
                 } else {
                     alert('Error: ' + data.message);
                 }
@@ -2206,7 +2271,7 @@ ob_end_clean();
                 if (data.success) {
                     alert('System settings updated successfully!');
                     // Optionally reload to reflect changes
-                    location.reload();
+                    reloadWithTab();
                 } else {
                     alert('Error: ' + data.message);
                 }
@@ -2388,6 +2453,13 @@ ob_end_clean();
         });
 
         // Tab switching functionality
+        // Helper function to reload page while preserving tab
+        function reloadWithTab() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentTab = urlParams.get('tab') || 'staffs';
+            window.location.href = '?tab=' + currentTab;
+        }
+
         function switchTab(event, tabName) {
             // Hide all tab contents
             const tabContents = document.querySelectorAll('.tab-content');
@@ -2406,17 +2478,53 @@ ob_end_clean();
             
             // Add active class to the clicked tab link
             event.target.classList.add('active');
+            
+            // Update URL with tab parameter without reloading
+            const url = new URL(window.location);
+            const tabParam = tabName.replace('-tab', '');
+            url.searchParams.set('tab', tabParam);
+            window.history.pushState({}, '', url);
         }
 
-        // Initialize the first tab as active when page loads
+        // Initialize the correct tab based on URL parameter or default to first tab
         document.addEventListener('DOMContentLoaded', function() {
-            // Ensure the first tab is active by default
-            const firstTabLink = document.querySelector('.tab-link');
-            const firstTabContent = document.querySelector('.tab-content');
+            // Get the tab parameter from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeTab = urlParams.get('tab');
             
-            if (firstTabLink && firstTabContent) {
-                firstTabLink.classList.add('active');
-                firstTabContent.classList.add('active');
+            // Determine which tab to show
+            let tabToShow = 'staffs-tab'; // default
+            let tabLinkIndex = 0; // default to first tab link
+            
+            if (activeTab === 'students') {
+                tabToShow = 'students-tab';
+                tabLinkIndex = 1;
+            } else if (activeTab === 'archive') {
+                tabToShow = 'archive-tab';
+                tabLinkIndex = 2;
+            }
+            
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab links
+            const tabLinks = document.querySelectorAll('.tab-link');
+            tabLinks.forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Show the selected tab
+            const targetTab = document.getElementById(tabToShow);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+            
+            // Activate the corresponding tab link
+            if (tabLinks[tabLinkIndex]) {
+                tabLinks[tabLinkIndex].classList.add('active');
             }
         });
     </script>

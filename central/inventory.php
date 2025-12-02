@@ -44,6 +44,11 @@ $pdo = getDBConnection();
             overflow-x: hidden;
         }
 
+        /* Prevent background scrolling when modals are open */
+        body.modal-open {
+            overflow: hidden;
+        }
+
         /* Header */
         .header {
             background: white;
@@ -665,6 +670,15 @@ $pdo = getDBConnection();
     <script>
         const isCentralHead = <?= $isCentralHead ? 'true' : 'false' ?>;
 
+        // Modal scroll prevention functions
+        function preventBackgroundScroll() {
+            document.body.classList.add('modal-open');
+        }
+
+        function allowBackgroundScroll() {
+            document.body.classList.remove('modal-open');
+        }
+
         // Load inventory items
         function loadInventoryItems() {
             console.log('Loading inventory items...');
@@ -776,22 +790,26 @@ $pdo = getDBConnection();
                 return;
             }
             document.getElementById('addItemModal').classList.add('show');
+            preventBackgroundScroll();
         }
 
         function closeAddItemModal() {
             document.getElementById('addItemModal').classList.remove('show');
             document.getElementById('addItemForm').reset();
+            allowBackgroundScroll();
         }
 
         function openBorrowRequests() {
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'flex';
             loadBorrowRequests();
+            preventBackgroundScroll();
         }
 
         function closeBorrowRequestsModal() {
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function openReturns() {
@@ -1123,6 +1141,25 @@ $pdo = getDBConnection();
         // Load inventory on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadInventoryItems();
+
+            // Click outside modal to close functionality
+            const modals = ['addItemModal', 'borrowRequestsModal'];
+
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            // Call appropriate close function
+                            if (modalId === 'addItemModal') {
+                                closeAddItemModal();
+                            } else if (modalId === 'borrowRequestsModal') {
+                                closeBorrowRequestsModal();
+                            }
+                        }
+                    });
+                }
+            });
         });
     </script>
 

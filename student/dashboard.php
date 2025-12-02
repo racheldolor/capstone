@@ -213,6 +213,11 @@ try {
             line-height: 1.6;
         }
 
+        /* Prevent background scrolling when modals are open */
+        body.modal-open {
+            overflow: hidden;
+        }
+
         /* Header */
         .header {
             background: white;
@@ -913,7 +918,7 @@ try {
                     <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($campus) ?></span>
                 <?php endif; ?>
             </div>
-            <button class="logout-btn" onclick="window.location.href='../index.php'">Logout</button>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
 
@@ -1419,6 +1424,15 @@ try {
     </div>
 
     <script>
+        // Modal scroll prevention functions
+        function preventBackgroundScroll() {
+            document.body.classList.add('modal-open');
+        }
+
+        function allowBackgroundScroll() {
+            document.body.classList.remove('modal-open');
+        }
+
         // Navigation functionality
         document.addEventListener('DOMContentLoaded', function() {
             const navLinks = document.querySelectorAll('.nav-link');
@@ -1485,6 +1499,25 @@ try {
             } else if (activeSection === 'costume-borrowing') {
                 loadBorrowedCostumes();
             }
+
+            // Click outside modal to close functionality
+            const modals = ['certificateUploadModal', 'eventEvaluationModal'];
+
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            // Call appropriate close function
+                            if (modalId === 'certificateUploadModal') {
+                                closeCertificateUploadModal();
+                            } else if (modalId === 'eventEvaluationModal') {
+                                closeEventEvaluationModal();
+                            }
+                        }
+                    });
+                }
+            });
         });
 
         // Logout function
@@ -1999,11 +2032,13 @@ try {
             
             // Reset form
             document.getElementById('certificateUploadForm').reset();
+            preventBackgroundScroll();
         }
 
         function closeCertificateUploadModal() {
             const modal = document.getElementById('certificateUploadModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         // Handle certificate upload form submission
@@ -2587,14 +2622,14 @@ try {
             // Show the modal
             const modal = document.getElementById('eventEvaluationModal');
             modal.style.display = 'block';
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            preventBackgroundScroll(); // Prevent background scrolling
         }
 
         // Close evaluation modal
         function closeEventEvaluationModal() {
             const modal = document.getElementById('eventEvaluationModal');
             modal.style.display = 'none';
-            document.body.style.overflow = ''; // Restore scrolling
+            allowBackgroundScroll(); // Restore scrolling
         }
 
         // Submit event evaluation

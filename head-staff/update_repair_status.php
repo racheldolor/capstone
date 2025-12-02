@@ -75,20 +75,37 @@ try {
                     $repair_item['item_id']
                 ]);
                 
-                // If this item was reported by a student (damaged during return), 
-                // find and close the corresponding borrowing request
-                if ($repair_item['reported_by_student_id']) {
+                // When an item is marked as repaired, update any related borrowing requests
+                // Find borrowing requests that include this item and are still active
+                $stmt = $pdo->prepare("
+                    SELECT id, student_id, approved_items 
+                    FROM borrowing_requests 
+                    WHERE current_status IN ('active', 'pending_return')
+                    AND (
+                        JSON_SEARCH(approved_items, 'one', ?, NULL, '$[*].id') IS NOT NULL
+                        OR JSON_SEARCH(approved_items, 'one', ?, NULL, '$[*].item_id') IS NOT NULL
+                        OR approved_items LIKE ?
+                    )
+                ");
+                $item_like_pattern = '%"' . $repair_item['item_id'] . '"%';
+                $stmt->execute([
+                    $repair_item['item_id'], 
+                    $repair_item['item_id'],
+                    $item_like_pattern
+                ]);
+                $borrowing_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Update each matching borrowing request to 'returned' status
+                foreach ($borrowing_requests as $request) {
                     $stmt = $pdo->prepare("
                         UPDATE borrowing_requests 
-                        SET current_status = 'completed'
-                        WHERE student_id = ? 
-                        AND current_status IN ('active', 'pending_return')
-                        AND JSON_SEARCH(approved_items, 'one', ?, NULL, '$[*].id') IS NOT NULL
+                        SET current_status = 'returned',
+                            notes = CONCAT(COALESCE(notes, ''), 
+                                          CASE WHEN notes IS NULL OR notes = '' THEN '' ELSE '; ' END,
+                                          'Item returned after repair completion')
+                        WHERE id = ?
                     ");
-                    $stmt->execute([
-                        $repair_item['reported_by_student_id'], 
-                        $repair_item['item_id']
-                    ]);
+                    $stmt->execute([$request['id']]);
                 }
             } else {
                 // Create new inventory item if it doesn't exist
@@ -117,7 +134,12 @@ try {
                 $message = 'Item marked as under repair';
                 break;
             case 'repaired':
-                $message = 'Item marked as repaired and returned to inventory';
+                $borrowing_count = isset($borrowing_requests) ? count($borrowing_requests) : 0;
+                if ($borrowing_count > 0) {
+                    $message = 'Item marked as repaired and returned to inventory. ' . $borrowing_count . ' borrowing request(s) updated to returned status.';
+                } else {
+                    $message = 'Item marked as repaired and returned to inventory';
+                }
                 break;
             default:
                 $message = 'Status updated successfully';
@@ -135,9 +157,16 @@ try {
     
 } catch (Exception $e) {
     error_log("Error updating repair status: " . $e->getMessage());
+    error_log("Error details - Item ID: " . ($repair_item_id ?? 'unknown') . ", Status: " . ($new_status ?? 'unknown'));
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to update repair status: ' . $e->getMessage()
+        'error' => 'Failed to update repair status: ' . $e->getMessage(),
+        'details' => [
+            'item_id' => $repair_item_id ?? null,
+            'status' => $new_status ?? null,
+            'error_message' => $e->getMessage(),
+            'error_line' => $e->getLine()
+        ]
     ]);
 }
 ?>

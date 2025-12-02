@@ -34,9 +34,9 @@ try {
         exit();
     }
     
-    // Get the student's original application to fetch performance_type (desired cultural group)
+    // Get the student's original application to fetch performance_type (desired cultural group) and profile_photo
     $stmt = $pdo->prepare("
-        SELECT performance_type 
+        SELECT performance_type, profile_photo 
         FROM applications 
         WHERE sr_code = ? OR email = ?
         ORDER BY submitted_at DESC
@@ -57,8 +57,9 @@ try {
         }
     }
     
-    // Add desired cultural group to student data
+    // Add desired cultural group and profile photo to student data
     $student['desired_cultural_group'] = $desired_group;
+    $student['profile_photo'] = $application['profile_photo'] ?? null;
     
     echo json_encode([
         'success' => true, 

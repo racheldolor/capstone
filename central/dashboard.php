@@ -2,68 +2,134 @@
 session_start();
 require_once '../config/database.php';
 
-// Authentication check - allow both central and admin roles
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['central', 'admin'])) {
+// Authentication check - Only Pablo Borbon head users can access central dashboard
+if (!isset($_SESSION['logged_in']) || 
+    $_SESSION['user_role'] !== 'head' || 
+    ($_SESSION['user_campus'] ?? null) !== 'Pablo Borbon') {
     header('Location: ../index.php');
     exit();
 }
 
-// RBAC: Determine access level for central users
-$user_role = $_SESSION['user_role'];
-$user_email = $_SESSION['user_email'];
-$user_campus = $_SESSION['user_campus'] ?? null;
+$pdo = getDBConnection();
 
-// Central Head identification (read-only access to all campuses)
-$centralHeadEmails = [
-    'mark.central@g.batstate-u.edu.ph',
-    // Add more Central Head emails here
+// === RBAC: Get user's campus and determine access level ===
+$user_role = $_SESSION['user_role'] ?? '';
+$user_email = $_SESSION['user_email'] ?? '';
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
 ];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
-$isCentralHead = in_array($user_email, $centralHeadEmails);
+// Display campus name (Pablo Borbon shows as "All Campuses")
+$display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
+
+// Central Head emails (view-only access)
+$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
+$isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
 $isCentralStaff = ($user_role === 'central' && !$isCentralHead);
 
 // Campus filtering logic:
 // - Admin: see all campuses
-// - Pablo Borbon central users: see all campuses
-// - Other campus central users: see only their campus
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'central'));
-$canManage = !$isCentralHead; // Central Head is read-only
+// - Pablo Borbon staff/head: see all campuses
+// - Other campus staff/head: see only their campus
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canManage = !$isCentralHead; // Central Head is view-only
 
-// Build campus filter for SQL queries
-$campusFilter = '';
-$campusParams = [];
-if (!$canViewAll && $user_campus) {
-    $campusFilter = ' AND campus = ?';
-    $campusParams[] = $user_campus;
+// Build campus filter for SQL
+if ($canViewAll) {
+    $campusFilter = '1=1'; // No filter - see all
+    $campusParams = [];
+} else {
+    // For Malvar and Nasugbu, check both short and full names
+    if ($user_campus === 'JPLPC Malvar') {
+        $campusFilter = '(campus = ? OR campus = ?)';
+        $campusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($user_campus === 'ARASOF Nasugbu') {
+        $campusFilter = '(campus = ? OR campus = ?)';
+        $campusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $campusFilter = 'campus = ?';
+        $campusParams = [$user_campus];
+    }
 }
-
-$pdo = getDBConnection();
 
 // Pagination for student artists
 $students_per_page = 5;
 $current_page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Get dashboard statistics
+// Determine effective campus filter:
+// - If URL provides campus_filter, use it.
+// - Else: if user can view all, default to Pablo Borbon (admin/central staff case).
+// - Else default to the user's assigned campus so that non-Pablo users see only their campus.
+$campus_filter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : (
+    !empty($canViewAll) ? 'Pablo Borbon' : ($user_campus ?? 'Pablo Borbon')
+);
+
+// Build campus filter for student queries
+if (!empty($campus_filter)) {
+    // Use the selected campus filter from dropdown or the user's campus
+    if ($campus_filter === 'JPLPC Malvar') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($campus_filter === 'ARASOF Nasugbu') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $studentCampusFilter = 'campus = ?';
+        $studentCampusParams = [$campus_filter];
+    }
+} else {
+    // Fallback - should not normally happen
+    if ($user_campus === 'JPLPC Malvar') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($user_campus === 'ARASOF Nasugbu') {
+        $studentCampusFilter = '(campus = ? OR campus = ?)';
+        $studentCampusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $studentCampusFilter = 'campus = ?';
+        $studentCampusParams = [$user_campus ?? 'Pablo Borbon'];
+    }
+}
+
+// Get dashboard statistics with campus filtering
 try {
     // Count student artists from student_artists table (active and suspended)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended')" . $campusFilter);
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status IN ('active', 'suspended') AND $campusFilter");
     $stmt->execute($campusParams);
     $student_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
     // Count distinct cultural groups assigned to student artists
     $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cultural_group) as count FROM student_artists 
-                          WHERE cultural_group IS NOT NULL AND cultural_group != ''" . $campusFilter);
+                          WHERE cultural_group IS NOT NULL AND cultural_group != '' AND $campusFilter");
     $stmt->execute($campusParams);
     $cultural_groups = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count scheduled events (future events that are not yet completed)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE()" . $campusFilter);
+    // Count scheduled events (future events that are not yet completed) with campus filtering
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM events WHERE start_date >= CURDATE() AND " . $campusFilter);
     $stmt->execute($campusParams);
     $scheduled_events = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
-    // Count worn out costumes (for now, simulate this data - can be implemented later with inventory system)
-    $worn_costumes = 0; // Will be implemented when costume inventory system is added
+    // Count damaged items (items in repair_items table with status 'damaged' or 'under_repair')
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM repair_items WHERE repair_status IN ('damaged', 'under_repair')");
+    $stmt->execute();
+    $worn_costumes = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    
+    // Count for cultural groups card (matches the API and campus distribution chart - use same campus filter)
+    // Use the same campus filter logic as the student queries for consistency
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM student_artists WHERE status = 'active' AND $studentCampusFilter");
+    $stmt->execute($studentCampusParams);
+    $cultural_groups_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     
 } catch (Exception $e) {
     // If any query fails, set safe default values
@@ -71,21 +137,16 @@ try {
     $cultural_groups = $cultural_groups ?? 0;
     $scheduled_events = $scheduled_events ?? 0;
     $worn_costumes = 0;
+    $cultural_groups_count = 0;
     
-    // Log the error for debugging (optional)
+    // Log the error for debugging
     error_log("Dashboard statistics error: " . $e->getMessage());
 }
 
-// Get student artists with pagination (active and suspended)
+// Get student artists with pagination (active and suspended) - with campus filtering
 try {
-    $where_conditions = ["status IN ('active', 'suspended')"];
-    $params = [];
-    
-    // Apply campus filter
-    if (!$canViewAll && $user_campus) {
-        $where_conditions[] = "campus = ?";
-        $params[] = $user_campus;
-    }
+    $where_conditions = ["status IN ('active', 'suspended')", $studentCampusFilter];
+    $params = $studentCampusParams;
     
     if (!empty($search)) {
         $where_conditions[] = "(first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR sr_code LIKE ?)";
@@ -154,8 +215,10 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net;">
     <title>Central Dashboard - Culture and Arts - BatStateU TNEU</title>
+    <!-- Chart.js Library for Interactive Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -167,6 +230,16 @@ try {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f5f5f5;
             color: #333;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        /* Prevent background scrolling when modals are open */
+        body.modal-open {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
         }
 
         /* Header */
@@ -182,6 +255,9 @@ try {
             top: 0;
             z-index: 100;
             border-bottom: 1px solid #e0e0e0;
+            width: 100%;
+            max-width: 100vw;
+            box-sizing: border-box;
         }
 
         .header-left {
@@ -236,11 +312,15 @@ try {
         .main-container {
             display: flex;
             min-height: calc(100vh - 70px);
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
         }
 
         /* Sidebar */
         .sidebar {
             width: 280px;
+            max-width: 280px;
             background: white;
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
             min-height: calc(100vh - 70px);
@@ -248,7 +328,8 @@ try {
             top: 70px;
             left: 0;
             z-index: 50;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .nav-menu {
@@ -288,7 +369,10 @@ try {
             flex: 1;
             margin-left: 280px;
             padding: 2rem;
+            max-width: calc(100vw - 280px);
             overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
         }
 
         .content-section {
@@ -297,6 +381,8 @@ try {
 
         .content-section.active {
             display: block;
+            width: 100%;
+            height: 100%;
         }
 
         /* Dashboard Cards */
@@ -305,6 +391,8 @@ try {
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
+            width: 100%;
+            max-width: 100%;
         }
 
         .dashboard-card {
@@ -351,6 +439,8 @@ try {
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
+            width: 100%;
+            max-width: 100%;
         }
 
         .content-panel {
@@ -627,6 +717,8 @@ try {
             overflow-x: auto;
             border-radius: 8px;
             border: 1px solid #e5e7eb;
+            width: 100%;
+            max-width: 100%;
         }
 
         .table-container table {
@@ -650,6 +742,13 @@ try {
 
         .table-container tr:hover {
             background: #f9fafb;
+        }
+
+        /* Compact row style for denser inventory lists */
+        .compact-row > div {
+            padding: 0 0.4rem !important;
+            font-size: 0.9rem;
+            line-height: 1.2;
         }
 
         /* Student Profiles Specific Styles */
@@ -878,11 +977,14 @@ try {
         /* Events Management Styles */
         .events-grid {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 2rem;
             margin-bottom: 2rem;
+            width: 100%;
+            max-width: 100%;
         }
 
+        .events-left,
         .events-right {
             background: white;
             border-radius: 12px;
@@ -890,6 +992,7 @@ try {
             overflow: hidden;
         }
 
+        .input-panel,
         .upcoming-panel {
             height: 100%;
             display: flex;
@@ -897,8 +1000,35 @@ try {
         }
 
         .events-list {
-            flex: 1;
             overflow-y: auto;
+            padding: 1.5rem;
+            height: 700px;
+            min-height: 700px;
+        }
+
+        /* Ensure upcoming events list can be limited and scrolled to match input panel height */
+        .events-right .events-list,
+        .events-left .events-list {
+            overflow-y: auto;
+            height: 700px;
+            min-height: 700px;
+        }
+        
+        .events-right {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .events-right .upcoming-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header-event {
+            background: #4285F4;
+            color: white;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
         }
 
         .panel-header-upcoming {
@@ -908,6 +1038,7 @@ try {
             font-weight: 600;
         }
 
+        .panel-title-event,
         .panel-title-upcoming {
             margin: 0;
             font-size: 1.1rem;
@@ -916,7 +1047,53 @@ try {
             gap: 0.5rem;
         }
 
+        .event-form {
+            padding: 1.5rem;
+        }
 
+        .event-form .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .event-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .event-form input,
+        .event-form textarea,
+        .event-form select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: border-color 0.3s ease;
+        }
+
+        .event-form input::placeholder,
+        .event-form textarea::placeholder {
+            color: #999;
+            font-size: 0.9rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .event-form input:focus,
+        .event-form textarea:focus,
+        .event-form select:focus {
+            outline: none;
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .event-form textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
 
         /* Multi-select styles */
         .multi-select-container {
@@ -1039,11 +1216,6 @@ try {
         .save-event-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-        }
-
-        .events-list {
-            padding: 1.5rem;
-            min-height: 400px;
         }
 
         .empty-events {
@@ -1291,6 +1463,35 @@ try {
             color: white;
         }
 
+        /* Inventory Styles */
+        .inventory-panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .inventory-table-container {
+            overflow: hidden;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        #costume-inventory {
+            display: none;
+        }
+
+        #costume-inventory.active {
+            display: block;
+            position: relative;
+        }
         /* Responsive */
         @media (max-width: 768px) {
             .main-container {
@@ -1348,6 +1549,328 @@ try {
                 gap: 1rem;
                 align-items: stretch;
             }
+
+            /* Inventory grid stacks on mobile */
+            .inventory-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            /* Inventory table headers adjust for mobile */
+            .table-header-row {
+                grid-template-columns: minmax(120px, 1fr) 60px 80px 80px minmax(120px, 1fr) !important;
+                font-size: 0.75rem !important;
+            }
+
+            .header-col {
+                padding: 0 0.25rem !important;
+            }
+
+            /* Mobile header improvements */
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 1rem;
+                gap: 0.75rem;
+            }
+
+            .header-left {
+                justify-content: flex-start;
+                align-items: center;
+                gap: 0.75rem;
+            }
+
+            .header-title {
+                font-size: 1.1rem;
+                margin: 0;
+            }
+
+            .header-right {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+            }
+
+            .user-info {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                background: #f8f9fa;
+                padding: 0.5rem 0.75rem;
+                border-radius: 25px;
+                color: #333;
+                font-size: 0.85rem;
+                flex: 1;
+                margin-right: 0.75rem;
+            }
+
+            .logout-btn {
+                background: #dc2626;
+                color: white;
+                border: none;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+
+            /* Mobile table improvements */
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                min-width: 600px;
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.5rem !important;
+                white-space: nowrap;
+            }
+
+            /* Mobile modal improvements */
+            .modal-content {
+                max-width: 95% !important;
+                max-height: 90vh;
+                margin: 1rem;
+                overflow-y: auto;
+            }
+
+            .modal-header {
+                padding: 1rem !important;
+                flex-wrap: wrap;
+            }
+
+            .modal-header h2 {
+                font-size: 1.25rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .modal-body {
+                padding: 1rem !important;
+            }
+
+            /* Mobile form improvements */
+            #borrowRequestsFilters,
+            #returnsFilters {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 1rem !important;
+            }
+
+            #borrowRequestsFilters > div,
+            #returnsFilters > div {
+                width: 100%;
+            }
+
+            #statusRequestFilter,
+            #statusReturnFilter,
+            #requestSearchInput,
+            #searchReturnFilter {
+                width: 100% !important;
+                min-width: auto !important;
+            }
+
+            /* Mobile button improvements */
+            .add-btn,
+            .btn,
+            button {
+                width: 100%;
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            /* Mobile stats cards */
+            .student-overview {
+                grid-template-columns: 1fr !important;
+                gap: 1rem;
+            }
+
+            .overview-right {
+                order: -1;
+            }
+
+            .stats-cards {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 1rem !important;
+            }
+
+            .stat-number {
+                font-size: 1.5rem !important;
+            }
+
+            /* Mobile charts */
+            .chart-placeholder {
+                height: 200px !important;
+            }
+
+            canvas {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+        }
+
+        /* Tablet styles */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .dashboard-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stats-cards {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .modal-content {
+                max-width: 90%;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            /* Inventory tables on tablet */
+            .table-header-row {
+                grid-template-columns: 2fr 70px 90px 90px 1fr !important;
+                font-size: 0.8rem !important;
+            }
+        }
+
+        /* Small mobile devices */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0.5rem !important;
+            }
+
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .stats-cards {
+                grid-template-columns: 1fr !important;
+            }
+
+            .dashboard-cards {
+                grid-template-columns: 1fr !important;
+            }
+
+            .stat-card {
+                text-align: center;
+            }
+
+            .modal-content {
+                margin: 0.5rem;
+                max-height: 95vh;
+            }
+
+            .modal-header {
+                padding: 0.75rem !important;
+            }
+
+            .modal-body {
+                padding: 0.75rem !important;
+            }
+
+            /* Very small button adjustments */
+            .close {
+                font-size: 1.5rem !important;
+                padding: 0.25rem !important;
+            }
+
+            /* Mobile navigation improvements */
+            .nav-menu {
+                gap: 0.25rem;
+                padding: 0.5rem;
+            }
+
+            .nav-link {
+                padding: 0.5rem 0.75rem !important;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Touch improvements for all screen sizes */
+        @media (pointer: coarse) {
+            /* Larger touch targets for touch devices */
+            .nav-link,
+            .add-btn,
+            .btn,
+            button,
+            .action-btn {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 0.75rem 1rem;
+            }
+
+            .close {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 0.5rem;
+            }
+
+            /* Larger select and input fields */
+            select,
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="date"],
+            textarea {
+                min-height: 44px;
+                padding: 0.75rem;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+
+            /* Better spacing for touch */
+            .sidebar .nav-item {
+                margin-bottom: 2px;
+            }
+
+            .table-container {
+                padding-bottom: 1rem;
+            }
+        }
+
+        /* High DPI/Retina display improvements */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .modal-content {
+                border-radius: 12px;
+            }
+
+            .btn,
+            .add-btn,
+            button {
+                border-radius: 8px;
+            }
+
+            /* Sharper text rendering */
+            body {
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+        }
+
+        /* Dark mode support (if system prefers dark) */
+        @media (prefers-color-scheme: dark) {
+            /* Optional: You can add dark mode styles here if needed */
+        }
+
+        /* Reduced motion for accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
 
         /* Modal Styles */
@@ -1376,7 +1899,11 @@ try {
             overflow-y: auto;
         }
 
-        /* Essential Modal Styles */
+        .applications-modal {
+            width: 95%;
+            max-width: 1200px;
+        }
+
         .modal-header {
             display: flex;
             justify-content: space-between;
@@ -1416,7 +1943,146 @@ try {
             padding: 1.5rem;
         }
 
+        /* Search input styling */
+        #applicationSearchInput:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
         .loading-spinner {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .applications-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .application-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .application-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background-color: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .student-info h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.2rem;
+        }
+
+        .student-details {
+            margin: 0.25rem 0 0 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .application-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .details-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .details-btn:hover {
+            background: #5a6268;
+        }
+
+        .approve-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .approve-btn:hover {
+            background: #218838;
+        }
+
+        .deny-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .deny-btn:hover {
+            background: #c82333;
+        }
+
+        .application-details {
+            padding: 1.5rem;
+            border-top: 1px solid #eee;
+            background: white;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .detail-section h4 {
+            margin: 0 0 1rem 0;
+            color: #333;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #ff5a5a;
+            padding-bottom: 0.5rem;
+        }
+
+        .detail-section p {
+            margin: 0.5rem 0;
+            color: #555;
+            line-height: 1.4;
+        }
+
+        .detail-section strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        /* Profile photo styling in application details */
+        .detail-section img {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .detail-section img:hover {
+            transform: scale(1.05);
+        }
+
+        .empty-state {
             text-align: center;
             padding: 2rem;
             color: #666;
@@ -1452,11 +2118,7 @@ try {
                 <?php if ($isCentralHead): ?>
                     <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
                 <?php endif; ?>
-                <?php if ($canViewAll && !$isCentralHead): ?>
-                    <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">ALL CAMPUSES</span>
-                <?php elseif (!$canViewAll && $user_campus): ?>
-                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($user_campus) ?></span>
-                <?php endif; ?>
+                <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -1489,8 +2151,13 @@ try {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link" data-section="costume-inventory">
+                        <a href="inventory.php" class="nav-link">
                             Inventory
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="archives.php" class="nav-link">
+                            Archives
                         </a>
                     </li>
                 </ul>
@@ -1575,6 +2242,10 @@ try {
             <section class="content-section" id="student-profiles">
                 <div class="page-header">
                     <h1 class="page-title">Student Artist Profiles</h1>
+                    <button class="add-btn" onclick="openApplicationsModal()">
+                        <span>+</span>
+                        View Applications
+                    </button>
                 </div>
 
                 <!-- Search and Filter Section -->
@@ -1588,24 +2259,31 @@ try {
                         </div>
                         <button type="submit" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; height: 36px; box-sizing: border-box; font-size: 14px;">Search</button>
                         <?php if (!empty($search)): ?>
-                            <a href="?section=student-profiles" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 36px; font-size: 14px;">Clear</a>
+                            <a href="?section=student-profiles<?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 36px; font-size: 14px;">Clear</a>
                         <?php endif; ?>
                     </form>
                 </div>
 
                 <!-- Dashboard Overview -->
-                <div class="student-overview">
+                <div class="student-overview" style="width: 100%; max-width: 100%;">
                     <div class="overview-left">
-                        <h3 style="margin-bottom: 1rem; color: #666;">Campus Distribution</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; color: #666;">Distribution of Student Artists</h3>
+                            <?php if ($user_campus === 'Pablo Borbon' || $canViewAll): ?>
+                                <select id="campusFilterDropdown" onchange="filterByCampus()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
+                                    <option value="Pablo Borbon" <?= $campus_filter === 'Pablo Borbon' ? 'selected' : '' ?>>Pablo Borbon</option>
+                                    <option value="Alangilan" <?= $campus_filter === 'Alangilan' ? 'selected' : '' ?>>Alangilan</option>
+                                    <option value="Lipa" <?= $campus_filter === 'Lipa' ? 'selected' : '' ?>>Lipa</option>
+                                    <option value="ARASOF Nasugbu" <?= $campus_filter === 'ARASOF Nasugbu' ? 'selected' : '' ?>>ARASOF Nasugbu</option>
+                                    <option value="JPLPC Malvar" <?= $campus_filter === 'JPLPC Malvar' ? 'selected' : '' ?>>JPLPC Malvar</option>
+                                </select>
+                            <?php else: ?>
+                                <select id="campusFilterDropdown" disabled style="padding: 0.5rem; border: 1px solid #eee; border-radius: 4px; font-size: 0.9rem; cursor: default; background: #f8f9fa; color: #333;">
+                                    <option value="<?= htmlspecialchars($campus_filter) ?>"><?= htmlspecialchars($campus_filter) ?></option>
+                                </select>
+                            <?php endif; ?>
+                        </div>
                         <div id="campusDistributionChart" class="campus-distribution">
-                            <div class="chart-section">
-                                <div class="pie-chart-container">
-                                    <canvas id="pieChart" width="200" height="200"></canvas>
-                                </div>
-                                <div class="chart-legend" id="chartLegend">
-                                    <!-- Legend will be populated by JavaScript -->
-                                </div>
-                            </div>
                             <div class="bar-chart-container" id="barChart">
                                 <!-- Bar chart will be populated by JavaScript -->
                             </div>
@@ -1616,7 +2294,7 @@ try {
                         <div class="record-count-card">
                             <h3>Cultural Groups</h3>
                             <div class="record-count-section" id="culturalGroupCounts">
-                                <div class="record-number"><?= $total_students ?></div>
+                                <div class="record-number"><?= $cultural_groups_count ?></div>
                                 <div class="record-label">student artists</div>
                                 <div class="record-sublabel">Loading group distribution...</div>
                             </div>
@@ -1644,9 +2322,7 @@ try {
                                     <small>Try a different search term or clear the search.</small>
                                 <?php else: ?>
                                     <p>No student artist profiles found.</p>
-                                    <small>Student artist profiles will appear here once available.</small>
-                                    <br><br>
-                                    <small style="color: #dc2626;">Debug: Total students in database: <?= $total_students ?></small>
+                                    <small>Click "View Applications" to approve new student artists.</small>
                                 <?php endif; ?>
                             </div>
                         <?php else: ?>
@@ -1691,7 +2367,7 @@ try {
                         </span>
                         <div class="pagination-controls">
                             <?php if ($current_page > 1): ?>
-                                <a href="?section=student-profiles&page=<?= $current_page - 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                <a href="?section=student-profiles&page=<?= $current_page - 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                    class="pagination-btn">Previous</a>
                             <?php else: ?>
                                 <button class="pagination-btn" disabled>Previous</button>
@@ -1701,13 +2377,13 @@ try {
                                 <?php if ($i == $current_page): ?>
                                     <span class="pagination-number active"><?= $i ?></span>
                                 <?php else: ?>
-                                    <a href="?section=student-profiles&page=<?= $i ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                    <a href="?section=student-profiles&page=<?= $i ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                        class="pagination-number" style="text-decoration: none; color: #666;"><?= $i ?></a>
                                 <?php endif; ?>
                             <?php endfor; ?>
                             
                             <?php if ($current_page < $total_pages): ?>
-                                <a href="?section=student-profiles&page=<?= $current_page + 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>" 
+                                <a href="?section=student-profiles&page=<?= $current_page + 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($campus_filter) ? '&campus_filter=' . urlencode($campus_filter) : '' ?>" 
                                    class="pagination-btn">Next</a>
                             <?php else: ?>
                                 <button class="pagination-btn" disabled>Next</button>
@@ -1725,6 +2401,134 @@ try {
 
                 <!-- Main Content Grid -->
                 <div class="events-grid">
+                    <!-- Left Side - Input New Event -->
+                    <div class="events-left">
+                        <div class="input-panel">
+                            <div class="panel-header-event">
+                                <h3 class="panel-title-event">Input New Event</h3>
+                            </div>
+                            <form id="eventForm" class="event-form">
+                                <div class="form-group">
+                                    <label for="eventTitle">Event Title*</label>
+                                    <input type="text" id="eventTitle" name="title" placeholder="Enter event title" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="eventDescription">Description*</label>
+                                    <textarea id="eventDescription" name="description" placeholder="Enter event description" required></textarea>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="startDate">Start Date*</label>
+                                        <input type="date" id="startDate" name="start_date" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="endDate">End Date*</label>
+                                        <input type="date" id="endDate" name="end_date" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="eventLocation">Location*</label>
+                                    <input type="text" id="eventLocation" name="location" placeholder="Enter event location" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="municipality">Campus</label>
+                                    <select id="municipality" name="municipality">
+                                        <option value="Pablo Borbon">Pablo Borbon</option>
+                                        <option value="Alangilan">Alangilan</option>
+                                        <option value="Lipa">Lipa</option>
+                                        <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
+                                        <option value="JPLPC Malvar">JPLPC Malvar</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="culturalGroups">Cultural Group(s) Concerned</label>
+                                    <div class="multi-select-container">
+                                        <div class="multi-select-display" id="culturalGroupsDisplay" onclick="toggleCulturalGroupsDropdown()">
+                                            <span class="placeholder">Select cultural groups...</span>
+                                            <span class="dropdown-arrow">▼</span>
+                                        </div>
+                                        <div class="multi-select-dropdown" id="culturalGroupsDropdown" style="display: none;">
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Dulaang Batangan">
+                                                <span>Dulaang Batangan</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="BatStateU Dance Company">
+                                                <span>BatStateU Dance Company</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Diwayanis Dance Theatre">
+                                                <span>Diwayanis Dance Theatre</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="BatStateU Band">
+                                                <span>BatStateU Band</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Indak Yaman Dance Varsity">
+                                                <span>Indak Yaman Dance Varsity</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Ritmo Voice">
+                                                <span>Ritmo Voice</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Sandugo Dance Group">
+                                                <span>Sandugo Dance Group</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Areglo Band">
+                                                <span>Areglo Band</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Teatro Aliwana">
+                                                <span>Teatro Aliwana</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="The Levites">
+                                                <span>The Levites</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Melophiles">
+                                                <span>Melophiles</span>
+                                            </label>
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" name="cultural_groups[]" value="Sindayog">
+                                                <span>Sindayog</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="eventCategory">Category*</label>
+                                    <select id="eventCategory" name="category" required>
+                                        <option value="">Select category</option>
+                                        <option value="Training">Training</option>
+                                        <option value="Performance">Performance</option>
+                                        <option value="Competition">Competition</option>
+                                        <option value="Workshop">Workshop</option>
+                                        <option value="Cultural Event">Cultural Event</option>
+                                        <option value="Festival">Festival</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-buttons" style="display: flex; gap: 0.5rem;">
+                                    <button type="submit" class="save-event-btn">
+                                        Save Event
+                                    </button>
+                                    <button type="button" class="cancel-event-btn" onclick="cancelEdit()" style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: none;">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
 
                     <!-- Right Side - Upcoming Events -->
                     <div class="events-right">
@@ -1755,15 +2559,21 @@ try {
 
                 <!-- Event Participation Table -->
                 <div class="content-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Event Participation</h3>
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                        <h3 class="panel-title" style="margin: 0;">Event Participation</h3>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="text" id="participationSearchInput" placeholder="Search events by title, category, or location..." 
+                                   style="padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 20px; min-width: 260px; box-sizing: border-box;" 
+                                   oninput="filterParticipationEvents()">
+                            <button onclick="clearParticipationSearch()" style="background: #dc2626; color: white; border: none; padding: 0.45rem 0.75rem; border-radius: 6px; cursor: pointer;">Clear</button>
+                        </div>
                     </div>
                     <div class="panel-content" id="eventParticipationContent">
                         <div class="loading-state" id="participationLoading">
                             <p>Loading event participation data...</p>
                         </div>
-                        <div class="participation-table-container" id="participationTableContainer" style="display: none;">
-                            <!-- Event participation table will be loaded here -->
+                        <div class="participation-table-container" id="participationTableContainer" style="display: none; max-height: 450px; overflow-y: auto;">
+                            <!-- Event participation table will be loaded here - max 5 rows visible -->
                         </div>
                     </div>
                 </div>
@@ -1822,8 +2632,8 @@ try {
                                 <span style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #666; font-size: 16px;">🔍</span>
                             </div>
                         </div>
-                        <div id="eventSelectionList" style="max-height: 350px; overflow-y: auto; padding: 1rem;">
-                            <!-- Event list will be populated here -->
+                        <div id="eventSelectionList" style="max-height: 250px; overflow-y: auto; padding: 1rem;">
+                            <!-- Event list will be populated here - max 5 rows visible -->
                         </div>
                     </div>
                 </div>
@@ -1930,13 +2740,14 @@ try {
                                 </div>
                             </div>
 
-                            <!-- Evaluation Trends Chart -->
-                            <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
-                                <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Evaluation Trends Over Time</h4>
-                                <canvas id="evaluationTrendsChart" width="800" height="400" style="max-width: 100%; height: auto;"></canvas>
-                            </div>
-
-                            <!-- Detailed Analytics -->
+            <!-- Evaluation Trends Chart -->
+            <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+                <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Evaluation Trends Over Time</h4>
+                <div style="position: relative; height: 400px; width: 100%;">
+                    <canvas id="evaluationTrendsChart"></canvas>
+                </div>
+            </div>
+            </div>                            <!-- Detailed Analytics -->
                             <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #dc2626;">
                                 <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">📈 Detailed Analytics & Insights</h4>
                                 <div id="evaluationInsightsContent">
@@ -1969,15 +2780,26 @@ try {
                     </div>
                 </div>
             </section>
-
             <!-- Costume Inventory Section -->
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
                     <h1 class="page-title">Inventory</h1>
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="add-btn" onclick="openAddItemModal()">
+                            <span>+</span>
+                            Add Item
+                        </button>
+                        <button class="add-btn" onclick="openBorrowRequests()">
+                            Borrow Requests
+                        </button>
+                        <button class="add-btn" onclick="openReturns()">
+                            Returns
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Inventory Grid -->
-                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                <div class="inventory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; width: 100%; max-width: 100%;">
                     <!-- Costumes Table -->
                     <div class="inventory-left">
                         <div class="inventory-panel">
@@ -1987,15 +2809,17 @@ try {
                             <div class="inventory-table-container">
                                 <div class="table-section">
                                     <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: 1fr 120px 120px;">
+                                        <div class="table-header-row" style="grid-template-columns: 2fr 80px 100px 100px 1fr;">
                                             <div class="header-col">NAME</div>
+                                            <div class="header-col">QTY</div>
                                             <div class="header-col">CONDITION</div>
                                             <div class="header-col">STATUS</div>
+                                            <div class="header-col">BORROWER INFO</div>
                                         </div>
                                     </div>
                                     
-                                    <div class="table-body" id="costumesTableBody">
-                                        <!-- Costumes will be loaded dynamically -->
+                                    <div class="table-body" id="costumesTableBody" style="max-height: 560px; overflow-y: auto;">
+                                        <!-- Costumes will be loaded dynamically - max 10 rows visible -->
                                         <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
                                             <p>No costumes found.</p>
                                             <small>Click "Add Costume" to get started.</small>
@@ -2015,15 +2839,17 @@ try {
                             <div class="inventory-table-container">
                                 <div class="table-section">
                                     <div class="table-header">
-                                        <div class="table-header-row" style="grid-template-columns: 1fr 120px 120px;">
+                                        <div class="table-header-row" style="grid-template-columns: 2fr 80px 100px 100px 1fr;">
                                             <div class="header-col">NAME</div>
+                                            <div class="header-col">QTY</div>
                                             <div class="header-col">CONDITION</div>
                                             <div class="header-col">STATUS</div>
+                                            <div class="header-col">BORROWER INFO</div>
                                         </div>
                                     </div>
                                     
-                                    <div class="table-body" id="equipmentTableBody">
-                                        <!-- Equipment will be loaded dynamically -->
+                                    <div class="table-body" id="equipmentTableBody" style="max-height: 560px; overflow-y: auto;">
+                                        <!-- Equipment will be loaded dynamically - max 10 rows visible -->
                                         <div class="empty-state" style="padding: 2rem; text-align: center; color: #666;">
                                             <p>No equipment found.</p>
                                             <small>Click "Add Costume" to get started.</small>
@@ -2038,11 +2864,41 @@ try {
         </main>
     </div>
 
-
+    <!-- Applications Modal -->
+    <div id="applicationsModal" class="modal" style="display: none;">
+        <div class="modal-content applications-modal">
+            <div class="modal-header">
+                <h2>Student Applications</h2>
+                <span class="close" onclick="closeApplicationsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Search Bar -->
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="position: relative; max-width: 400px;">
+                        <input 
+                            type="text" 
+                            id="applicationSearchInput" 
+                            placeholder="Search by student name..." 
+                            style="width: 100%; padding: 10px 40px 10px 15px; border: 1px solid #ddd; border-radius: 25px; font-size: 14px; outline: none; transition: border-color 0.3s;"
+                            oninput="filterApplications()"
+                        >
+                        <span style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #666; font-size: 16px;">🔍</span>
+                    </div>
+                </div>
+                
+                <div id="applicationsLoading" style="display: none;">
+                    <div class="loading-spinner">Loading applications...</div>
+                </div>
+                <div id="applicationsContent">
+                    <!-- Applications will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Student Profile Modal -->
     <div id="studentProfileModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px; width: 85%;">
+        <div class="modal-content" style="max-width: 800px; width: 90%;">
             <div class="modal-header">
                 <h2>Student Profile</h2>
                 <span class="close" onclick="closeStudentModal()">&times;</span>
@@ -2060,12 +2916,12 @@ try {
 
     <!-- All Events Modal -->
     <div id="allEventsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 1200px; width: 95%;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <h2>All Events</h2>
                 <span class="close" onclick="closeAllEventsModal()">&times;</span>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="flex: 1; overflow-y: auto; max-height: calc(90vh - 120px);">
                 <div id="eventsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
                     <div>
                         <label for="statusFilter">Status:</label>
@@ -2094,8 +2950,8 @@ try {
                             <option value="Pablo Borbon">Pablo Borbon</option>
                             <option value="Alangilan">Alangilan</option>
                             <option value="Lipa">Lipa</option>
-                            <option value="Nasugbu">Nasugbu</option>
-                            <option value="Malvar">Malvar</option>
+                            <option value="ARASOF Nasugbu">ARASOF Nasugbu</option>
+                            <option value="JPLPC Malvar">JPLPC Malvar</option>
                         </select>
                     </div>
                     <div>
@@ -2126,8 +2982,8 @@ try {
             <div class="modal-body">
                 <div id="borrowRequestsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
                     <div>
-                        <label for="statusRequestFilter">Status:</label>
-                        <select id="statusRequestFilter" onchange="loadBorrowRequests()">
+                        <label for="statusRequestFilter" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Status:</label>
+                        <select id="statusRequestFilter" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 120px;" onchange="loadBorrowRequests()">
                             <option value="pending">Pending</option>
                             <option value="approved">Approved</option>
                             <option value="rejected">Rejected</option>
@@ -2135,11 +2991,14 @@ try {
                         </select>
                     </div>
                     <div>
-                        <label for="requestSearchInput">Search:</label>
+                        <label for="requestSearchInput" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Search:</label>
                         <input type="text" id="requestSearchInput" placeholder="Search by name or email..." 
-                               style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; width: 250px;"
+                               style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; width: 250px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"
                                onkeyup="debounceSearch(loadBorrowRequests, 500)">
                     </div>
+                    <button onclick="loadBorrowRequests()" style="padding: 0.75rem 1rem; background: #dc2626; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; cursor: pointer; height: fit-content;">
+                        Refresh
+                    </button>
                 </div>
                 <div id="borrowRequestsLoading" style="text-align: center; padding: 2rem;">
                     <p>Loading borrow requests...</p>
@@ -2179,19 +3038,19 @@ try {
             <div class="modal-body">
                 <div id="returnsFilters" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
                     <div>
-                        <label for="statusReturnFilter">Status:</label>
-                        <select id="statusReturnFilter" onchange="loadReturnRequests()">
+                        <label for="statusReturnFilter" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Status:</label>
+                        <select id="statusReturnFilter" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 150px;" onchange="loadReturnRequests()">
                             <option value="pending">Pending Returns</option>
                             <option value="completed">Completed Returns</option>
                             <option value="">All Status</option>
                         </select>
                     </div>
                     <div>
-                        <label for="searchReturnFilter">Search:</label>
+                        <label for="searchReturnFilter" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 0.9rem;">Search:</label>
                         <input type="text" id="searchReturnFilter" placeholder="Student name or item name..." 
-                               onkeyup="debounceReturnSearch()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                               onkeyup="debounceReturnSearch()" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; width: 250px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                     </div>
-                    <button onclick="loadReturnRequests()" style="padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 4px;">
+                    <button onclick="loadReturnRequests()" style="padding: 0.75rem 1rem; background: #dc2626; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; cursor: pointer; height: fit-content;">
                         Refresh
                     </button>
                 </div>
@@ -2247,6 +3106,12 @@ try {
                             <option value="costume">Costume</option>
                             <option value="equipment">Equipment</option>
                         </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="itemQuantity">Quantity*</label>
+                        <input type="number" id="itemQuantity" name="quantity" placeholder="Enter quantity" required min="0" value="0"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
                     </div>
                     
                     <div class="form-group">
@@ -2413,9 +3278,9 @@ try {
                             <span id="participantsCount" style="background: #dc2626; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">0 participants</span>
                         </div>
                     </div>
-                    <div class="table-container">
-                        <table id="participantsTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <thead style="background: #dc2626; color: white;">
+                    <div class="table-container" style="max-height: 400px; overflow-y: auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <table id="participantsTable" style="width: 100%; border-collapse: collapse; background: white;">
+                            <thead style="background: #dc2626; color: white; position: sticky; top: 0; z-index: 10;">
                                 <tr>
                                     <th style="padding: 1rem; text-align: left; font-weight: 600;">Student Info</th>
                                     <th style="padding: 1rem; text-align: left; font-weight: 600;">Cultural Group</th>
@@ -2438,6 +3303,9 @@ try {
     </div>
 
     <script>
+        // Global variable to store applications data for filtering
+        let allApplications = [];
+        
         // User campus and permissions for campus filtering
         const userCampus = '<?php echo $user_campus ?? ''; ?>';
         const canViewAll = <?php echo $canViewAll ? 'true' : 'false'; ?>;
@@ -2519,6 +3387,12 @@ try {
 
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
+                    // Skip navigation handling for external links (like inventory.php)
+                    if (this.getAttribute('href') && this.getAttribute('href') !== '#') {
+                        // Let the browser handle the navigation to external page
+                        return;
+                    }
+                    
                     e.preventDefault();
                     
                     console.log('Navigation clicked:', this.dataset.section);
@@ -2546,11 +3420,6 @@ try {
                         if (sectionId === 'reports-analytics') {
                             loadEventParticipation();
                             initializeEvaluationAnalytics();
-                        }
-                        
-                        // Load inventory items when Costume Inventory section is activated
-                        if (sectionId === 'costume-inventory') {
-                            loadInventoryItems();
                         }
                     } else {
                         console.error('Target section not found:', sectionId);
@@ -2614,6 +3483,7 @@ try {
         function viewStudentProfile(studentId) {
             const modal = document.getElementById('studentProfileModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             loadStudentProfile(studentId);
         }
 
@@ -2621,6 +3491,7 @@ try {
         function closeStudentModal() {
             const modal = document.getElementById('studentProfileModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function loadStudentProfile(studentId) {
@@ -2661,27 +3532,83 @@ try {
             
             const html = `
                 <div style="margin-bottom: 2rem;">
-                    <div>
-                        <h3 style="color: #dc2626; margin-bottom: 1rem; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem;">Personal Information</h3>
-                        <div style="space-y: 0.75rem;">
-                            <p><strong>SR Code:</strong> ${student.sr_code}</p>
-                            <p><strong>Full Name:</strong> ${student.first_name} ${student.middle_name || ''} ${student.last_name}</p>
-                            <p><strong>Email:</strong> ${student.email}</p>
-                            <p><strong>Campus:</strong> ${student.campus}</p>
-                            <p><strong>Program:</strong> ${student.program}</p>
-                            <p><strong>Year Level:</strong> ${student.year_level}</p>
-                            <p><strong>Date Registered:</strong> ${new Date(student.created_at).toLocaleDateString()}</p>
+                    <div style="display: flex; gap: 2rem; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <h3 style="color: #dc2626; margin-bottom: 1rem; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem;">Personal Information</h3>
+                            <div style="space-y: 0.75rem;">
+                                <p><strong>SR Code:</strong> ${student.sr_code}</p>
+                                <p><strong>Full Name:</strong> ${student.first_name} ${student.middle_name || ''} ${student.last_name}</p>
+                                <p><strong>Email:</strong> ${student.email}</p>
+                                <p><strong>Campus:</strong> ${student.campus}</p>
+                                <p><strong>Program:</strong> ${student.program}</p>
+                                <p><strong>Year Level:</strong> ${student.year_level}</p>
+                                <p><strong>Date Registered:</strong> ${new Date(student.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <div style="flex-shrink: 0;">
+                            ${student.profile_photo ? `
+                                <img src="get_profile_photo.php?file=${student.profile_photo}" 
+                                     alt="Profile Photo" 
+                                     style="width: 150px; height: 150px; border-radius: 8px; object-fit: cover; border: 3px solid #dc2626; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 150px; height: 150px; background: #f8f9fa; border: 2px dashed #dc2626; border-radius: 8px; align-items: center; justify-content: center; color: #666; text-align: center; font-size: 0.85rem;">
+                                    <span>No Photo<br>Available</span>
+                                </div>
+                            ` : `
+                                <div style="width: 150px; height: 150px; background: #f8f9fa; border: 2px dashed #dc2626; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #666; text-align: center; font-size: 0.85rem;">
+                                    <span>No Photo<br>Available</span>
+                                </div>
+                            `}
                         </div>
                     </div>
                 </div>
                 
                 <div style="border-top: 1px solid #e0e0e0; padding-top: 1.5rem;">
                     <h3 style="color: #dc2626; margin-bottom: 1rem;">Cultural Group Assignment</h3>
-                    <p><strong>Current Assignment:</strong> ${currentCulturalGroup || 'Not Assigned'}</p>
+                    
+                    ${!currentCulturalGroup && student.desired_cultural_group ? `
+                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 4px solid #17a2b8; border-radius: 4px;">
+                        <p style="margin: 0; color: #333;"><strong>Applied for:</strong> <span style="color: #17a2b8; font-weight: 600;">${student.desired_cultural_group}</span></p>
+                        <small style="color: #666; font-style: italic;">This is the cultural group the student originally wanted to join</small>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <label for="culturalGroup" style="font-weight: 600;">Current Assignment:</label>
+                        <select id="culturalGroup" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
+                            <option value="">Not Assigned</option>
+                            <option value="Dulaang Batangan" ${currentCulturalGroup === 'Dulaang Batangan' ? 'selected' : ''}>Dulaang Batangan</option>
+                            <option value="BatStateU Dance Company" ${currentCulturalGroup === 'BatStateU Dance Company' ? 'selected' : ''}>BatStateU Dance Company</option>
+                            <option value="Diwayanis Dance Theatre" ${currentCulturalGroup === 'Diwayanis Dance Theatre' ? 'selected' : ''}>Diwayanis Dance Theatre</option>
+                            <option value="BatStateU Band" ${currentCulturalGroup === 'BatStateU Band' ? 'selected' : ''}>BatStateU Band</option>
+                            <option value="Indak Yaman Dance Varsity" ${currentCulturalGroup === 'Indak Yaman Dance Varsity' ? 'selected' : ''}>Indak Yaman Dance Varsity</option>
+                            <option value="Ritmo Voice" ${currentCulturalGroup === 'Ritmo Voice' ? 'selected' : ''}>Ritmo Voice</option>
+                            <option value="Sandugo Dance Group" ${currentCulturalGroup === 'Sandugo Dance Group' ? 'selected' : ''}>Sandugo Dance Group</option>
+                            <option value="Areglo Band" ${currentCulturalGroup === 'Areglo Band' ? 'selected' : ''}>Areglo Band</option>
+                            <option value="Teatro Aliwana" ${currentCulturalGroup === 'Teatro Aliwana' ? 'selected' : ''}>Teatro Aliwana</option>
+                            <option value="The Levites" ${currentCulturalGroup === 'The Levites' ? 'selected' : ''}>The Levites</option>
+                            <option value="Melophiles" ${currentCulturalGroup === 'Melophiles' ? 'selected' : ''}>Melophiles</option>
+                            <option value="Sindayog" ${currentCulturalGroup === 'Sindayog' ? 'selected' : ''}>Sindayog</option>
+                        </select>
+                        ${student.status === 'suspended' ? 
+                            `<button disabled style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: not-allowed; opacity: 0.6;" title="Cannot update assignment - student account is suspended">
+                                Update Assignment (Suspended)
+                            </button>` :
+                            `<button onclick="updateCulturalGroup(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                                Update Assignment
+                            </button>`
+                        }
+                    </div>
                 </div>
             `;
             
             contentDiv.innerHTML = html;
+        }
+
+        function getCurrentCampusFilter() {
+            // Get current campus filter from URL parameters or default
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('campus_filter') || 'Alangilan';
         }
 
         function updateCulturalGroup(studentId) {
@@ -2702,8 +3629,15 @@ try {
             .then(data => {
                 if (data.success) {
                     alert('Cultural group assignment updated successfully!');
-                    // Reload the page to reflect changes in the table
-                    window.location.reload();
+                    // Force refresh cultural groups data with cache-busting
+                    setTimeout(() => {
+                        loadCulturalGroupDistribution('', getCurrentCampusFilter());
+                    }, 500);
+                    closeStudentModal();
+                    // Refresh the student list to show updated assignments
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 } else {
                     alert('Error updating cultural group: ' + data.message);
                 }
@@ -2713,19 +3647,245 @@ try {
             });
         }
 
+        // Modal scroll prevention functions
+        function preventBackgroundScroll() {
+            document.body.classList.add('modal-open');
+        }
 
+        function allowBackgroundScroll() {
+            document.body.classList.remove('modal-open');
+        }
 
+        // Applications Modal Functions
+        function openApplicationsModal() {
+            const modal = document.getElementById('applicationsModal');
+            modal.style.display = 'flex';
+            preventBackgroundScroll();
+            loadApplications();
+        }
 
+        function closeApplicationsModal() {
+            const modal = document.getElementById('applicationsModal');
+            const searchInput = document.getElementById('applicationSearchInput');
+            
+            modal.style.display = 'none';
+            allowBackgroundScroll();
+            // Clear search input when closing modal
+            if (searchInput) {
+                searchInput.value = '';
+            }
+        }
 
+        function loadApplications() {
+            const loadingDiv = document.getElementById('applicationsLoading');
+            const contentDiv = document.getElementById('applicationsContent');
+            
+            loadingDiv.style.display = 'block';
+            contentDiv.style.display = 'none';
+            
+            fetch('get_applications.php')
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    
+                    if (data.success) {
+                        displayApplications(data.applications);
+                    } else {
+                        contentDiv.innerHTML = '<p class="error">Error loading applications: ' + data.message + '</p>';
+                    }
+                })
+                .catch(error => {
+                    loadingDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    contentDiv.innerHTML = '<p class="error">Error loading applications: ' + error.message + '</p>';
+                });
+        }
+
+        function displayApplications(applications) {
+            // Store applications globally for filtering
+            allApplications = applications;
+            
+            const contentDiv = document.getElementById('applicationsContent');
+            
+            if (applications.length === 0) {
+                contentDiv.innerHTML = '<p class="empty-state">No pending applications found.</p>';
+                return;
+            }
+            
+            renderApplicationsList(applications);
+        }
+
+        function renderApplicationsList(applications) {
+            const contentDiv = document.getElementById('applicationsContent');
+            
+            if (applications.length === 0) {
+                contentDiv.innerHTML = '<p class="empty-state">No applications match your search.</p>';
+                return;
+            }
+            
+            let html = '<div class="applications-list">';
+            applications.forEach((app, index) => {
+                html += `
+                    <div class="application-item">
+                        <div class="application-header">
+                            <div class="student-info">
+                                <h3>${app.full_name}</h3>
+                                <p class="student-details">${app.sr_code} • ${app.email}</p>
+                            </div>
+                            <div class="application-actions">
+                                <button class="details-btn" onclick="toggleApplicationDetails(${index})">
+                                    <span id="toggle-${index}">▼</span> Details
+                                </button>
+                                <button class="approve-btn" onclick="updateApplicationStatus(${app.id}, 'approved')">
+                                    Approve
+                                </button>
+                                <button class="deny-btn" onclick="updateApplicationStatus(${app.id}, 'rejected')">
+                                    Reject
+                                </button>
+                            </div>
+                        </div>
+                        <div class="application-details" id="details-${index}" style="display: none;">
+                            ${app.profile_photo ? `
+                                <div class="detail-section" style="text-align: center; margin-bottom: 1rem;">
+                                    <h4>Profile Photo</h4>
+                                    <img src="../${app.profile_photo}" alt="Profile Photo" style="max-width: 150px; max-height: 150px; border: 2px solid #ddd; border-radius: 8px; object-fit: cover;">
+                                </div>
+                            ` : ''}
+                            <div class="details-grid">
+                                <div class="detail-section">
+                                    <h4>Personal Information</h4>
+                                    <p><strong>Address:</strong> ${app.address}</p>
+                                    <p><strong>Present Address:</strong> ${app.present_address || 'Same as above'}</p>
+                                    <p><strong>Date of Birth:</strong> ${app.date_of_birth}</p>
+                                    <p><strong>Age:</strong> ${app.age}</p>
+                                    <p><strong>Gender:</strong> ${app.gender}</p>
+                                    <p><strong>Place of Birth:</strong> ${app.place_of_birth}</p>
+                                    <p><strong>Contact:</strong> ${app.contact_number}</p>
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Family Information</h4>
+                                    <p><strong>Father:</strong> ${app.father_name}</p>
+                                    <p><strong>Mother:</strong> ${app.mother_name}</p>
+                                    <p><strong>Guardian:</strong> ${app.guardian || 'N/A'}</p>
+                                    <p><strong>Guardian Contact:</strong> ${app.guardian_contact || 'N/A'}</p>
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Educational Information</h4>
+                                    <p><strong>Campus:</strong> ${app.campus}</p>
+                                    <p><strong>College:</strong> ${app.college}</p>
+                                    <p><strong>Program:</strong> ${app.program}</p>
+                                    <p><strong>Year Level:</strong> ${app.year_level}</p>
+                                    ${app.first_semester_units && app.first_semester_units > 0 
+                                        ? `<p><strong>Units:</strong> 1st Semester: ${app.first_semester_units}</p>` 
+                                        : ''}
+                                    ${app.second_semester_units && app.second_semester_units > 0 
+                                        ? `<p><strong>Units:</strong> 2nd Semester: ${app.second_semester_units}</p>` 
+                                        : ''}
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Performance Type</h4>
+                                    <p>${app.performance_type}</p>
+                                </div>
+                                <div class="detail-section">
+                                    <h4>Consent</h4>
+                                    <p>${app.consent === 'yes' ? 'Agreed to data privacy terms' : 'Did not agree to data privacy terms'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            contentDiv.innerHTML = html;
+        }
+
+        function filterApplications() {
+            const searchTerm = document.getElementById('applicationSearchInput').value.toLowerCase().trim();
+            
+            if (searchTerm === '') {
+                renderApplicationsList(allApplications);
+                return;
+            }
+            
+            const filteredApplications = allApplications.filter(app => {
+                const fullName = app.full_name.toLowerCase();
+                const firstName = (app.first_name || '').toLowerCase();
+                const middleName = (app.middle_name || '').toLowerCase();
+                const lastName = (app.last_name || '').toLowerCase();
+                const srCode = (app.sr_code || '').toLowerCase();
+                const email = (app.email || '').toLowerCase();
+                
+                return fullName.includes(searchTerm) ||
+                       firstName.includes(searchTerm) ||
+                       middleName.includes(searchTerm) ||
+                       lastName.includes(searchTerm) ||
+                       srCode.includes(searchTerm) ||
+                       email.includes(searchTerm);
+            });
+            
+            renderApplicationsList(filteredApplications);
+        }
+
+        function toggleApplicationDetails(index) {
+            const details = document.getElementById(`details-${index}`);
+            const toggle = document.getElementById(`toggle-${index}`);
+            
+            if (details.style.display === 'none') {
+                details.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                details.style.display = 'none';
+                toggle.textContent = '▼';
+            }
+        }
+
+        function updateApplicationStatus(applicationId, status) {
+            if (!confirm(`Are you sure you want to ${status} this application?`)) {
+                return;
+            }
+            
+            fetch('update_application_status.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    application_id: applicationId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Application ${status} successfully!`);
+                    loadApplications(); // Reload the applications list
+                } else {
+                    alert('Error updating application: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error updating application: ' + error.message);
+            });
+        }
 
         // Search functionality for student profiles
         function initializeStudentSearch() {
             const searchInput = document.getElementById('studentSearch');
             if (searchInput) {
+                let searchTimeout;
                 searchInput.addEventListener('input', function(e) {
-                    const searchTerm = e.target.value.toLowerCase();
-                    // Search functionality will be implemented with backend integration
-                    console.log('Searching for:', searchTerm);
+                    const searchTerm = e.target.value.trim();
+                    
+                    // Debounce search to avoid too many requests
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        console.log('Searching for:', searchTerm);
+                        // Reload charts with search filter
+                        loadCampusDistribution(searchTerm);
+                        loadCulturalGroupDistribution(searchTerm);
+                    }, 300);
                 });
             }
         }
@@ -2733,22 +3893,66 @@ try {
         // Initialize search when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             initializeStudentSearch();
-            loadCampusDistribution();
-            loadCulturalGroupDistribution();
+            // Use server-side campus filter to ensure non-Pablo users see their campus
+            const campusFilter = '<?= htmlspecialchars($campus_filter, ENT_QUOTES) ?>' || 'Pablo Borbon';
+            loadCampusDistribution('', campusFilter);
+            loadCulturalGroupDistribution('', campusFilter);
             loadStudentArtistOverview();
             loadUpcomingEventsOverview();
             loadCostumeInventoryOverview();
+                // Adjust upcoming events list height to match the input panel
+                try { if (typeof adjustUpcomingEventsHeight === 'function') adjustUpcomingEventsHeight(); } catch(e) { console.warn(e); }
         });
 
+            // Keep the upcoming events list height in sync with the input panel
+            function adjustUpcomingEventsHeight() {
+                try {
+                    const inputPanel = document.querySelector('.events-left .input-panel');
+                    const eventsList = document.getElementById('eventsList');
+                    if (!inputPanel || !eventsList) return;
+
+                    // Compute available height inside the input panel (exclude paddings if needed)
+                    const panelStyle = window.getComputedStyle(inputPanel);
+                    const panelPaddingTop = parseFloat(panelStyle.paddingTop) || 0;
+                    const panelPaddingBottom = parseFloat(panelStyle.paddingBottom) || 0;
+                    const availableHeight = inputPanel.clientHeight - panelPaddingTop - panelPaddingBottom;
+
+                    // Apply the height to the events list so it scrolls internally when content overflows
+                    eventsList.style.maxHeight = availableHeight + 'px';
+                    eventsList.style.overflowY = 'auto';
+                } catch (err) {
+                    console.error('adjustUpcomingEventsHeight error:', err);
+                }
+            }
+
+            // Recompute on resize and when DOM changes in case panels are toggled
+            window.addEventListener('resize', function() {
+                try { adjustUpcomingEventsHeight(); } catch(e) { /* ignore */ }
+            });
+
         // Campus Distribution Functions
-        function loadCampusDistribution() {
-            console.log('Loading campus distribution...');
-            fetch('get_campus_distribution.php')
+        function filterByCampus() {
+            const selectedCampus = document.getElementById('campusFilterDropdown').value;
+            // Update URL with campus filter parameter and reload page
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('campus_filter', selectedCampus);
+            urlParams.set('section', 'student-profiles');
+            window.location.href = '?' + urlParams.toString();
+        }
+
+        function loadCampusDistribution(searchTerm = '', filterCampus = 'Pablo Borbon') {
+            console.log('Loading campus distribution with search:', searchTerm, 'campus:', filterCampus);
+            let url = 'get_college_distribution.php';
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (filterCampus) params.append('campus', filterCampus);
+            if (params.toString()) url += '?' + params.toString();
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Campus distribution response:', data);
                     if (data.success) {
-                        displayCampusDistribution(data.campusDistribution, data.totalStudents);
+                        displayCampusDistribution(data.collegeDistribution, data.totalStudents, filterCampus);
                     } else {
                         console.error('Failed to load campus distribution:', data.error);
                         showEmptyCampusChart();
@@ -2760,117 +3964,163 @@ try {
                 });
         }
 
-        function displayCampusDistribution(campusData, totalStudents) {
-            console.log('Campus data received:', campusData);
+        function displayCampusDistribution(collegeData, totalStudents, filterCampus = 'Pablo Borbon') {
+            console.log('College data received:', collegeData, 'filter:', filterCampus);
             
-            if (!campusData || campusData.length === 0) {
-                showEmptyCampusChart();
-                return;
+            // Get selected campus from dropdown if not passed
+            if (!filterCampus) {
+                const dropdown = document.getElementById('campusFilterDropdown');
+                if (dropdown) {
+                    filterCampus = dropdown.value || 'Pablo Borbon';
+                }
             }
+            
+            // Define college lists for each campus
+            const campusColleges = {
+                'Pablo Borbon': [
+                    'College of Accountancy, Business, Economics, & International Hospitality Management',
+                    'College of Arts and Sciences',
+                    'College of Law',
+                    'College of Health Sciences / Nursing & Allied Health',
+                    'College of Teacher Education',
+                    'College of Medicine'
+                ],
+                'Alangilan': [
+                    'College of Engineering',
+                    'College of Architecture, Fine Arts and Design',
+                    'College of Engineering Technology',
+                    'College of Informatics and Computing Sciences',
+                    'Lobo Campus',
+                    'Balayan Campus',
+                    'Mabini Campus'
+                ],
+                'JPLPC Malvar': [
+                    'College of Industrial Technology',
+                    'College of Teacher Education',
+                    'College of Engineering',
+                    'College of Informatics and Computing Sciences',
+                    'College of Arts and Sciences',
+                    'College of Accountancy, Business, Economics & International Hospitality Management'
+                ],
+                'Lipa': [
+                    'College of Accountancy, Business, Economics & International Hospitality Management',
+                    'College of Arts and Sciences',
+                    'College of Engineering',
+                    'College of Engineering Technology',
+                    'College of Informatics and Computing Sciences',
+                    'College of Teacher Education'
+                ],
+                'ARASOF Nasugbu': [
+                    'College of Teacher Education',
+                    'College of Accountancy, Business, Economics & International Hospitality Management',
+                    'College of Informatics & Computing Sciences',
+                    'College of Arts and Sciences',
+                    'College of Health Sciences / Allied Health',
+                    'College of Criminal Justice Education'
+                ]
+            };
+            
+            // Get the college order based on selected campus filter
+            let collegeOrder = campusColleges[filterCampus] || [];
+            
+            // Create a map of existing data
+            const dataMap = {};
+            if (collegeData && collegeData.length > 0) {
+                collegeData.forEach(item => {
+                    dataMap[item.college] = item.count;
+                });
+            }
+            
+            // Build ordered data with all colleges, using 0 for missing ones
+            const orderedData = collegeOrder.map(college => ({
+                college: college,
+                count: dataMap[college] || 0,
+                percentage: 0 // Will be calculated below
+            }));
+            
+            // Calculate percentages based on max count
+            const maxCount = Math.max(...orderedData.map(c => c.count), 1); // Ensure at least 1 to avoid division by zero
+            orderedData.forEach(item => {
+                item.percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+            });
 
-            // Colors for different campuses
+            // Red color palette for bars (from light to dark)
             const colors = [
-                '#4285F4', // Blue
-                '#FF6B35', // Orange  
-                '#9C27B0', // Purple
-                '#4CAF50', // Green
-                '#FF9800', // Amber
-                '#607D8B'  // Blue Grey
+                '#ff6b6b', // Light red
+                '#ee5a52', // 
+                '#dc2626', // Medium red
+                '#c91f1f', // 
+                '#b91c1c', // Dark red
+                '#a81818', // 
+                '#991515', // 
+                '#8b1414', // 
+                '#7f1d1d', // Very dark red
+                '#6b1717'  // Darkest red
             ];
-
-            // Draw pie chart
-            drawPieChart(campusData, colors);
             
-            // Draw legend
-            drawLegend(campusData, colors);
-            
-            // Draw bar chart
-            drawBarChart(campusData, colors);
+            // Draw bar chart with ordered data
+            drawBarChart(orderedData, colors);
         }
 
-        function drawPieChart(campusData, colors) {
-            const canvas = document.getElementById('pieChart');
-            const ctx = canvas.getContext('2d');
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const radius = 80;
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // If only one campus, draw full circle
-            if (campusData.length === 1) {
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                ctx.fillStyle = colors[0];
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                return;
-            }
-
-            let currentAngle = -Math.PI / 2; // Start from top
-            
-            campusData.forEach((campus, index) => {
-                const sliceAngle = (campus.percentage / 100) * 2 * Math.PI;
-                
-                // Draw slice
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-                ctx.closePath();
-                ctx.fillStyle = colors[index % colors.length];
-                ctx.fill();
-                
-                // Draw border
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                currentAngle += sliceAngle;
-            });
-        }
-
-        function drawLegend(campusData, colors) {
-            const legendContainer = document.getElementById('chartLegend');
-            legendContainer.innerHTML = '';
-            
-            campusData.forEach((campus, index) => {
-                const legendItem = document.createElement('div');
-                legendItem.className = 'legend-item';
-                
-                legendItem.innerHTML = `
-                    <div class="legend-color" style="background: ${colors[index % colors.length]}"></div>
-                    <div class="legend-text">${campus.campus} (${campus.percentage}%)</div>
-                `;
-                
-                legendContainer.appendChild(legendItem);
-            });
-        }
-
-        function drawBarChart(campusData, colors) {
+        function drawBarChart(collegeData, colors) {
             const barContainer = document.getElementById('barChart');
             barContainer.innerHTML = '';
             
-            const maxCount = Math.max(...campusData.map(c => c.count));
+            const maxCount = Math.max(...collegeData.map(c => c.count), 1); // Ensure at least 1 to avoid division by zero
             
-            campusData.forEach((campus, index) => {
-                const barItem = document.createElement('div');
-                barItem.className = 'bar-item';
+            // Reset container styles for horizontal bars
+            barContainer.style.display = 'block';
+            barContainer.style.padding = '1rem';
+            
+            collegeData.forEach((college, index) => {
+                const barWrapper = document.createElement('div');
+                barWrapper.style.marginBottom = '1rem';
+                barWrapper.style.display = 'flex';
+                barWrapper.style.alignItems = 'center';
+                barWrapper.style.gap = '1rem';
                 
-                const percentage = (campus.count / maxCount) * 100;
+                // Calculate percentage based on the maximum count
+                const percentage = maxCount > 0 ? (college.count / maxCount) * 100 : 0;
                 
-                barItem.innerHTML = `
-                    <div class="bar-label">${campus.campus}</div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width: ${percentage}%; background: ${colors[index % colors.length]}">
-                            <span class="bar-value">${campus.count}</span>
+                barWrapper.innerHTML = `
+                    <div style="
+                        width: 200px;
+                        flex-shrink: 0;
+                        text-align: right;
+                        font-size: 0.75rem;
+                        color: #333;
+                        font-weight: 500;
+                        padding-right: 0.5rem;
+                    ">${college.college}</div>
+                    <div style="
+                        flex: 1;
+                        height: 35px;
+                        background: #f0f0f0;
+                        border-radius: 4px;
+                        position: relative;
+                        overflow: hidden;
+                    ">
+                        <div style="
+                            height: 100%;
+                            width: ${percentage}%;
+                            background: ${colors[index % colors.length]};
+                            display: flex;
+                            align-items: center;
+                            justify-content: flex-end;
+                            padding-right: 0.75rem;
+                            transition: width 0.3s ease;
+                            min-width: ${college.count > 0 ? '30px' : '0'};
+                        ">
+                            <span style="
+                                color: white;
+                                font-weight: bold;
+                                font-size: 0.875rem;
+                            ">${college.count}</span>
                         </div>
                     </div>
                 `;
                 
-                barContainer.appendChild(barItem);
+                barContainer.appendChild(barWrapper);
             });
         }
 
@@ -2879,17 +4129,24 @@ try {
             chartContainer.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; height: 300px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #ddd;">
                     <div style="text-align: center; color: #888;">
-                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No campus distribution data available</p>
-                        <small style="font-size: 0.875rem; color: #aaa;">Chart will appear when student data is available</small>
+                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No data available</p>
+                        <small style="font-size: 0.875rem; color: #aaa;">No student artists found or no college assigned</small>
                     </div>
                 </div>
             `;
         }
 
         // Cultural Group Distribution Functions
-        function loadCulturalGroupDistribution() {
-            console.log('Loading cultural group distribution...');
-            fetch('get_cultural_group_distribution.php')
+        function loadCulturalGroupDistribution(searchTerm = '', filterCampus = '') {
+            console.log('Loading cultural group distribution with search:', searchTerm, 'campus:', filterCampus);
+            let url = 'get_cultural_group_distribution.php';
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (filterCampus) params.append('campus', filterCampus);
+            // Add cache-busting parameter
+            params.append('t', new Date().getTime());
+            if (params.toString()) url += '?' + params.toString();
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Cultural group distribution response:', data);
@@ -3121,7 +4378,7 @@ try {
             
             container.innerHTML = `
                 <div style="padding: 1rem;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
                         <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
                             <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-style: normal;">${stats.total_items}</div>
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Total Items</div>
@@ -3135,6 +4392,10 @@ try {
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Borrowed</div>
                         </div>
                         <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #6c757d; font-style: normal;">${stats.unavailable_items || 0}</div>
+                            <div style="font-size: 0.8rem; color: #666; font-style: normal;">Unavailable</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px; grid-column: 1 / -1; justify-self: center; width: 100%; max-width: calc(50% - 10px);">
                             <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545; font-style: normal;">${stats.damaged_items}</div>
                             <div style="font-size: 0.8rem; color: #666; font-style: normal;">Damaged</div>
                         </div>
@@ -3181,11 +4442,13 @@ try {
             const modal = document.getElementById('allEventsModal');
             modal.style.display = 'flex';
             loadAllEvents();
+            preventBackgroundScroll();
         }
 
         function closeAllEventsModal() {
             const modal = document.getElementById('allEventsModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         // Costume Inventory Functions
@@ -3193,12 +4456,14 @@ try {
             // Show the borrow requests modal
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             loadBorrowRequests();
         }
 
         function closeBorrowRequestsModal() {
             const modal = document.getElementById('borrowRequestsModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function loadBorrowRequests(page = 1) {
@@ -3272,9 +4537,9 @@ try {
             
             let html = '';
             requests.forEach(request => {
-                // Format equipment categories
-                let equipmentList = '';
-                if (request.equipment_categories) {
+                // Use item_name from the database, or fallback to equipment_categories for older requests
+                let equipmentList = request.item_name || '';
+                if (!equipmentList && request.equipment_categories) {
                     const categories = [];
                     for (const [category, items] of Object.entries(request.equipment_categories)) {
                         if (items) {
@@ -3292,13 +4557,13 @@ try {
                 html += `
                     <tr>
                         <td style="padding: 0.75rem;">
-                            <div style="font-weight: 600;">${request.student_name || request.requester_name}</div>
-                            <div style="font-size: 0.8rem; color: #666;">${request.email}</div>
-                            <div style="font-size: 0.8rem; color: #666;">${request.student_campus || request.campus || ''}</div>
+                            <div style="font-weight: 600;">${request.student_name || 'Unknown Student'}</div>
+                            <div style="font-size: 0.8rem; color: #666;">${request.student_email || ''}</div>
+                            <div style="font-size: 0.8rem; color: #666;">${request.student_campus || ''}</div>
                             <div style="font-size: 0.8rem; color: #666;">${request.created_at_formatted || ''}</div>
                         </td>
                         <td style="padding: 0.75rem;">
-                            <div style="font-size: 0.85rem; max-width: 200px;">${equipmentList}</div>
+                            <div style="font-size: 0.85rem; max-width: 200px;">${equipmentList || 'Equipment request details not specified'}</div>
                         </td>
                         <td style="padding: 0.75rem;">
                             <div style="font-size: 0.85rem;">${request.dates_of_use || 'Not specified'}</div>
@@ -3432,12 +4697,14 @@ try {
             // Show the returns modal
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             loadReturnRequests();
         }
 
         function closeReturnsModal() {
             const modal = document.getElementById('returnsModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function loadReturnRequests(page = 1) {
@@ -3460,14 +4727,17 @@ try {
             }))
             .then(response => response.json())
             .then(data => {
+                loadingDiv.style.display = 'none';
+                contentDiv.style.display = 'block';
+
                 if (data.success) {
                     displayReturnRequests(data.requests);
-                    loadingDiv.style.display = 'none';
-                    contentDiv.style.display = 'block';
+                    // Render pagination controls if provided by the API
+                    if (data.pagination) {
+                        displayReturnRequestsPagination(data.pagination);
+                    }
                 } else {
                     tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Error loading return requests: ${data.message}</td></tr>`;
-                    loadingDiv.style.display = 'none';
-                    contentDiv.style.display = 'block';
                 }
             })
             .catch(error => {
@@ -3504,6 +4774,48 @@ try {
             });
             
             tableBody.innerHTML = html;
+        }
+
+        function displayReturnRequestsPagination(pagination) {
+            const paginationDiv = document.getElementById('returnsPagination');
+            if (!paginationDiv) return;
+
+            if (pagination.total_pages <= 1) {
+                paginationDiv.innerHTML = '';
+                return;
+            }
+
+            let html = '<div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 1rem;">';
+
+            // Previous button
+            if (pagination.current_page > 1) {
+                html += `<button class="pagination-btn" onclick="loadReturnRequests(${pagination.current_page - 1})">Previous</button>`;
+            }
+
+            // Page numbers
+            const startPage = Math.max(1, pagination.current_page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === pagination.current_page ? 'active' : '';
+                html += `<button class="pagination-number ${activeClass}" onclick="loadReturnRequests(${i})">${i}</button>`;
+            }
+
+            // Next button
+            if (pagination.current_page < pagination.total_pages) {
+                html += `<button class="pagination-btn" onclick="loadReturnRequests(${pagination.current_page + 1})">Next</button>`;
+            }
+
+            html += '</div>';
+
+            const perPage = pagination.per_page || 10;
+            const total = pagination.total_count || 0;
+            const startItem = ((pagination.current_page - 1) * perPage) + 1;
+            const endItem = Math.min(pagination.current_page * perPage, total);
+
+            html += `<div style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem; color: #666;">Showing ${startItem} to ${endItem} of ${total} requests</div>`;
+
+            paginationDiv.innerHTML = html;
         }
 
         let returnSearchTimeout;
@@ -3612,6 +4924,7 @@ try {
         function openAddItemModal() {
             const modal = document.getElementById('addItemModal');
             modal.style.display = 'flex';
+            preventBackgroundScroll();
             // Reset form
             document.getElementById('addItemForm').reset();
         }
@@ -3619,6 +4932,7 @@ try {
         function closeAddItemModal() {
             const modal = document.getElementById('addItemModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         // Handle Add Item Form Submission
@@ -3632,6 +4946,7 @@ try {
                     const itemData = {
                         name: formData.get('name'),
                         category: formData.get('category'),
+                        quantity: formData.get('quantity'),
                         condition: formData.get('condition'),
                         description: formData.get('description'),
                         status: 'available' // Automatically set to available
@@ -3705,10 +5020,12 @@ try {
             
             let html = '';
             costumes.forEach(costume => {
-                html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(costume.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 60px 90px 90px 1.5fr; padding: 0.65rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center; font-size: 0.85rem;">';
+                html += '<div style="padding: 0 0.3rem; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.3;">' + (costume.item_name || costume.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; font-weight: 600; color: #333;">' + (costume.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getConditionBadge(costume.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getInventoryStatusBadge(costume.status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; font-size: 0.8rem; line-height: 1.3;">' + getBorrowerInfo(costume) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
@@ -3723,30 +5040,70 @@ try {
             
             let html = '';
             equipment.forEach(item => {
-                html += '<div class="table-row" style="display: grid; grid-template-columns: 1fr 120px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">';
-                html += '<div style="padding: 0 0.5rem;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getConditionBadge(item.condition_status) + '</div>';
-                html += '<div style="padding: 0 0.5rem;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '<div class="table-row compact-row" style="display: grid; grid-template-columns: 2fr 60px 90px 90px 1.5fr; padding: 0.65rem 0.5rem; border-bottom: 1px solid #e0e0e0; align-items: center; font-size: 0.85rem;">';
+                html += '<div style="padding: 0 0.3rem; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.3;">' + (item.item_name || item.name || 'Unnamed Item') + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; font-weight: 600; color: #333;">' + (item.quantity || 0) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getConditionBadge(item.condition_status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; text-align: center; display: flex; justify-content: center; align-items: center;">' + getInventoryStatusBadge(item.status) + '</div>';
+                html += '<div style="padding: 0 0.3rem; font-size: 0.8rem; line-height: 1.3;">' + getBorrowerInfo(item) + '</div>';
                 html += '</div>';
             });
             tableBody.innerHTML = html;
         }
 
+        function getBorrowerInfo(item) {
+            if (item.status === 'borrowed') {
+                // Check if there are multiple borrowers
+                if (item.borrowers && item.borrowers.length > 0) {
+                    let html = '<div style="line-height: 1.3;">';
+                    
+                    // Show all borrower names
+                    item.borrowers.forEach((borrower, index) => {
+                        const borrowDate = new Date(borrower.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        html += `<div style="margin-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; padding-bottom: ${index < item.borrowers.length - 1 ? '0.4rem' : '0'}; border-bottom: ${index < item.borrowers.length - 1 ? '1px solid #eee' : 'none'};">`;
+                        html += `<div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word; overflow-wrap: break-word;">${borrower.student_name}</div>`;
+                        html += `<div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>`;
+                        html += `</div>`;
+                    });
+                    
+                    html += '</div>';
+                    return html;
+                } else if (item.borrower_name) {
+                    // Fallback to single borrower for backward compatibility
+                    const borrowDate = new Date(item.borrow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    return `<div style="line-height: 1.3;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 2px; font-size: 0.8rem; word-wrap: break-word; overflow-wrap: break-word;">${item.borrower_name}</div>
+                        <div style="color: #666; font-size: 0.7rem;">Since: ${borrowDate}</div>
+                    </div>`;
+                } else {
+                    return '<span style="color: #666; font-style: italic; font-size: 0.8rem;">Borrowed</span>';
+                }
+            }
+            return '<span style="color: #aaa; text-align: center; display: block; font-size: 0.8rem;">-</span>';
+        }
+
         function getConditionBadge(condition) {
             const badges = {
-                'good': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Good</span>',
-                'worn-out': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Worn-out</span>',
-                'bad': '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Bad</span>'
+                'excellent': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Excellent</span>',
+                'good': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Good</span>',
+                'fair': '<span style="background: #ffc107; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Fair</span>',
+                'poor': '<span style="background: #fd7e14; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Poor</span>',
+                'worn-out': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Worn-out</span>',
+                'damaged': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Damaged</span>',
+                'bad': '<span style="background: #dc3545; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; white-space: nowrap; display: inline-block;">Bad</span>'
             };
-            return badges[condition] || condition;
+            return badges[condition] || `<span style="color: #666; font-size: 0.7rem;">${condition || 'Unknown'}</span>`;
         }
 
         function getInventoryStatusBadge(status) {
             const badges = {
-                'available': '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Available</span>',
-                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">Borrowed</span>'
+                'available': '<span style="background: #28a745; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Available</span>',
+                'borrowed': '<span style="background: #6c757d; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Borrowed</span>',
+                'maintenance': '<span style="background: #fd7e14; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Maintenance</span>',
+                'reserved': '<span style="background: #17a2b8; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Reserved</span>',
+                'retired': '<span style="background: #6c757d; color: white; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-block;">Retired</span>'
             };
-            return badges[status] || status;
+            return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Unknown'}</span>`;
         }
 
         // Load inventory items when costume inventory section is activated
@@ -3860,6 +5217,10 @@ try {
                 } else {
                     html += '<div style="font-size: 0.8rem; color: #666;">' + Math.abs(event.days_difference) + ' day(s) ago</div>';
                 }
+                html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
+                html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
+                html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
+                html += '</div>';
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
@@ -3964,21 +5325,18 @@ try {
             document.getElementById('endDate').value = event.end_date_formatted;
             document.getElementById('eventLocation').value = event.location;
             
-            // Handle campus field - use event.campus, not event.venue
+            // Use campus field (not venue)
             const municipalityField = document.getElementById('municipality');
-            if (municipalityField) {
-                const eventCampus = event.campus || event.venue || userCampus;
+            const eventCampus = event.campus || event.venue || userCampus;
+            
+            // Only allow editing campus if user can view all
+            if (canViewAll) {
                 municipalityField.value = eventCampus;
-                
-                // Re-enable for Pablo Borbon users when editing
-                if (canViewAll) {
-                    municipalityField.disabled = false;
-                    municipalityField.style.backgroundColor = '';
-                    municipalityField.style.cursor = '';
-                } else {
-                    // Force user's campus for non-Pablo Borbon users
-                    municipalityField.value = userCampus;
-                }
+                municipalityField.disabled = false;
+            } else {
+                // Lock to user's campus
+                municipalityField.value = userCampus;
+                municipalityField.disabled = true;
             }
             
             document.getElementById('eventCategory').value = event.category;
@@ -3994,13 +5352,15 @@ try {
         function cancelEdit() {
             isEditMode = false;
             currentEditingEventId = null;
-            
             // Reset form
             document.getElementById('eventForm').reset();
             updateCulturalGroupsDisplay();
             
-            // Reinitialize campus field
-            initializeCampusField();
+            // Reset campus to user's campus
+            const municipalityField = document.getElementById('municipality');
+            if (municipalityField && userCampus) {
+                municipalityField.value = userCampus;
+            }
             
             // Update form title and button
             document.querySelector('.panel-title-event').textContent = 'Input New Event';
@@ -4008,12 +5368,12 @@ try {
             document.querySelector('.cancel-event-btn').style.display = 'none';
         }
 
-        function deleteEvent(eventId, eventTitle) {
-            if (!confirm('Are you sure you want to delete the event "' + eventTitle + '"? This action cannot be undone.')) {
+        function archiveEvent(eventId, eventTitle) {
+            if (!confirm('Are you sure you want to archive the event "' + eventTitle + '"? You can restore it from the Archives module.')) {
                 return;
             }
             
-            fetch('delete_event.php', {
+            fetch('archive_event.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -4030,12 +5390,12 @@ try {
                         loadAllEvents();
                     }
                 } else {
-                    alert('Error deleting event: ' + data.message);
+                    alert('Error archiving event: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error deleting event');
+                alert('An error occurred while archiving the event');
             });
         }
 
@@ -4047,6 +5407,21 @@ try {
                     e.preventDefault();
                     saveEvent();
                 });
+            }
+            
+            // Set default campus and manage field state
+            const municipalityField = document.getElementById('municipality');
+            if (municipalityField && userCampus) {
+                // If user cannot view all campuses, lock them to their campus
+                if (!canViewAll) {
+                    municipalityField.value = userCampus;
+                    municipalityField.disabled = true;
+                    municipalityField.style.backgroundColor = '#f3f4f6';
+                    municipalityField.style.cursor = 'not-allowed';
+                } else {
+                    // Pablo Borbon users can select any campus, default to their own
+                    municipalityField.value = userCampus;
+                }
             }
         });
 
@@ -4260,6 +5635,14 @@ try {
                         ${event.days_until === 0 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Today!</div>' : 
                           event.days_until === 1 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Tomorrow</div>' :
                           `<div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">In ${event.days_until} day(s)</div>`}
+                        <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                            <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+                                Edit
+                            </button>
+                            <button onclick="archiveEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}');" style="background: #ff9800; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+                                Archive
+                            </button>
+                        </div>
                     </div>
                 `;
             });
@@ -4347,10 +5730,10 @@ try {
                         <div style="padding: 0 0.5rem;">
                             <input type="checkbox" value="${costume.id}" 
                                    ${isSelected ? 'checked' : ''}
-                                   onchange="toggleItemSelection('costume', ${costume.id}, '${costume.item_name || costume.name || 'Unnamed Item'}', this.checked)">
+                                   onchange="toggleItemSelection('costume', ${costume.id}, '${costume.name}', this.checked)">
                         </div>
                         <div style="padding: 0 0.5rem; font-weight: 500;">
-                            ${costume.item_name || costume.name || 'Unnamed Item'}
+                            ${costume.name}
                         </div>
                         <div style="padding: 0 0.5rem;">
                             <span class="condition-badge condition-${costume.condition}">${costume.condition}</span>
@@ -4386,10 +5769,10 @@ try {
                         <div style="padding: 0 0.5rem;">
                             <input type="checkbox" value="${equipment.id}" 
                                    ${isSelected ? 'checked' : ''}
-                                   onchange="toggleItemSelection('equipment', ${equipment.id}, '${equipment.item_name || equipment.name || 'Unnamed Item'}', this.checked)">
+                                   onchange="toggleItemSelection('equipment', ${equipment.id}, '${equipment.name}', this.checked)">
                         </div>
                         <div style="padding: 0 0.5rem; font-weight: 500;">
-                            ${equipment.item_name || equipment.name || 'Unnamed Item'}
+                            ${equipment.name}
                         </div>
                         <div style="padding: 0 0.5rem;">
                             <span class="condition-badge condition-${equipment.condition}">${equipment.condition}</span>
@@ -4439,7 +5822,7 @@ try {
                 
                 if (costume) {
                     checkbox.checked = selectAll.checked;
-                    toggleItemSelection('costume', id, costume.item_name || costume.name || 'Unnamed Item', selectAll.checked);
+                    toggleItemSelection('costume', id, costume.name, selectAll.checked);
                 }
             });
         }
@@ -4454,7 +5837,7 @@ try {
                 
                 if (equipment) {
                     checkbox.checked = selectAll.checked;
-                    toggleItemSelection('equipment', id, equipment.item_name || equipment.name || 'Unnamed Item', selectAll.checked);
+                    toggleItemSelection('equipment', id, equipment.name, selectAll.checked);
                 }
             });
         }
@@ -4539,6 +5922,7 @@ try {
                         alert('Request approved successfully!');
                         closeItemSelectionModal();
                         loadBorrowRequests(); // Refresh the requests list
+                        loadInventoryItems(); // Refresh inventory to show items as "borrowed"
                     } else {
                         const errorMessage = data.message || data.error || 'Unknown error occurred';
                         alert('Error approving request: ' + errorMessage);
@@ -4559,6 +5943,8 @@ try {
             console.log('Loading event participation data...');
             const loadingDiv = document.getElementById('participationLoading');
             const tableContainer = document.getElementById('participationTableContainer');
+            // global variable to hold participation events for client-side filtering
+            window.participationEvents = window.participationEvents || [];
             
             loadingDiv.style.display = 'block';
             tableContainer.style.display = 'none';
@@ -4577,7 +5963,9 @@ try {
                     
                     if (data.success) {
                         console.log('Success! Events count:', data.events.length);
-                        displayEventParticipation(data.events);
+                        // store full events list for filtering
+                        window.participationEvents = data.events || [];
+                        displayEventParticipation(window.participationEvents);
                     } else {
                         console.error('API returned error:', data.message);
                         showParticipationError(data.message);
@@ -4603,7 +5991,15 @@ try {
                 `;
             } else {
                 let html = `
-                    <table style="width: 100%; border-collapse: collapse; background: white; margin: 0;">
+                    <table style="width: 100%; border-collapse: collapse; background: white; margin: 0; table-layout: fixed;">
+                        <colgroup>
+                            <col style="width: 25%;">
+                            <col style="width: 20%;">
+                            <col style="width: 18%;">
+                            <col style="width: 15%;">
+                            <col style="width: 12%;">
+                            <col style="width: 10%;">
+                        </colgroup>
                         <thead style="background: #dc2626; color: white;">
                             <tr>
                                 <th style="padding: 1rem; text-align: left; font-weight: 600; font-style: normal;">Event Details</th>
@@ -4628,31 +6024,33 @@ try {
                     
                     html += `
                         <tr style="border-bottom: 1px solid #e0e0e0;">
-                            <td style="padding: 1rem; vertical-align: top;">
-                                <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem; font-style: normal;">${event.title}</div>
-                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem; font-style: normal; font-weight: 500;">${event.category}</div>
-                                <div style="color: #888; font-size: 0.8rem; font-style: normal; font-weight: normal;">Created: ${event.formatted_created_date}</div>
+                            <td style="padding: 1rem; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;">
+                                <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem; font-style: normal; line-height: 1.3;">${event.title}</div>
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem; font-style: normal; font-weight: 500; line-height: 1.3;">${event.category}</div>
+                                <div style="color: #888; font-size: 0.8rem; font-style: normal; font-weight: normal; line-height: 1.3;">Created: ${event.formatted_created_date}</div>
                             </td>
-                            <td style="padding: 1rem; vertical-align: top;">
-                                <div style="color: #333; margin-bottom: 0.25rem; font-style: normal;">${dateRange}</div>
-                                <div style="color: #666; font-size: 0.9rem; font-style: normal;">${event.location}</div>
+                            <td style="padding: 1rem; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;">
+                                <div style="color: #333; margin-bottom: 0.25rem; font-style: normal; line-height: 1.3;">${dateRange}</div>
+                                <div style="color: #666; font-size: 0.9rem; font-style: normal; line-height: 1.3;">${event.location}</div>
                             </td>
-                            <td style="padding: 1rem; vertical-align: top;">
-                                <div style="color: #333; font-size: 0.9rem; font-style: normal;">${culturalGroups}${moreGroups}</div>
+                            <td style="padding: 1rem; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;">
+                                <div style="color: #333; font-size: 0.9rem; font-style: normal; line-height: 1.3;">${culturalGroups}${moreGroups}</div>
                             </td>
                             <td style="padding: 1rem; text-align: center; vertical-align: top;">
-                                <span style="background: ${event.participants_count > 0 ? '#28a745' : '#6c757d'}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; font-style: normal;">
+                                <span style="background: ${event.participants_count > 0 ? '#28a745' : '#6c757d'}; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; font-style: normal; display: inline-block; min-width: fit-content; white-space: nowrap;">
                                     ${event.participants_count} participant(s)
                                 </span>
                             </td>
                             <td style="padding: 1rem; text-align: center; vertical-align: top;">
                                 ${statusBadge}
                             </td>
-                            <td style="padding: 1rem; text-align: center; vertical-align: top;">
-                                <button onclick="viewEventParticipants(${event.id})" 
-                                        style="background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
-                                    View Participants
-                                </button>
+                            <td style="padding: 0.5rem; text-align: center; vertical-align: top;">
+                                <div style="margin-top: 0.5rem;">
+                                    <button onclick="viewEventParticipants(${event.id})" 
+                                            style="background: #007bff; color: white; border: none; padding: 0.3rem 0.4rem; border-radius: 4px; cursor: pointer; font-size: 0.65rem; font-weight: 600; white-space: nowrap; width: 100%; line-height: 1.2;">
+                                        View Participants
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -4669,6 +6067,33 @@ try {
             
             // Show and populate the chart
             showParticipationChart(events);
+        }
+
+        // Filter participation events client-side
+        function filterParticipationEvents() {
+            const q = document.getElementById('participationSearchInput').value.trim().toLowerCase();
+            if (!window.participationEvents) return;
+            if (q === '') {
+                displayEventParticipation(window.participationEvents);
+                return;
+            }
+
+            const filtered = window.participationEvents.filter(ev => {
+                const title = (ev.title || '').toLowerCase();
+                const category = (ev.category || '').toLowerCase();
+                const location = (ev.location || '').toLowerCase();
+                return title.includes(q) || category.includes(q) || location.includes(q);
+            });
+
+            displayEventParticipation(filtered);
+        }
+
+        function clearParticipationSearch() {
+            const input = document.getElementById('participationSearchInput');
+            if (input) {
+                input.value = '';
+                displayEventParticipation(window.participationEvents || []);
+            }
         }
 
         // Chart functionality
@@ -4740,12 +6165,14 @@ try {
             
             populateEventSelectionModal();
             modal.style.display = 'flex';
+            preventBackgroundScroll();
         }
 
         function closeEventSelectionModal() {
             const modal = document.getElementById('eventSelectionModal');
             if (modal) {
                 modal.style.display = 'none';
+                allowBackgroundScroll();
                 // Clear search input when closing modal
                 const searchInput = document.getElementById('eventSearchInput');
                 if (searchInput) {
@@ -5087,420 +6514,315 @@ try {
         }
 
         function drawAllEventsChart(events) {
-            const canvas = document.getElementById('participationChart');
-            
-            // Safety check
+            var canvas = document.getElementById('participationChart');
             if (!canvas) {
-                console.warn('Chart canvas not found');
+                console.warn('Participation chart canvas not found');
                 return;
             }
             
-            const ctx = canvas.getContext('2d');
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
+            // Destroy existing chart if any
+            if (window.participationChartInstance) {
+                window.participationChartInstance.destroy();
+            }
+
             if (events.length === 0) {
-                drawEmptyChart(ctx, canvas);
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No events available');
                 return;
             }
-            
-            // Chart dimensions and padding
-            const padding = 60;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const chartX = padding;
-            const chartY = padding;
-            
-            // Prepare data points
-            const dataPoints = events.map((event, index) => {
-                const eligibleMembers = getTotalCulturalGroupMembers(event);
-                const participationRate = eligibleMembers > 0 ? (event.participants_count / eligibleMembers) * 100 : 0;
+
+            // Prepare data for Chart.js
+            var chartData = events.map(function(event) {
+                var eligibleMembers = getTotalCulturalGroupMembers(event);
+                var participationRate = eligibleMembers > 0 ? (event.participants_count / eligibleMembers) * 100 : 0;
                 return {
-                    x: index,
-                    y: participationRate,
-                    label: event.title,
-                    participants: event.participants_count,
-                    eligible: eligibleMembers
+                    x: event.title.length > 15 ? event.title.substring(0, 13) + '...' : event.title,
+                    y: parseFloat(participationRate.toFixed(1)),
+                    fullTitle: event.title,
+                    participants: event.participants_count || 0,
+                    eligible: eligibleMembers,
+                    date: event.start_date || 'N/A'
                 };
             });
-            
-            if (dataPoints.length === 0) {
-                drawEmptyChart(ctx, canvas);
-                return;
-            }
-            
-            // Find min and max values for scaling
-            const maxY = Math.max(100, Math.max(...dataPoints.map(p => p.y)));
-            const minY = 0;
-            
-            // Draw chart background
-            ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(chartX, chartY, chartWidth, chartHeight);
-            
-            // Draw grid lines
-            ctx.strokeStyle = '#e0e0e0';
-            ctx.lineWidth = 1;
-            
-            // Horizontal grid lines (Y-axis)
-            for (let i = 0; i <= 5; i++) {
-                const y = chartY + (chartHeight / 5) * i;
-                ctx.beginPath();
-                ctx.moveTo(chartX, y);
-                ctx.lineTo(chartX + chartWidth, y);
-                ctx.stroke();
-                
-                // Y-axis labels
-                const value = maxY - (maxY / 5) * i;
-                ctx.fillStyle = '#666';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'right';
-                ctx.fillText(value.toFixed(0) + '%', chartX - 10, y + 4);
-            }
-            
-            // Vertical grid lines (X-axis) 
-            const stepX = chartWidth / Math.max(1, dataPoints.length - 1);
-            for (let i = 0; i < dataPoints.length; i++) {
-                const x = chartX + stepX * i;
-                ctx.beginPath();
-                ctx.moveTo(x, chartY);
-                ctx.lineTo(x, chartY + chartHeight);
-                ctx.stroke();
-            }
-            
-            // Draw axes
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            
-            // Y-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY);
-            ctx.lineTo(chartX, chartY + chartHeight);
-            ctx.stroke();
-            
-            // X-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY + chartHeight);
-            ctx.lineTo(chartX + chartWidth, chartY + chartHeight);
-            ctx.stroke();
-            
-            // Draw line chart
-            if (dataPoints.length > 1) {
-                ctx.strokeStyle = '#dc2626';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                
-                dataPoints.forEach((point, index) => {
-                    const x = chartX + stepX * index;
-                    const y = chartY + chartHeight - ((point.y - minY) / (maxY - minY)) * chartHeight;
-                    
-                    if (index === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
+
+            var chartLabels = chartData.map(function(item) { return item.x; });
+            var chartValues = chartData.map(function(item) { return item.y; });
+
+            // Create interactive Chart.js line chart
+            var ctx = canvas.getContext('2d');
+            window.participationChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Participation Rate (%)',
+                        data: chartValues,
+                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 8,
+                        pointHoverRadius: 12,
+                        pointBackgroundColor: '#dc2626',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 3,
+                        pointHoverBorderWidth: 4,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeInOutCubic'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                color: '#666',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Participation Rate (%)',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#666',
+                                font: {
+                                    size: 11
+                                },
+                                maxRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Event Participation Trend',
+                            color: '#333',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                color: '#666',
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                            titleColor: '#333',
+                            bodyColor: '#666',
+                            borderColor: '#dc2626',
+                            borderWidth: 2,
+                            cornerRadius: 12,
+                            padding: 16,
+                            titleFont: {
+                                weight: 'bold',
+                                size: 15
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            displayColors: true,
+                            usePointStyle: true,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    var index = tooltipItems[0].dataIndex;
+                                    return chartData[index].fullTitle;
+                                },
+                                label: function(context) {
+                                    var index = context.dataIndex;
+                                    var data = chartData[index];
+                                    return [
+                                        'Participation Rate: ' + data.y + '%',
+                                        'Participants: ' + data.participants,
+                                        'Eligible Members: ' + data.eligible,
+                                        'Event Date: ' + (data.date !== 'N/A' ? new Date(data.date).toLocaleDateString() : 'Not specified')
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
-                });
-                
-                ctx.stroke();
-            }
-            
-            // Draw data points
-            dataPoints.forEach((point, index) => {
-                const x = chartX + stepX * index;
-                const y = chartY + chartHeight - ((point.y - minY) / (maxY - minY)) * chartHeight;
-                
-                // Draw point circle
-                ctx.fillStyle = '#dc2626';
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fill();
-                
-                // Draw point border
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            });
-            
-            // Draw title
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 18px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Event Participation Trend', canvas.width / 2, 30);
-            
-            // Draw X-axis labels (event names)
-            ctx.fillStyle = '#666';
-            ctx.font = '10px Arial';
-            ctx.textAlign = 'center';
-            dataPoints.forEach((point, index) => {
-                const x = chartX + stepX * index;
-                const labelY = chartY + chartHeight + 15;
-                
-                // Truncate long event names
-                let label = point.label;
-                if (label.length > 12) {
-                    label = label.substring(0, 10) + '...';
                 }
-                ctx.fillText(label, x, labelY);
             });
-            
-            // Draw Y-axis label
-            ctx.save();
-            ctx.translate(20, canvas.height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillStyle = '#666';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Participation Rate (%)', 0, 0);
-            ctx.restore();
-            
-            // Update legend
-            const legendContainer = document.getElementById('chartLegendContainer');
-            if (legendContainer) {
-                const avgParticipation = dataPoints.length > 0 ? 
-                    (dataPoints.reduce((sum, p) => sum + p.y, 0) / dataPoints.length).toFixed(1) : 0;
-                
-                legendContainer.innerHTML = `
-                    <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <div style="width: 20px; height: 3px; background: #dc2626; border-radius: 2px;"></div>
-                            <span style="font-size: 14px; color: #333;">Participation Rate Trend</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 14px; color: #333;">Average: ${avgParticipation}%</span>
-                        </div>
-                    </div>
-                    <div style="text-align: center; margin-top: 1rem; color: #666; font-size: 12px;">
-                        Showing participation rates across ${events.length} event${events.length !== 1 ? 's' : ''}
-                    </div>
-                `;
-            }
-            
-            // Generate analytics for all events
+
+            // Generate analytics
             generateAllEventsAnalytics(events);
         }
 
         function drawPieChartLegend(events, colors, totalParticipants) {
-            const legendContainer = document.getElementById('chartLegendContainer');
+            var legendContainer = document.getElementById('chartLegendContainer');
             if (!legendContainer) return;
             
-            let legendHTML = '';
-            events.forEach((event, index) => {
+            var legendHTML = '';
+            events.forEach(function(event, index) {
                 if (event.participants_count > 0) {
-                    const color = colors[index % colors.length];
-                    const percentage = ((event.participants_count / totalParticipants) * 100).toFixed(1);
-                    legendHTML += `
-                        <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem;">
-                            <div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px;"></div>
-                            <span style="font-size: 12px; color: #333;">${event.title} (${event.participants_count} - ${percentage}%)</span>
-                        </div>
-                    `;
+                    var color = colors[index % colors.length];
+                    var percentage = ((event.participants_count / totalParticipants) * 100).toFixed(1);
+                    legendHTML += 
+                        '<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem;">' +
+                            '<div style="width: 16px; height: 16px; background: ' + color + '; border-radius: 3px;"></div>' +
+                            '<span style="font-size: 12px; color: #333;">' + event.title + ' (' + event.participants_count + ' - ' + percentage + '%)</span>' +
+                        '</div>';
                 }
             });
             legendContainer.innerHTML = legendHTML;
         }
 
         function drawIndividualEventChart(event) {
-            const canvas = document.getElementById('participationChart');
-            
-            // Safety check
+            var canvas = document.getElementById('participationChart');
             if (!canvas) {
                 console.warn('Chart canvas not found');
                 return;
             }
             
-            const ctx = canvas.getContext('2d');
+            // Destroy existing chart if any
+            if (window.participationChartInstance) {
+                window.participationChartInstance.destroy();
+            }
             
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Chart dimensions and padding
-            const padding = 60;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const chartX = padding;
-            const chartY = padding;
-            
-            // Get cultural groups involved in this event
-            const culturalGroups = event.cultural_groups_array || ['All Groups'];
-            const totalMembers = getTotalCulturalGroupMembers(event);
-            const participants = event.participants_count;
-            
-            if (totalMembers === 0) {
-                drawEmptyChart(ctx, canvas);
+            if (!event) {
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No event data available');
                 return;
             }
-            
-            // Create simulated participation data over time (e.g., registration periods)
-            // In a real scenario, this would come from historical data
-            const timePoints = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Final'];
-            const participationProgress = [
-                Math.round(participants * 0.2), // 20% early registration
-                Math.round(participants * 0.4), // 40% by week 2
-                Math.round(participants * 0.7), // 70% by week 3
-                Math.round(participants * 0.9), // 90% by week 4
-                participants // Final count
-            ];
-            
-            // Find max value for scaling
-            const maxY = Math.max(totalMembers, Math.max(...participationProgress));
-            const minY = 0;
-            
-            // Draw chart background
-            ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(chartX, chartY, chartWidth, chartHeight);
-            
-            // Draw grid lines
-            ctx.strokeStyle = '#e0e0e0';
-            ctx.lineWidth = 1;
-            
-            // Horizontal grid lines (Y-axis)
-            for (let i = 0; i <= 5; i++) {
-                const y = chartY + (chartHeight / 5) * i;
-                ctx.beginPath();
-                ctx.moveTo(chartX, y);
-                ctx.lineTo(chartX + chartWidth, y);
-                ctx.stroke();
-                
-                // Y-axis labels
-                const value = Math.round(maxY - (maxY / 5) * i);
-                ctx.fillStyle = '#666';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'right';
-                ctx.fillText(value.toString(), chartX - 10, y + 4);
+
+            var culturalGroups = event.cultural_groups_array || ['All Groups'];
+            var totalMembers = getTotalCulturalGroupMembers(event);
+            var participants = event.participants_count;
+
+            if (totalMembers === 0) {
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No eligible members data available');
+                return;
             }
-            
-            // Vertical grid lines (X-axis)
-            const stepX = chartWidth / (timePoints.length - 1);
-            for (let i = 0; i < timePoints.length; i++) {
-                const x = chartX + stepX * i;
-                ctx.beginPath();
-                ctx.moveTo(x, chartY);
-                ctx.lineTo(x, chartY + chartHeight);
-                ctx.stroke();
-            }
-            
-            // Draw axes
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            
-            // Y-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY);
-            ctx.lineTo(chartX, chartY + chartHeight);
-            ctx.stroke();
-            
-            // X-axis
-            ctx.beginPath();
-            ctx.moveTo(chartX, chartY + chartHeight);
-            ctx.lineTo(chartX + chartWidth, chartY + chartHeight);
-            ctx.stroke();
-            
-            // Draw capacity line (total available spots)
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#999';
-            ctx.lineWidth = 2;
-            const capacityY = chartY + chartHeight - ((totalMembers - minY) / (maxY - minY)) * chartHeight;
-            ctx.beginPath();
-            ctx.moveTo(chartX, capacityY);
-            ctx.lineTo(chartX + chartWidth, capacityY);
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
-            
-            // Draw participation line
-            ctx.strokeStyle = '#dc2626';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            
-            participationProgress.forEach((count, index) => {
-                const x = chartX + stepX * index;
-                const y = chartY + chartHeight - ((count - minY) / (maxY - minY)) * chartHeight;
-                
-                if (index === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
+
+            // Prepare data for Chart.js pie chart
+            var participationRate = (participants / totalMembers) * 100;
+            var nonParticipationRate = 100 - participationRate;
+
+            var chartData = {
+                labels: ['Participants', 'Non-Participants'],
+                datasets: [{
+                    data: [participants, totalMembers - participants],
+                    backgroundColor: ['#dc2626', '#e5e7eb'],
+                    borderColor: ['#dc2626', '#9ca3af'],
+                    borderWidth: 2
+                }]
+            };
+
+            // Create Chart.js pie chart
+            var ctx = canvas.getContext('2d');
+            window.participationChartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutCubic'
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: event.title + ' - Participation Overview',
+                            color: '#333',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                color: '#666',
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                            titleColor: '#333',
+                            bodyColor: '#666',
+                            borderColor: '#dc2626',
+                            borderWidth: 2,
+                            cornerRadius: 12,
+                            padding: 16,
+                            titleFont: {
+                                weight: 'bold',
+                                size: 15
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label;
+                                    var value = context.raw;
+                                    var percentage = ((value / totalMembers) * 100).toFixed(1);
+                                    return [
+                                        label + ': ' + value + ' members',
+                                        'Percentage: ' + percentage + '%',
+                                        'Event: ' + event.title,
+                                        'Total Eligible: ' + totalMembers + ' members'
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+                    }
                 }
             });
-            
-            ctx.stroke();
-            
-            // Draw data points
-            participationProgress.forEach((count, index) => {
-                const x = chartX + stepX * index;
-                const y = chartY + chartHeight - ((count - minY) / (maxY - minY)) * chartHeight;
-                
-                // Draw point circle
-                ctx.fillStyle = '#dc2626';
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fill();
-                
-                // Draw point border
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Draw value labels on points
-                ctx.fillStyle = '#333';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(count.toString(), x, y - 10);
-            });
-            
-            // Draw title
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 18px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(event.title + ' - Registration Progress', canvas.width / 2, 30);
-            
-            // Draw X-axis labels
-            ctx.fillStyle = '#666';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            timePoints.forEach((label, index) => {
-                const x = chartX + stepX * index;
-                ctx.fillText(label, x, chartY + chartHeight + 20);
-            });
-            
-            // Draw Y-axis label
-            ctx.save();
-            ctx.translate(20, canvas.height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillStyle = '#666';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Number of Participants', 0, 0);
-            ctx.restore();
-            
-            // Draw capacity label
-            ctx.fillStyle = '#999';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText(`Capacity: ${totalMembers}`, chartX + chartWidth - 100, capacityY - 5);
-            
-            // Update legend
-            const legendContainer = document.getElementById('chartLegendContainer');
-            if (legendContainer) {
-                const participationRate = ((participants / totalMembers) * 100).toFixed(1);
-                
-                legendContainer.innerHTML = `
-                    <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <div style="width: 20px; height: 3px; background: #dc2626; border-radius: 2px;"></div>
-                            <span style="font-size: 14px; color: #333;">Registration Progress</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <div style="width: 20px; height: 3px; background: #999; border-radius: 2px; border: 1px dashed #999;"></div>
-                            <span style="font-size: 14px; color: #333;">Total Capacity</span>
-                        </div>
-                    </div>
-                    <div style="text-align: center; margin-top: 1rem; color: #666; font-size: 12px;">
-                        Final Participation: ${participants} of ${totalMembers} (${participationRate}%) | 
-                        Cultural Groups: ${culturalGroups.join(', ')}
-                    </div>
-                `;
-            }
-            
+
             // Generate analytics for individual event
             generateIndividualEventAnalytics(event);
         }
@@ -5605,6 +6927,9 @@ try {
             modal.style.display = 'flex';
             loadingDiv.style.display = 'block';
             contentDiv.style.display = 'none';
+            
+            // Prevent background scrolling
+            document.body.style.overflow = 'hidden';
             
             fetch(`get_event_participants.php?event_id=${eventId}`)
                 .then(response => response.json())
@@ -5741,7 +7066,6 @@ try {
                                 <div style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">${participant.full_name}</div>
                                 <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.25rem;">${participant.display_sr_code || 'N/A'}</div>
                                 <div style="color: #666; font-size: 0.8rem;">${participant.display_email || 'N/A'}</div>
-                                ${participant.display_contact ? `<div style="color: #666; font-size: 0.8rem;">📞 ${participant.display_contact}</div>` : ''}
                             </td>
                             <td style="padding: 1rem; vertical-align: top;">
                                 <div style="color: #333; font-weight: 500;">${participant.cultural_group || 'Not specified'}</div>
@@ -5778,6 +7102,9 @@ try {
             const modal = document.getElementById('eventParticipantsModal');
             modal.classList.remove('show');
             modal.style.display = 'none';
+            
+            // Restore background scrolling
+            document.body.style.overflow = '';
             
             // Clear modal content
             document.getElementById('participantsModalTitle').textContent = 'Event Participants';
@@ -5906,49 +7233,56 @@ try {
 
         function loadEvaluationAnalytics() {
             console.log('Loading evaluation analytics...');
-            const loadingDiv = document.getElementById('evaluationAnalyticsLoading');
-            const contentDiv = document.getElementById('evaluationAnalyticsContent');
+            var loadingDiv = document.getElementById('evaluationAnalyticsLoading');
+            var contentDiv = document.getElementById('evaluationAnalyticsContent');
 
-            if (!loadingDiv || !contentDiv) {
-                console.error('Evaluation analytics elements not found');
-                return;
+            if (loadingDiv) {
+                loadingDiv.style.display = 'block';
+            }
+            if (contentDiv) {
+                contentDiv.style.display = 'none';
             }
 
-            loadingDiv.style.display = 'block';
-            contentDiv.style.display = 'none';
-
-            const params = new URLSearchParams({
-                mode: currentEvaluationMode
+            var params = new URLSearchParams({
+                mode: currentEvaluationMode || 'all'
             });
 
             if (currentEvaluationMode === 'individual') {
-                const selectedEventId = window.selectedEvaluationEventId;
+                var selectedEventId = window.selectedEvaluationEventId;
                 if (selectedEventId) {
                     params.append('event_id', selectedEventId);
                 }
             }
 
             console.log('Fetching evaluation analytics with params:', params.toString());
-            console.log('Current evaluation mode:', currentEvaluationMode);
-            console.log('Selected event ID:', window.selectedEvaluationEventId);
-            fetch(`get_evaluation_analytics.php?${params.toString()}`)
-                .then(response => response.json())
-                .then(data => {
+            
+            fetch('get_evaluation_analytics.php?' + params.toString())
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
                     console.log('Evaluation analytics response:', data);
-                    loadingDiv.style.display = 'none';
+                    if (loadingDiv) {
+                        loadingDiv.style.display = 'none';
+                    }
+                    
                     if (data.success) {
                         evaluationData = data.evaluations;
                         evaluationEvents = data.events;
                         displayEvaluationAnalytics(data);
-                        contentDiv.style.display = 'block';
+                        if (contentDiv) {
+                            contentDiv.style.display = 'block';
+                        }
                     } else {
                         console.error('Evaluation analytics API error:', data.message);
                         showEvaluationError(data.message);
                     }
                 })
-                .catch(error => {
+                .catch(function(error) {
                     console.error('Evaluation analytics fetch error:', error);
-                    loadingDiv.style.display = 'none';
+                    if (loadingDiv) {
+                        loadingDiv.style.display = 'none';
+                    }
                     showEvaluationError('Error loading evaluation analytics: ' + error.message);
                 });
         }
@@ -5956,60 +7290,84 @@ try {
 
 
         function displayEvaluationAnalytics(data) {
-            // Update statistics cards
-            document.getElementById('totalEvaluations').textContent = data.statistics.total_evaluations;
-            document.getElementById('averageRating').textContent = data.statistics.average_rating.toFixed(1);
-            document.getElementById('responseRate').textContent = data.statistics.response_rate + '%';
-            document.getElementById('satisfactionScore').textContent = data.statistics.satisfaction_score + '%';
+            // Update statistics cards if they exist
+            var statsElements = [
+                { id: 'totalEvaluations', value: data.statistics.total_evaluations },
+                { id: 'averageRating', value: data.statistics.average_rating.toFixed(1) },
+                { id: 'responseRate', value: data.statistics.response_rate + '%' },
+                { id: 'satisfactionScore', value: data.statistics.satisfaction_score + '%' }
+            ];
 
-            // Draw charts
-            drawRatingDistributionChart(data.rating_distribution);
-            drawQuestionScoresChart(data.question_scores);
-            drawEvaluationTrendsChart(data.trends);
+            statsElements.forEach(function(stat) {
+                var element = document.getElementById(stat.id);
+                if (element) {
+                    element.textContent = stat.value;
+                }
+            });
+
+            // Draw charts with staggered timing for smooth loading
+            setTimeout(function() {
+                drawRatingDistributionChart(data.rating_distribution);
+            }, 100);
+            
+            setTimeout(function() {
+                drawQuestionScoresChart(data.question_scores);
+            }, 300);
+            
+            setTimeout(function() {
+                drawEvaluationTrendsChart(data.trends);
+            }, 500);
 
             // Display detailed insights
-            displayEvaluationInsights(data.insights);
+            setTimeout(function() {
+                displayEvaluationInsights(data.insights);
+            }, 700);
 
             // Display comments analysis
-            displayCommentsAnalysis(data.comments);
+            setTimeout(function() {
+                displayCommentsAnalysis(data.comments);
+            }, 900);
         }
 
         function drawRatingDistributionChart(ratingData) {
-            const canvas = document.getElementById('ratingDistributionChart');
-            const ctx = canvas.getContext('2d');
+            var canvas = document.getElementById('ratingDistributionChart');
+            if (!canvas) {
+                console.warn('Rating distribution canvas not found');
+                return;
+            }
             
-            // Clear canvas
+            var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (!ratingData || ratingData.length === 0) {
-                drawEmptyChart(ctx, canvas, 'No rating data available');
+                drawEmptyChart(ctx, canvas);
                 return;
             }
 
             // Chart setup
-            const padding = 50;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const barWidth = chartWidth / ratingData.length;
+            var padding = 50;
+            var chartWidth = canvas.width - (padding * 2);
+            var chartHeight = canvas.height - (padding * 2);
+            var barWidth = chartWidth / ratingData.length;
 
             // Find max value for scaling
-            const maxValue = Math.max(...ratingData.map(d => d.count));
+            var maxValue = Math.max.apply(Math, ratingData.map(function(d) { return d.count; }));
 
             // Draw bars
-            ratingData.forEach((data, index) => {
-                const barHeight = (data.count / maxValue) * chartHeight;
-                const x = padding + (index * barWidth);
-                const y = padding + chartHeight - barHeight;
+            ratingData.forEach(function(data, index) {
+                var barHeight = (data.count / maxValue) * chartHeight;
+                var x = padding + (index * barWidth);
+                var y = padding + chartHeight - barHeight;
 
                 // Draw bar
-                ctx.fillStyle = `hsl(${120 - (data.rating * 12)}, 70%, 50%)`;
+                ctx.fillStyle = 'hsl(' + (120 - (data.rating * 12)) + ', 70%, 50%)';
                 ctx.fillRect(x + 5, y, barWidth - 10, barHeight);
 
                 // Draw rating label
                 ctx.fillStyle = '#333';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${data.rating}★`, x + barWidth/2, canvas.height - 20);
+                ctx.fillText(data.rating + '★', x + barWidth/2, canvas.height - 20);
 
                 // Draw count label
                 ctx.fillText(data.count, x + barWidth/2, y - 5);
@@ -6023,10 +7381,13 @@ try {
         }
 
         function drawQuestionScoresChart(questionData) {
-            const canvas = document.getElementById('questionScoresChart');
-            const ctx = canvas.getContext('2d');
+            var canvas = document.getElementById('questionScoresChart');
+            if (!canvas) {
+                console.warn('Question scores canvas not found');
+                return;
+            }
             
-            // Clear canvas
+            var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (!questionData || questionData.length === 0) {
@@ -6035,38 +7396,41 @@ try {
             }
 
             // Chart setup
-            const padding = 60;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
-            const barHeight = 15;
-            const barSpacing = 35;
+            var padding = 60;
+            var paddingTop = 40;
+            var chartWidth = canvas.width - (padding * 2);
+            var chartHeight = canvas.height - paddingTop - 20;
+            var barHeight = 18;
+            // Calculate dynamic spacing to fit all questions
+            var totalBars = questionData.length;
+            var barSpacing = chartHeight / totalBars;
 
             // Draw horizontal bars
-            questionData.forEach((question, index) => {
-                const barWidth = (question.average_score / 5) * chartWidth;
-                const y = padding + (index * barSpacing);
+            questionData.forEach(function(question, index) {
+                var barWidth = (question.average_score / 5) * chartWidth;
+                var y = paddingTop + (index * barSpacing);
 
                 // Draw bar background
                 ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(padding, y, chartWidth, barHeight);
+                ctx.fillRect(padding, y + 15, chartWidth, barHeight);
 
                 // Draw bar
-                const hue = (question.average_score / 5) * 120; // Green for high scores
-                ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
-                ctx.fillRect(padding, y, barWidth, barHeight);
+                var hue = (question.average_score / 5) * 120; // Green for high scores
+                ctx.fillStyle = 'hsl(' + hue + ', 70%, 50%)';
+                ctx.fillRect(padding, y + 15, barWidth, barHeight);
 
                 // Draw question label
                 ctx.fillStyle = '#333';
                 ctx.font = '11px Arial';
                 ctx.textAlign = 'left';
-                const questionText = question.question.length > 50 ? 
-                    question.question.substring(0, 50) + '...' : question.question;
-                ctx.fillText(questionText, padding, y - 8);
+                var questionText = question.question.length > 45 ? 
+                    question.question.substring(0, 45) + '...' : question.question;
+                ctx.fillText(questionText, padding, y + 12);
 
                 // Draw score
                 ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'right';
-                ctx.fillText(question.average_score.toFixed(1), canvas.width - padding, y + 12);
+                ctx.fillText(question.average_score.toFixed(1), canvas.width - padding + 10, y + 28);
             });
 
             // Draw title
@@ -6077,111 +7441,202 @@ try {
         }
 
         function drawEvaluationTrendsChart(trendsData) {
-            const canvas = document.getElementById('evaluationTrendsChart');
-            const ctx = canvas.getContext('2d');
+            var canvas = document.getElementById('evaluationTrendsChart');
+            if (!canvas) {
+                console.warn('Evaluation trends canvas not found');
+                return;
+            }
             
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Destroy existing chart if any
+            if (window.evaluationTrendsChartInstance) {
+                window.evaluationTrendsChartInstance.destroy();
+            }
 
             if (!trendsData || trendsData.length === 0) {
-                drawEmptyChart(ctx, canvas, 'No trend data available');
+                var ctx = canvas.getContext('2d');
+                drawEmptyChart(ctx, canvas, 'No evaluation trends data available');
                 return;
             }
 
-            // Chart setup
-            const padding = 60;
-            const chartWidth = canvas.width - (padding * 2);
-            const chartHeight = canvas.height - (padding * 2);
+            // Prepare data for Chart.js
+            var labels = trendsData.map(function(item) {
+                return item.period || 'Period ' + (trendsData.indexOf(item) + 1);
+            });
+            var data = trendsData.map(function(item) { return parseFloat(item.average_rating.toFixed(2)); });
 
-            // Find min/max values
-            const ratings = trendsData.map(d => d.average_rating);
-            const minRating = Math.min(...ratings);
-            const maxRating = Math.max(...ratings);
-            const ratingRange = maxRating - minRating || 1;
-
-            // Draw grid lines
-            ctx.strokeStyle = '#e0e0e0';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 5; i++) {
-                const y = padding + (i / 5) * chartHeight;
-                ctx.beginPath();
-                ctx.moveTo(padding, y);
-                ctx.lineTo(canvas.width - padding, y);
-                ctx.stroke();
-
-                // Y-axis labels
-                ctx.fillStyle = '#666';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'right';
-                ctx.fillText((5 - i).toFixed(1), padding - 10, y + 3);
-            }
-
-            // Draw trend line
-            if (trendsData.length > 1) {
-                ctx.strokeStyle = '#dc2626';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-
-                trendsData.forEach((point, index) => {
-                    const x = padding + (index / (trendsData.length - 1)) * chartWidth;
-                    const y = padding + ((5 - point.average_rating) / 5) * chartHeight;
-
-                    if (index === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
+            // Create interactive Chart.js line chart
+            var ctx = canvas.getContext('2d');
+            window.evaluationTrendsChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Average Rating',
+                        data: data,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 8,
+                        pointHoverRadius: 12,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 3,
+                        pointHoverBorderWidth: 4,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    resizeDelay: 200,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeInOutCubic'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        y: {
+                            min: 1,
+                            max: 5,
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                stepSize: 0.5,
+                                color: '#666',
+                                font: {
+                                    size: 12
+                                },
+                                callback: function(value) {
+                                    return value.toFixed(1);
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Average Rating',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#e0e0e0',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#666',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time Period',
+                                color: '#333',
+                                font: {
+                                    size: 13,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Evaluation Trends Over Time',
+                            color: '#333',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                color: '#666',
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                            titleColor: '#333',
+                            bodyColor: '#666',
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            cornerRadius: 12,
+                            padding: 16,
+                            titleFont: {
+                                weight: 'bold',
+                                size: 15
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            displayColors: true,
+                            usePointStyle: true,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    var index = tooltipItems[0].dataIndex;
+                                    return 'Period: ' + labels[index];
+                                },
+                                label: function(context) {
+                                    var index = context.dataIndex;
+                                    var rating = trendsData[index].average_rating;
+                                    var responses = trendsData[index].total_responses || 'Unknown';
+                                    var trend = '';
+                                    
+                                    if (index > 0) {
+                                        var previousRating = trendsData[index - 1].average_rating;
+                                        var change = rating - previousRating;
+                                        if (change > 0) {
+                                            trend = ' (↑' + change.toFixed(2) + ')';
+                                        } else if (change < 0) {
+                                            trend = ' (↓' + Math.abs(change).toFixed(2) + ')';
+                                        } else {
+                                            trend = ' (→ no change)';
+                                        }
+                                    }
+                                    
+                                    return [
+                                        'Average Rating: ' + rating.toFixed(2) + ' / 5.0' + trend,
+                                        'Total Responses: ' + responses,
+                                        'Performance: ' + (rating >= 4.0 ? 'Excellent' : rating >= 3.0 ? 'Good' : rating >= 2.0 ? 'Fair' : 'Needs Improvement')
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
-                });
-
-                ctx.stroke();
-
-                // Draw data points
-                ctx.fillStyle = '#dc2626';
-                trendsData.forEach((point, index) => {
-                    const x = padding + (index / (trendsData.length - 1)) * chartWidth;
-                    const y = padding + ((5 - point.average_rating) / 5) * chartHeight;
-
-                    ctx.beginPath();
-                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                    ctx.fill();
-
-                    // Date labels
-                    ctx.fillStyle = '#666';
-                    ctx.font = '10px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.save();
-                    ctx.translate(x, canvas.height - padding + 15);
-                    ctx.rotate(-Math.PI / 4);
-                    ctx.fillText(point.date, 0, 0);
-                    ctx.restore();
-                });
-            }
-
-            // Draw title
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Evaluation Trends Over Time', canvas.width / 2, 20);
-
-            // Draw Y-axis label
-            ctx.save();
-            ctx.translate(15, canvas.height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.textAlign = 'center';
-            ctx.font = '12px Arial';
-            ctx.fillText('Average Rating', 0, 0);
-            ctx.restore();
+                }
+            });
         }
 
         function displayEvaluationInsights(insights) {
-            const container = document.getElementById('evaluationInsightsContent');
+            var container = document.getElementById('evaluationInsightsContent');
             
             if (!insights) {
                 container.innerHTML = '<p style="color: #666; margin: 0;">No insights available</p>';
                 return;
             }
 
-            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">';
+            var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">';
 
             // Overall Performance
             if (insights.overall) {
@@ -6203,15 +7658,7 @@ try {
                 `;
             }
 
-            // Areas for Improvement
-            if (insights.improvements) {
-                html += `
-                    <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid #dc3545;">
-                        <h5 style="margin: 0 0 0.5rem 0; color: #dc3545; font-size: 0.9rem;">🎯 Areas for Improvement</h5>
-                        <p style="margin: 0; color: #666; font-size: 0.85rem; line-height: 1.4;">${insights.improvements}</p>
-                    </div>
-                `;
-            }
+
 
             // Trends
             if (insights.trends) {
@@ -6297,11 +7744,13 @@ try {
             
             modal.style.display = 'flex';
             populateEventEvaluationSelectionModal();
+            preventBackgroundScroll();
         }
 
         function closeEventEvaluationSelectionModal() {
             const modal = document.getElementById('eventEvaluationSelectionModal');
             modal.style.display = 'none';
+            allowBackgroundScroll();
         }
 
         function filterEvaluationEvents() {
@@ -6390,6 +7839,55 @@ try {
                     initializeEvaluationAnalytics();
                 }, 100);
             }
+
+            // Add click-outside-to-close functionality for all modals
+            const modals = [
+                'applicationsModal',
+                'studentProfileModal', 
+                'allEventsModal',
+                'borrowRequestsModal',
+                'returnsModal',
+                'addItemModal',
+                'itemSelectionModal',
+                'eventParticipantsModal'
+            ];
+
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            // Close the modal based on its type
+                            switch(modalId) {
+                                case 'applicationsModal':
+                                    closeApplicationsModal();
+                                    break;
+                                case 'studentProfileModal':
+                                    closeStudentModal();
+                                    break;
+                                case 'allEventsModal':
+                                    closeAllEventsModal();
+                                    break;
+                                case 'borrowRequestsModal':
+                                    closeBorrowRequestsModal();
+                                    break;
+                                case 'returnsModal':
+                                    closeReturnsModal();
+                                    break;
+                                case 'addItemModal':
+                                    closeAddItemModal();
+                                    break;
+                                case 'itemSelectionModal':
+                                    closeItemSelectionModal();
+                                    break;
+                                case 'eventParticipantsModal':
+                                    closeParticipantsModal();
+                                    break;
+                            }
+                        }
+                    });
+                }
+            });
         });
     </script>
 </body>

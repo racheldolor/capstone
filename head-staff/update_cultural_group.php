@@ -52,7 +52,20 @@ try {
         $pdo->exec("ALTER TABLE student_artists ADD COLUMN cultural_group VARCHAR(100) DEFAULT NULL");
     }
     
-    // Update the cultural group assignment
+    // Check student status first
+    $statusStmt = $pdo->prepare("SELECT status FROM student_artists WHERE id = ?");
+    $statusStmt->execute([$student_id]);
+    $studentStatus = $statusStmt->fetchColumn();
+    
+    if ($studentStatus === 'suspended') {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Cannot update cultural group assignment - student account is suspended'
+        ]);
+        exit();
+    }
+    
+    // Update the cultural group assignment (only for active students)
     $stmt = $pdo->prepare("
         UPDATE student_artists 
         SET cultural_group = ? 

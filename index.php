@@ -70,9 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
                         $_SESSION['sr_code'] = $user['sr_code'];
                     }
 
-                    // Redirect by role
+                    // Redirect by role and campus
                     switch ($user['role']) {
                         case 'head':
+                            header('Location: head-staff/dashboard.php');
+                            exit();
                         case 'staff':
                             header('Location: head-staff/dashboard.php');
                             exit();
@@ -146,6 +148,11 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
         /* Global font to match modal */
         html, body { font-family: 'Montserrat', sans-serif; color: var(--text); }
         button, input, select, textarea { font-family: inherit; }
+
+        /* Prevent background scrolling when modals are open */
+        body.modal-open {
+            overflow: hidden;
+        }
 
         /* Links - remove default underlines for a cleaner look */
         a{ text-decoration: none; color: inherit; }
@@ -386,6 +393,15 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
             </style>
 
     <script>
+        // Modal scroll prevention functions
+        function preventBackgroundScroll() {
+            document.body.classList.add('modal-open');
+        }
+
+        function allowBackgroundScroll() {
+            document.body.classList.remove('modal-open');
+        }
+
         // Modal controls
         function openLoginModal(e) {
             if (e) e.preventDefault();
@@ -393,7 +409,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
             if (modal) {
                 modal.style.display = 'flex';
                 modal.setAttribute('aria-hidden','false');
-                try { document.body.style.overflow = 'hidden'; } catch (err) {}
+                preventBackgroundScroll();
             }
             setTimeout(function(){ var inp = document.querySelector('#loginForm input[name="email"]'); if(inp) inp.focus(); }, 100);
         }
@@ -402,7 +418,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
             if (modal) {
                 modal.style.display = 'none';
                 modal.setAttribute('aria-hidden','true');
-                try { document.body.style.overflow = ''; } catch (err) {}
+                allowBackgroundScroll();
             }
         }
         // Close on Escape and on backdrop click
@@ -487,8 +503,8 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
             }
         };
 
-        function openCampusModal(e, key){ if(e) e.preventDefault(); const m = document.getElementById('campusModal'); if(!m) return; const info = CAMPUS_INFO[key]; if(!info) return; document.getElementById('campusTitle').textContent = info.title; document.getElementById('campusDesc').textContent = info.desc; const hero = document.getElementById('campusHero'); if(hero) hero.style.backgroundImage = `linear-gradient(0deg, rgba(0,0,0,0.25), rgba(0,0,0,0)), url('${info.image}')`; m.style.display = 'flex'; m.setAttribute('aria-hidden','false'); try { document.body.style.overflow = 'hidden'; } catch(err){} }
-        function closeCampusModal(){ const m = document.getElementById('campusModal'); if(!m) return; m.style.display='none'; m.setAttribute('aria-hidden','true'); try { document.body.style.overflow = ''; } catch(err){} }
+        function openCampusModal(e, key){ if(e) e.preventDefault(); const m = document.getElementById('campusModal'); if(!m) return; const info = CAMPUS_INFO[key]; if(!info) return; document.getElementById('campusTitle').textContent = info.title; document.getElementById('campusDesc').textContent = info.desc; const hero = document.getElementById('campusHero'); if(hero) hero.style.backgroundImage = `linear-gradient(0deg, rgba(0,0,0,0.25), rgba(0,0,0,0)), url('${info.image}')`; m.style.display = 'flex'; m.setAttribute('aria-hidden','false'); preventBackgroundScroll(); }
+        function closeCampusModal(){ const m = document.getElementById('campusModal'); if(!m) return; m.style.display='none'; m.setAttribute('aria-hidden','true'); allowBackgroundScroll(); }
         document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeCampusModal(); });
         document.addEventListener('click', function(e){ const m=document.getElementById('campusModal'); if(!m) return; if(m.style.display!=='none' && e.target===m) closeCampusModal(); });
 
