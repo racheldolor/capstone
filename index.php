@@ -165,7 +165,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
         .brand{ display:flex; align-items:center; gap:0.75rem; font-weight:700; }
         .brand img{ width:40px; height:40px; border-radius:50%; }
         .nav-links{ display:flex; gap:1rem; align-items:center; }
-        .btn{ display:inline-flex; align-items:center; justify-content:center; border:none; cursor:pointer; font-weight:600; border-radius:10px; padding:0.7rem 1.1rem; transition: all .2s ease; }
+        .btn{ display:inline-flex; align-items:center; justify-content:center; border:none; cursor:pointer; font-weight:600; border-radius:10px; padding:0.7rem 1.1rem; transition: all .2s ease; white-space: nowrap; }
         .btn-primary{ background:linear-gradient(135deg,var(--primary),var(--primary-2)); color:#fff; }
         .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 10px 20px rgba(220,38,38,.25);} 
         .btn-ghost{ background:transparent; color:var(--text); }
@@ -212,7 +212,66 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
         /* Responsive */
         @media (max-width: 1100px){ .campus-grid{ grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 700px){ .campus-grid{ grid-template-columns: repeat(2, 1fr); } .hero-inner{ height:260px; } }
-        @media (max-width: 480px){ .campus-grid{ grid-template-columns: 1fr; } .nav-inner{padding:.6rem .8rem;} .nav-links{gap:.5rem;} }
+        @media (max-width: 480px){ 
+            * { box-sizing: border-box; }
+            body { overflow-x: hidden; margin: 0; padding: 0; }
+            .campus-grid{ grid-template-columns: 1fr; gap: 1rem; padding: 0 0.75rem; } 
+            .nav-inner{ padding: 0.6rem 0.8rem; }
+            .nav-links{ gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+            .nav-links a { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
+            .hero { min-height: 280px; }
+            .hero-inner { 
+                height: auto; 
+                padding: 1.5rem 0.75rem; 
+                min-height: 280px;
+            }
+            .hero-text { 
+                font-size: 1.5rem; 
+                line-height: 1.3;
+                margin-bottom: 0.75rem;
+            }
+            .hero-subtitle { 
+                font-size: 0.95rem; 
+                max-width: 100%;
+                margin-bottom: 1rem;
+            }
+            .campus-card {
+                padding: 1rem;
+                border-radius: 12px;
+            }
+            .campus-icon {
+                width: 50px;
+                height: 50px;
+                font-size: 1.5rem;
+            }
+            .campus-name {
+                font-size: 1rem;
+                margin: 0.75rem 0 0.35rem;
+            }
+            .campus-desc {
+                font-size: 0.85rem;
+                line-height: 1.4;
+            }
+            .campus-card .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+                margin-top: 0.75rem;
+            }
+            .logo { 
+                height: 36px; 
+                width: auto;
+            }
+            .container {
+                padding: 0 0.75rem;
+            }
+            section {
+                padding: 2rem 0;
+            }
+            .section-title {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -286,8 +345,8 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
 
                     <div class="login-body" style="padding:1.25rem 1.25rem;">
                         <button type="button" aria-label="Close login" class="close-btn" onclick="closeLoginModal()">&times;</button>
-                        <h2 class="form-title">Login</h2>
-                        <p class="form-description">Use your BatStateU account to continue.</p>
+                        <h2 class="form-title" style="margin-bottom: 0.25rem;">Login</h2>
+                        <p class="form-description" style="margin-bottom: 0.75rem;">Use your BatStateU account to continue.</p>
                         <?php if (!empty($error_message)): ?>
                             <div class="error-message-box">
                                 <?= htmlspecialchars($error_message) ?>
@@ -326,9 +385,9 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
     </div>
 
     <!-- Campus Info Modal -->
-    <div id="campusModal" class="campus-modal" aria-hidden="true" style="display:none; position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    <div id="campusModal" class="campus-modal" style="display:none; position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
         <div class="modal-campus-card" style="width:100%; max-width:720px; margin:1rem;">
-            <div class="campus-hero" id="campusHero" aria-hidden="true"></div>
+            <div class="campus-hero" id="campusHero"></div>
             <button type="button" aria-label="Close campus info" class="close-btn" onclick="closeCampusModal()">&times;</button>
             <div class="campus-body">
                 <h3 class="campus-title" id="campusTitle"></h3>
@@ -378,7 +437,78 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
         .modal-login-card button, .modal-login-card input, .modal-login-card select, .modal-login-card textarea { font-family: inherit; }
         .modal-login-card .signin-link { text-align: center; margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid #e1e5e9; }
         .modal-login-card .link { color: #ff5a5a; text-decoration: none; font-weight: 600; }
-        @media (max-width: 600px) { .modal-login-card .login-container{padding:0.75rem;} .modal-login-card .title{font-size:1.35rem;} .modal-login-card .form-title{font-size:1.3rem;} }
+        @media (max-width: 600px) { 
+            .modal-login-card .login-container{padding:0.75rem;} 
+            .modal-login-card .title{font-size:1.35rem;} 
+            .modal-login-card .form-title{font-size:1.3rem;} 
+        }
+        @media (max-width: 480px) {
+            .modal-login-card {
+                width: 90% !important;
+                max-width: 90% !important;
+                margin: 1rem !important;
+                border-radius: 16px !important;
+            }
+            .modal-login-card .login-header {
+                padding: 1rem;
+            }
+            .modal-login-card .login-body {
+                padding: 1rem;
+            }
+            .modal-login-card .title {
+                font-size: 1.2rem;
+            }
+            .modal-login-card .subtitle {
+                font-size: 0.85rem;
+            }
+            .modal-login-card .form-title {
+                font-size: 1.1rem;
+                margin-bottom: 0.5rem;
+            }
+            .modal-login-card .form-description {
+                font-size: 0.85rem;
+                margin-bottom: 0.5rem;
+            }
+            .modal-login-card .login-form {
+                gap: 0.25rem;
+            }
+            .modal-login-card .error-message {
+                min-height: 0;
+                display: none;
+            }
+            .modal-login-card label {
+                font-size: 0.85rem;
+                margin-bottom: 0.3rem;
+            }
+            .modal-login-card input {
+                padding: 0.65rem;
+                font-size: 16px;
+            }
+            .modal-login-card .show-password-container {
+                margin-top: 0.35rem;
+                font-size: 0.85rem;
+            }
+            .modal-login-card .login-btn {
+                padding: 0.7rem;
+                font-size: 0.95rem;
+                margin-top: 0.5rem;
+            }
+            .modal-login-card .close-btn {
+                width: 38px;
+                height: 38px;
+                font-size: 22px;
+            }
+            .modal-login-card .signin-link {
+                margin-top: 0.75rem;
+                padding-top: 0.75rem;
+                font-size: 0.85rem;
+            }
+            .modal-login-card .error-message {
+                padding: 0.7rem;
+                font-size: 0.85rem;
+                margin-bottom: 0.75rem;
+            }
+        }
             </style>
 
             <style>
@@ -390,6 +520,35 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
         .campus-desc{ color:#4b5563; line-height:1.6; font-size:.98rem; }
         .campus-modal .close-btn{ position:absolute; top:10px; right:10px; width:34px; height:34px; border:none; border-radius:10px; background:rgba(255,255,255,.95); color:#7a1a1a; font-size:20px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.12); cursor:pointer; }
         .campus-modal .close-btn:hover{ background:#fff; }
+        @media (max-width: 480px) {
+            .modal-campus-card {
+                width: 90% !important;
+                max-width: 90% !important;
+                margin: 1rem !important;
+                border-radius: 16px !important;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
+            .campus-hero {
+                height: 140px;
+            }
+            .campus-body {
+                padding: 1rem;
+            }
+            .campus-title {
+                font-size: 1.2rem;
+                margin-bottom: 0.75rem;
+            }
+            .campus-desc {
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            .campus-modal .close-btn {
+                width: 38px;
+                height: 38px;
+                font-size: 22px;
+            }
+        }
             </style>
 
     <script>

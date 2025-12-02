@@ -586,6 +586,281 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 gap: 1rem;
             }
         }
+
+        /* Mobile Responsive - 400x651 */
+        @media (max-width: 480px) {
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                padding: 0;
+                margin: 0;
+                overflow-x: hidden;
+            }
+
+            .performer-profile-container {
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+                width: 100%;
+                box-shadow: none;
+            }
+
+            /* Header */
+            .header-content {
+                padding: 0.75rem;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .header-content h1 {
+                font-size: 1.1rem;
+                line-height: 1.3;
+                text-align: center;
+            }
+
+            .header-info {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+                font-size: 0.85rem;
+            }
+
+            .header-info > div {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+
+            /* Form Body */
+            .form-body {
+                padding: 0.75rem;
+            }
+
+            /* Form Groups */
+            .form-group {
+                margin-bottom: 0.75rem;
+            }
+
+            .form-group label {
+                font-size: 0.85rem;
+                margin-bottom: 0.35rem;
+                font-weight: 600;
+            }
+
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                width: 100%;
+                padding: 0.6rem;
+                font-size: 0.9rem;
+                border: 1px solid #333;
+            }
+
+            .form-group input[type="date"] {
+                padding: 0.55rem 0.6rem;
+            }
+
+            .form-group textarea {
+                min-height: 60px;
+                height: auto;
+            }
+
+            /* Form Rows */
+            .form-row {
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: stretch;
+            }
+
+            .form-group.half,
+            .form-group.quarter {
+                flex: 1;
+                width: 100%;
+            }
+
+            /* Checkbox Grid */
+            .checkbox-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+                align-items: start;
+            }
+
+            .checkbox-list {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: flex-start;
+            }
+
+            .checkbox-item {
+                display: flex;
+                flex-direction: row;
+                align-items: flex-start;
+                gap: 0.5rem;
+                width: 100%;
+            }
+
+            .checkbox-item label {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+                font-size: 0.9rem;
+                width: 100%;
+            }
+
+            .checkbox-item .checkmark {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #333;
+                flex-shrink: 0;
+                margin-top: 2px;
+            }
+
+            .checkbox-item input[type="text"],
+            .checkbox-item textarea {
+                width: 100%;
+                padding: 0.6rem;
+                font-size: 0.85rem;
+                margin-top: 0.25rem;
+            }
+
+            /* Equipment Section */
+            .equipment-section {
+                margin: 0.75rem 0;
+            }
+
+            .equipment-section h3 {
+                font-size: 1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            /* Signature Section */
+            .signature-section {
+                flex-direction: column;
+                gap: 0.75rem;
+                margin: 1rem 0;
+            }
+
+            .signature-group {
+                width: 100%;
+            }
+
+            .signature-group label {
+                font-size: 0.85rem;
+            }
+
+            .signature-line {
+                margin-top: 0.5rem;
+                padding: 0.5rem 0;
+            }
+
+            /* Responsibility Checkbox */
+            .responsibility-section {
+                margin: 1rem 0;
+                padding: 0.75rem;
+            }
+
+            .responsibility-section label {
+                font-size: 0.85rem;
+                line-height: 1.4;
+            }
+
+            .responsibility-section input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                margin-right: 0.5rem;
+                flex-shrink: 0;
+            }
+
+            /* Buttons */
+            .btn-group {
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-top: 1rem;
+            }
+
+            .submit-btn,
+            .cancel-btn {
+                width: 100%;
+                padding: 0.75rem;
+                font-size: 0.95rem;
+                min-height: 44px;
+            }
+
+            /* Success/Error Messages */
+            .success-message,
+            .error-message {
+                margin: 0.75rem;
+                padding: 0.75rem;
+                font-size: 0.9rem;
+                border-radius: 4px;
+            }
+
+            /* Section Titles */
+            h2, h3 {
+                font-size: 1.05rem;
+                margin-bottom: 0.75rem;
+            }
+
+            /* Required Asterisk */
+            .required {
+                color: #dc2626;
+                font-size: 0.9rem;
+            }
+
+            /* Form Grid */
+            .form-grid {
+                gap: 0.75rem;
+            }
+
+            /* Fix for right-aligned fields */
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                text-align: left;
+                direction: ltr;
+            }
+
+            /* Specification fields */
+            .specification-field {
+                width: 100%;
+                margin-top: 0.35rem;
+            }
+
+            /* Touch improvements */
+            input,
+            select,
+            textarea,
+            button {
+                -webkit-appearance: none;
+                appearance: none;
+            }
+
+            select {
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 0.75rem center;
+                padding-right: 2.5rem;
+            }
+
+            /* Prevent zoom on input focus (iOS) */
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="date"],
+            select,
+            textarea {
+                font-size: 16px;
+            }
+
+            /* Form container */
+            .form-container {
+                width: 100%;
+                overflow-x: hidden;
+            }
+        }
     </style>
 </head>
 <body>

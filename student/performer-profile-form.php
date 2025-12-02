@@ -248,11 +248,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             min-height: 100vh;
             padding: 2rem 1rem;
             line-height: 1.4;
+            overflow-x: hidden;
         }
 
         .performer-profile-container {
             max-width: 900px;
             margin: 0 auto;
+            width: 100%;
+            overflow-x: hidden;
         }
 
         .performer-profile-card {
@@ -904,21 +907,276 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         @media (max-width: 480px) {
-            .form-title {
-                font-size: 1.2rem;
+            * {
+                box-sizing: border-box;
             }
             
-            .section-title {
-                font-size: 1rem;
+            body {
+                padding: 0;
+                margin: 0;
+                overflow-x: hidden;
+                width: 100%;
             }
             
-            .reference-info {
-                font-size: 0.8rem;
+            .performer-profile-container {
+                padding: 0.5rem;
+                margin: 0;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+            
+            .performer-profile-card {
+                width: 100%;
+                overflow: hidden;
+            }
+            
+            .form-container {
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                width: 100%;
+                overflow: hidden;
+            }
+            
+            .form-header {
+                padding: 0.75rem;
+                overflow: hidden;
+            }
+            
+            .header-info {
+                gap: 0.5rem;
+                flex-wrap: wrap;
+                padding: 0.5rem;
+            }
+            
+            .logo-section {
+                flex-shrink: 0;
             }
             
             .logo {
-                width: 50px;
-                height: 50px;
+                width: 45px;
+                height: 45px;
+            }
+            
+            .form-title {
+                font-size: 1.1rem;
+                line-height: 1.3;
+            }
+            
+            .reference-info {
+                font-size: 0.75rem;
+            }
+            
+            .form-body {
+                padding: 0.75rem;
+            }
+            
+            .section-title {
+                font-size: 0.95rem;
+                padding: 0.5rem;
+                margin-top: 1rem;
+                margin-bottom: 0.75rem;
+            }
+            
+            .form-section {
+                margin-bottom: 0.75rem;
+            }
+            
+            .form-row {
+                gap: 0.75rem;
+            }
+            
+            .form-group {
+                margin-bottom: 0.75rem;
+            }
+            
+            .form-group label {
+                font-size: 0.85rem;
+                margin-bottom: 0.35rem;
+            }
+            
+            .form-control,
+            input[type="text"],
+            input[type="email"],
+            input[type="date"],
+            input[type="number"],
+            input[type="tel"],
+            select,
+            textarea {
+                padding: 0.6rem;
+                font-size: 16px !important;
+                border-radius: 6px;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .checkbox-grid {
+                gap: 0.5rem;
+            }
+            
+            .checkbox-item {
+                padding: 0.6rem;
+                font-size: 0.85rem;
+            }
+            
+            .checkbox-item input[type="checkbox"] {
+                width: 16px;
+                height: 16px;
+            }
+            
+            .photo-section {
+                width: 100%;
+                margin-bottom: 1rem;
+                float: none;
+                margin-left: 0;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                justify-content: space-between;
+            }
+            
+            .photo-placeholder {
+                width: 120px;
+                height: 120px;
+                flex-shrink: 0;
+            }
+            
+            .upload-photo-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8rem;
+                white-space: nowrap;
+                height: auto;
+                flex: 0 0 auto;
+            }
+            
+            .signature-section {
+                flex-direction: column;
+                gap: 1rem;
+                width: 100%;
+                overflow: hidden;
+            }
+            
+            .signature-field {
+                width: 100%;
+            }
+            
+            .signature-canvas {
+                width: 100% !important;
+                max-width: 100%;
+                height: 140px;
+                box-sizing: border-box;
+            }
+            
+            .signature-controls {
+                gap: 0.5rem;
+                display: flex;
+                flex-wrap: wrap;
+            }
+            
+            .signature-controls button,
+            .clear-signature-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.85rem;
+                flex: 1;
+                min-width: 100px;
+            }
+            
+            .date-field {
+                width: 100%;
+            }
+            
+            .date-field input {
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .participation-table,
+            .affiliation-table {
+                font-size: 0.75rem;
+                overflow-x: auto;
+                display: block;
+                width: 100%;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .participation-table table,
+            .affiliation-table table {
+                min-width: 600px;
+                width: 100%;
+            }
+            
+            .participation-table th,
+            .affiliation-table th,
+            .participation-table td,
+            .affiliation-table td {
+                padding: 0.4rem 0.3rem;
+                font-size: 0.75rem;
+                white-space: nowrap;
+            }
+            
+            .participation-table input,
+            .affiliation-table input {
+                padding: 0.4rem;
+                font-size: 14px;
+                min-width: 80px;
+            }
+            
+            .add-row-btn {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+            }
+            
+            .checkbox-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .checkbox-inline {
+                width: 100%;
+            }
+            
+            .inline-units {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+                margin-right: 0;
+                padding: 0.6rem;
+                font-size: 16px;
+            }
+            
+            .form-actions {
+                padding: 0.75rem;
+                gap: 0.5rem;
+                width: 100%;
+                overflow: hidden;
+            }
+            
+            .btn {
+                padding: 0.65rem 1rem;
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+            
+            .secondary-actions {
+                gap: 0.5rem;
+                margin-top: 0.5rem;
+                width: 100%;
+            }
+            
+            .consent-section {
+                padding: 0.75rem;
+                margin: 0.75rem 0;
+            }
+            
+            .consent-section label {
+                font-size: 0.85rem;
+            }
+            
+            .consent-section input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
             }
         }
 

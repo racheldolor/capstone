@@ -13,6 +13,7 @@ $pdo = getDBConnection();
 // Get student information
 $student_id = $_SESSION['user_id'];
 $student_info = null;
+$user_email = null;
 
 try {
     // Check which table the user comes from
@@ -23,6 +24,7 @@ try {
         $stmt = $pdo->prepare("SELECT * FROM student_artists WHERE id = ?");
         $stmt->execute([$student_id]);
         $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user_email = $student_info['email'] ?? null;
     } else {
         // User is from users table, try to find corresponding record in student_artists
         $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
@@ -30,6 +32,7 @@ try {
         $user_info = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($user_info) {
+            $user_email = $user_info['email'];
             // Try to find matching student record by email
             $stmt = $pdo->prepare("SELECT * FROM student_artists WHERE email = ?");
             $stmt->execute([$user_info['email']]);
@@ -61,6 +64,20 @@ try {
         $stmt = $pdo->prepare("SELECT * FROM applications WHERE id = ? AND status = 'approved'");
         $stmt->execute([$student_id]);
         $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // Fetch profile photo from applications table if available
+    $profile_photo = null;
+    if ($user_email) {
+        $stmt = $pdo->prepare("SELECT profile_photo FROM applications WHERE email = ? AND (application_status = 'approved' OR status = 'approved') LIMIT 1");
+        $stmt->execute([$user_email]);
+        $photo_result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $profile_photo = $photo_result['profile_photo'] ?? null;
+    } elseif ($student_info && isset($student_info['email'])) {
+        $stmt = $pdo->prepare("SELECT profile_photo FROM applications WHERE email = ? AND (application_status = 'approved' OR status = 'approved') LIMIT 1");
+        $stmt->execute([$student_info['email']]);
+        $photo_result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $profile_photo = $photo_result['profile_photo'] ?? null;
     }
 } catch (Exception $e) {
     error_log("Error fetching student info: " . $e->getMessage());
@@ -257,13 +274,14 @@ try {
         }
 
         .user-info {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 0.5rem;
             background: #f8f9fa;
             padding: 0.5rem 1rem;
             border-radius: 25px;
             color: #333;
+            width: auto;
         }
 
         .logout-btn {
@@ -536,6 +554,7 @@ try {
             justify-content: center;
             margin: 0 auto 1rem;
             font-size: 2rem;
+            overflow: hidden;
         }
 
         .profile-name {
@@ -619,6 +638,563 @@ try {
             
             .profile-grid {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        /* Mobile Responsive - 400x651 */
+        @media (max-width: 480px) {
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                overflow-x: hidden;
+            }
+
+            /* Header Adjustments */
+            .header {
+                padding: 0.75rem;
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: stretch;
+            }
+
+            .header-left {
+                gap: 0.5rem;
+                justify-content: flex-start;
+            }
+
+            .logo {
+                width: 32px;
+                height: 32px;
+            }
+
+            .header-title {
+                font-size: 0.95rem;
+                line-height: 1.2;
+            }
+
+            .header-right {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+            }
+
+            .user-info {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.8rem;
+                flex: 0 1 auto;
+                margin-right: 0.5rem;
+                gap: 0.25rem;
+                max-width: calc(100% - 100px);
+            }
+
+            .user-info span {
+                font-size: 0.8rem;
+            }
+
+            .user-info span[style*="background"] {
+                padding: 2px 8px !important;
+                font-size: 0.7rem !important;
+                margin-left: 5px !important;
+            }
+
+            .logout-btn {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.8rem;
+                white-space: nowrap;
+            }
+
+            /* Sidebar Mobile */
+            .sidebar {
+                position: relative;
+                top: 0;
+                left: 0;
+                width: 100%;
+                min-height: auto;
+                height: auto;
+                box-shadow: none;
+                border-bottom: 1px solid #e0e0e0;
+                margin-bottom: 0;
+            }
+
+            .nav-menu {
+                display: flex;
+                overflow-x: auto;
+                padding: 0.5rem;
+                margin: 0;
+                gap: 0.25rem;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+
+            .nav-menu::-webkit-scrollbar {
+                display: none;
+            }
+
+            .nav-item {
+                flex-shrink: 0;
+                margin: 0;
+            }
+
+            .nav-link {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+                white-space: nowrap;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                border-radius: 6px;
+            }
+
+            .nav-link.active {
+                border-left: none;
+                border-bottom-color: #dc2626;
+            }
+
+            /* Main Container Mobile */
+            .main-container {
+                flex-direction: column;
+                min-height: auto;
+                margin-top: 0;
+            }
+
+            /* Main Content */
+            .main-content {
+                padding: 0.75rem;
+                width: 100%;
+                margin-left: 0;
+                margin-top: 0;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* Content sections */
+            .content-section {
+                width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* Page Header */
+            .page-header {
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: stretch;
+                margin-bottom: 1rem;
+            }
+
+            .page-title {
+                font-size: 1.3rem;
+            }
+
+            /* Dashboard Cards */
+            .dashboard-cards {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+            }
+
+            .dashboard-card {
+                padding: 1rem;
+            }
+
+            .card-number {
+                font-size: 2rem;
+            }
+
+            .card-title {
+                font-size: 0.85rem;
+            }
+
+            .card-subtitle {
+                font-size: 0.8rem;
+            }
+
+            /* Content Grid */
+            .content-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            /* Content Panels */
+            .content-panel {
+                margin-bottom: 0.75rem;
+                overflow: hidden;
+                border-radius: 12px;
+            }
+
+            .panel-header {
+                padding: 1rem;
+                border-radius: 12px 12px 0 0;
+            }
+
+            .panel-title {
+                font-size: 1rem;
+            }
+
+            .panel-content {
+                padding: 0;
+                font-size: 0.9rem;
+                overflow-x: auto;
+                overflow-y: visible;
+                -webkit-overflow-scrolling: touch;
+                max-width: 100%;
+            }
+
+            /* Table containers in panels */
+            .panel-content .borrowed-costumes-table {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            /* Wrapper for table scrolling */
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                width: 100%;
+            }
+
+            /* Profile Grid */
+            .profile-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .profile-section {
+                padding: 1rem;
+            }
+
+            .profile-section h3 {
+                font-size: 1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .profile-section p {
+                font-size: 0.85rem;
+                margin: 0.4rem 0;
+            }
+
+            .profile-photo-container {
+                padding: 1rem;
+            }
+
+            .profile-photo {
+                width: 120px;
+                height: 120px;
+            }
+
+            /* Tables */
+            .borrowed-costumes-table,
+            table {
+                font-size: 0.75rem;
+                width: 100%;
+                min-width: 600px;
+                border-collapse: collapse;
+                display: table;
+            }
+
+            .borrowed-costumes-table thead,
+            table thead {
+                display: table-header-group;
+            }
+
+            .borrowed-costumes-table tbody,
+            table tbody {
+                display: table-row-group;
+            }
+
+            .borrowed-costumes-table tr,
+            table tr {
+                display: table-row;
+            }
+
+            .borrowed-costumes-table th,
+            .borrowed-costumes-table td,
+            table th,
+            table td {
+                display: table-cell;
+                padding: 0.75rem 0.5rem;
+                font-size: 0.7rem;
+                line-height: 1.3;
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+
+            .borrowed-costumes-table th:first-child,
+            .borrowed-costumes-table td:first-child {
+                padding-left: 0.75rem;
+            }
+
+            .borrowed-costumes-table th:last-child,
+            .borrowed-costumes-table td:last-child {
+                padding-right: 0.75rem;
+            }
+
+            .item-name-cell {
+                font-weight: 600;
+                font-size: 0.7rem;
+            }
+
+            .date-cell {
+                font-size: 0.7rem;
+            }
+
+            .item-status {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.65rem;
+                display: inline-block;
+                white-space: nowrap;
+            }
+
+            .return-btn,
+            .action-btn {
+                padding: 0.5rem 0.65rem;
+                font-size: 0.7rem;
+                white-space: nowrap;
+            }
+
+            /* Action Buttons */
+            .action-btn {
+                width: 100%;
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .add-btn {
+                width: 100%;
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
+                justify-content: center;
+            }
+
+            /* Modals */
+            .modal {
+                padding: 0;
+                align-items: flex-start;
+            }
+
+            .modal-content {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+                max-height: 100vh !important;
+                min-height: 100vh;
+                overflow-y: auto;
+            }
+
+            .modal-header {
+                padding: 1rem !important;
+                position: sticky;
+                top: 0;
+                background: white;
+                z-index: 100;
+                border-bottom: 1px solid #e0e0e0;
+            }
+
+            .modal-header h2 {
+                font-size: 1.1rem !important;
+            }
+
+            .close {
+                font-size: 1.8rem !important;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .modal-body {
+                padding: 1rem !important;
+            }
+
+            /* Forms */
+            .form-group {
+                margin-bottom: 1rem;
+            }
+
+            .form-group label {
+                font-size: 0.9rem;
+                margin-bottom: 0.4rem;
+            }
+
+            .form-group input,
+            .form-group textarea,
+            .form-group select {
+                width: 100%;
+                padding: 0.6rem;
+                font-size: 0.9rem;
+            }
+
+            .form-group textarea {
+                min-height: 80px;
+            }
+
+            /* Search Inputs */
+            .search-input,
+            input[type="text"],
+            input[type="search"] {
+                width: 100% !important;
+                padding: 0.6rem !important;
+                font-size: 0.9rem !important;
+            }
+
+            /* Event Cards */
+            .event-card {
+                padding: 1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .event-title {
+                font-size: 1rem;
+            }
+
+            .event-date,
+            .event-location,
+            .event-description {
+                font-size: 0.85rem;
+            }
+
+            /* Empty States */
+            .empty-state,
+            .empty-borrowed-state {
+                padding: 2rem 1rem;
+                min-height: 150px;
+            }
+
+            .empty-state p,
+            .empty-borrowed-state p {
+                font-size: 1rem;
+            }
+
+            .empty-state small,
+            .empty-borrowed-state small {
+                font-size: 0.85rem;
+            }
+
+            /* Evaluation Modal */
+            .evaluation-question {
+                padding: 0.75rem 0.5rem !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+            }
+
+            .evaluation-question > div:first-child {
+                margin-bottom: 0.75rem;
+                font-size: 0.9rem;
+            }
+
+            .evaluation-question > div:not(:first-child) {
+                display: block !important;
+                width: 100%;
+                margin: 0.4rem 0 !important;
+                padding: 0.5rem;
+                background: #f8f9fa;
+                border-radius: 4px;
+            }
+
+            .evaluation-question label {
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                font-size: 0.85rem;
+            }
+
+            .evaluation-question input[type="radio"] {
+                margin-right: 0.5rem;
+                transform: scale(1.3);
+            }
+
+            /* Rating Stars */
+            .rating-container label {
+                font-size: 1.5rem !important;
+                padding: 0.25rem !important;
+            }
+
+            /* Borrowed Item Details */
+            .notes-cell {
+                max-width: 150px;
+                font-size: 0.75rem;
+            }
+
+            .date-cell {
+                font-size: 0.75rem;
+            }
+
+            /* Loading States */
+            .loading-state {
+                padding: 1.5rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            /* Scrollbar Improvements */
+            .panel-content::-webkit-scrollbar,
+            .modal-body::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+
+            .panel-content::-webkit-scrollbar-thumb,
+            .modal-body::-webkit-scrollbar-thumb {
+                background: #ccc;
+                border-radius: 3px;
+            }
+
+            /* Touch Target Improvements */
+            button,
+            .nav-link,
+            .action-btn,
+            .btn,
+            a {
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Prevent Horizontal Overflow */
+            .content-section,
+            .table-container,
+            .panel-content {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Status Badges */
+            .status-badge {
+                font-size: 0.7rem;
+                padding: 0.2rem 0.5rem;
+            }
+
+            /* Image Responsive */
+            img {
+                max-width: 100%;
+                height: auto;
+            }
+
+            /* Announcement Cards */
+            .announcement-card {
+                padding: 1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .announcement-card h3 {
+                font-size: 1rem;
+            }
+
+            .announcement-card p {
+                font-size: 0.85rem;
+            }
+
+            /* Fix Select Dropdowns */
+            select {
+                appearance: none;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 0.75rem center;
+                padding-right: 2.5rem;
             }
         }
 
@@ -1371,7 +1947,11 @@ try {
                 <div class="profile-container">
                     <div class="profile-header">
                         <div class="profile-avatar">
-                            👤
+                            <?php if (!empty($profile_photo) && file_exists('../' . $profile_photo)): ?>
+                                <img src="../<?= htmlspecialchars($profile_photo) ?>" alt="Profile Photo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                            <?php else: ?>
+                                👤
+                            <?php endif; ?>
                         </div>
                         <div class="profile-name">
                             <?= htmlspecialchars(($student_info['first_name'] ?? '') . ' ' . ($student_info['middle_name'] ?? '') . ' ' . ($student_info['last_name'] ?? '')) ?>
