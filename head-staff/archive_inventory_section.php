@@ -44,7 +44,7 @@ try {
         
         // Get archived inventory items
         $sql = "SELECT id, item_name, category, description, quantity, condition_status, 
-                campus, cultural_group, updated_at, created_at 
+                campus, updated_at, created_at 
                 FROM inventory $where_clause 
                 ORDER BY updated_at DESC 
                 LIMIT $items_per_page OFFSET $offset";
@@ -72,8 +72,7 @@ try {
                         <div class="archive-meta">
                             <strong>Quantity:</strong> ' . htmlspecialchars($item['quantity']) . ' | 
                             <strong>Condition:</strong> ' . htmlspecialchars($item['condition_status']) . '<br>
-                            <strong>Campus:</strong> ' . htmlspecialchars($item['campus']) . '<br>
-                            <strong>Cultural Group:</strong> ' . htmlspecialchars($item['cultural_group'] ?: 'General') . '<br>';
+                            <strong>Campus:</strong> ' . htmlspecialchars($item['campus']) . '<br>';
                 
                 if (!empty($item['description'])) {
                     echo '<strong>Description:</strong> ' . htmlspecialchars(substr($item['description'], 0, 100)) . (strlen($item['description']) > 100 ? '...' : '') . '<br>';

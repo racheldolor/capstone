@@ -5,9 +5,13 @@ require_once 'config/database.php';
 // Server-side login handling (process modal form here instead of login.php)
 $error_message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['password'])) {
-    $email = trim($_POST['email']);
+    $email = trim($_POST['email']); // Keep original case - do NOT convert to lowercase
     $password = $_POST['password'];
-    if ($email !== '' && $password !== '') {
+    
+    // Validate email domain (case-sensitive)
+    if (!preg_match('/@g\.batstate-u\.edu\.ph$/', $email)) {
+        $error_message = 'Only @g.batstate-u.edu.ph email addresses are allowed.';
+    } elseif ($email !== '' && $password !== '') {
         // Hardcoded admin credential (per request)
         if ($email === 'admin@g.batstate-u.edu.ph' && $password === 'batstateu') {
             $_SESSION['user_id'] = 0;
@@ -22,16 +26,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
         try {
             $pdo = getDBConnection();
             
-            // First, check the users table (for admin, staff, head, central)
-            $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, role, status, campus FROM users WHERE email = ?");
+            // First, check the users table (for admin, staff, head, central) - CASE-SENSITIVE
+            $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, role, status, campus FROM users WHERE BINARY email = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
             $user_table = 'users'; // Track which table the user comes from
             
-            // If not found in users table, check student_artists table
+            // If not found in users table, check student_artists table - CASE-SENSITIVE
             if (!$user) {
-                $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status, sr_code, campus FROM student_artists WHERE email = ?");
+                $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, status, sr_code, campus FROM student_artists WHERE BINARY email = ?");
                 $stmt->execute([$email]);
                 $student = $stmt->fetch(PDO::FETCH_ASSOC);
                 
@@ -356,7 +360,10 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_
                         <form class="login-form" id="loginForm" method="POST" action="">
                             <div class="form-group">
                                 <label for="email" class="form-label">Email Address</label>
-                                <input type="email" id="email" name="email" class="form-input" required value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
+                                <input type="email" id="email" name="email" class="form-input" required 
+                                       pattern="[a-zA-Z0-9._%+-]+@g\.batstate-u\.edu\.ph$"
+                                       title="Please use your @g.batstate-u.edu.ph email address"
+                                       value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
                                 <span class="error-message" id="emailError"></span>
                             </div>
 

@@ -63,8 +63,8 @@ try {
         exit;
     }
     
-    // Check if item exists
-    $stmt = $pdo->prepare("SELECT id, item_name, name, campus FROM inventory WHERE id = ?");
+    // Check if item exists - only select columns that definitely exist
+    $stmt = $pdo->prepare("SELECT id, item_name, campus FROM inventory WHERE id = ?");
     $stmt->execute([$item_id]);
     $item = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -95,21 +95,45 @@ try {
         }
     }
     
-    // Check if status column exists, if not add it
-    $columns = $pdo->query("SHOW COLUMNS FROM inventory LIKE 'status'")->rowCount();
-    if ($columns == 0) {
-        $pdo->exec("ALTER TABLE inventory ADD COLUMN status ENUM('available','borrowed','maintenance','archived') DEFAULT 'available' AFTER quantity");
+    // Check if status column exists and has 'archived' option
+    $stmt = $pdo->query("SHOW COLUMNS FROM inventory LIKE 'status'");
+    $status_column = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$status_column) {
+        // Status column doesn't exist, add it
+        try {
+            $pdo->exec("ALTER TABLE inventory ADD COLUMN status ENUM('available','borrowed','maintenance','reserved','retired','archived') DEFAULT 'available' AFTER quantity");
+        } catch (Exception $alter_e) {
+            error_log("Error adding status column: " . $alter_e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Database error: Could not add status column']);
+            exit;
+        }
+    } else {
+        // Check if 'archived' is in the enum values
+        $type = $status_column['Type'];
+        if (strpos($type, "'archived'") === false) {
+            // Add 'archived' to the enum
+            try {
+                $pdo->exec("ALTER TABLE inventory MODIFY COLUMN status ENUM('available','borrowed','maintenance','reserved','retired','archived') DEFAULT 'available'");
+            } catch (Exception $alter_e) {
+                error_log("Error modifying status column: " . $alter_e->getMessage());
+                echo json_encode(['success' => false, 'message' => 'Database error: Could not update status column']);
+                exit;
+            }
+        }
     }
     
     // Archive the item by setting status to 'archived'
-    $stmt = $pdo->prepare("UPDATE inventory SET status = 'archived', updated_at = NOW() WHERE id = ?");
+    $sql = "UPDATE inventory SET status = 'archived', updated_at = NOW() WHERE id = ?";
+    
+    $stmt = $pdo->prepare($sql);
     $result = $stmt->execute([$item_id]);
     
     if ($result) {
-        $item_name = $item['item_name'] ?: $item['name'] ?: 'Item';
+        $item_name = $item['item_name'] ?: 'Item';
         echo json_encode([
             'success' => true, 
-            'message' => 'Item "' . $item_name . '" archived successfully! You can restore it from the Archives module.'
+            'message' => 'Item "' . htmlspecialchars($item_name) . '" archived successfully! You can restore it from the Archives module.'
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Failed to archive item']);
@@ -117,6 +141,10 @@ try {
     
 } catch (Exception $e) {
     error_log("Error archiving inventory item: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'An error occurred while archiving the item']);
+    $error_msg = 'An error occurred while archiving the item';
+    if (strpos($e->getMessage(), 'Column') !== false) {
+        $error_msg .= '. Database structure issue detected - please contact administrator.';
+    }
+    echo json_encode(['success' => false, 'message' => $error_msg, 'debug' => $e->getMessage()]);
 }
 ?>
