@@ -190,7 +190,7 @@ CREATE TABLE `inventory` (
   `available_quantity` int(11) NOT NULL DEFAULT 0,
   `borrowed_quantity` int(11) DEFAULT 0,
   `damaged_quantity` int(11) DEFAULT 0,
-  `status` enum('available','borrowed','maintenance','reserved','retired') DEFAULT 'available',
+  `status` enum('available','borrowed','maintenance','reserved','retired', 'archived') DEFAULT 'available',
   `condition_status` enum('excellent','good','fair','poor','damaged','under_repair') DEFAULT 'good',
   `location` varchar(255) DEFAULT NULL,
   `storage_location` varchar(255) DEFAULT NULL,
