@@ -104,16 +104,11 @@ try {
         $pdo->exec("ALTER TABLE inventory ADD COLUMN campus VARCHAR(100) AFTER description");
     }
 
-    // Auto-set status based on quantity
-    // Only set to borrowed if qty is 0 AND there's an actual borrow record
-    // Otherwise, unavailable for qty=0, or available for qty>0
-    $auto_status = $quantity <= 0 ? 'unavailable' : 'available';
-
     // Check if editing existing item
     if (isset($input['id']) && !empty($input['id'])) {
         // Update existing item
-        // Get current quantities to preserve borrowed amount
-        $current_stmt = $pdo->prepare("SELECT quantity, available_quantity FROM inventory WHERE id = :id");
+        // Get current quantities and status to preserve borrowed amount and valid status
+        $current_stmt = $pdo->prepare("SELECT quantity, available_quantity, status FROM inventory WHERE id = :id");
         $current_stmt->execute([':id' => $input['id']]);
         $current = $current_stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -125,8 +120,22 @@ try {
             // New available = new total - currently borrowed (preserve borrowed amount)
             $new_available = $quantity - $currently_borrowed;
             $new_available = max(0, $new_available); // Ensure it's not negative
+            
+            // Preserve current status unless we need to update it based on quantity
+            // Only auto-set status to 'available' if quantity > 0 and current status is not maintenance/archived/retired
+            $current_status = $current['status'];
+            if ($quantity > 0 && !in_array($current_status, ['maintenance', 'archived', 'retired', 'borrowed'])) {
+                $auto_status = 'available';
+            } elseif ($quantity == 0 && $current_status == 'available') {
+                // Keep as available even with 0 quantity (allows name updates)
+                $auto_status = 'available';
+            } else {
+                // Preserve existing status
+                $auto_status = $current_status;
+            }
         } else {
             $new_available = $quantity; // If no record found, set available = total
+            $auto_status = 'available'; // Default to available
         }
         
         $sql = "UPDATE inventory 
@@ -165,6 +174,7 @@ try {
         }
     } else {
         // Insert new item with campus
+        // For new items, always set status to 'available' (valid enum value)
         $sql = "INSERT INTO inventory (item_name, category, quantity, condition_status, status, description, campus) 
                 VALUES (:item_name, :category, :quantity, :condition_status, :status, :description, :campus)";
         
@@ -174,7 +184,7 @@ try {
             ':category' => $input['category'],
             ':quantity' => $quantity,
             ':condition_status' => $input['condition'],
-            ':status' => $auto_status,
+            ':status' => 'available', // Always use valid status value
             ':description' => trim($input['description'] ?? ''),
             ':campus' => $user_campus
         ]);

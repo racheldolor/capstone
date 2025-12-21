@@ -51,7 +51,7 @@ try {
         " . $whereClause . "
         GROUP BY e.id, e.title, e.description, e.location, e.start_date, e.end_date, 
                  e.category, e.cultural_groups, e.status, e.campus, e.created_at
-        ORDER BY e.created_at DESC
+        ORDER BY e.start_date ASC
     ");
     
     $stmt->execute($campusParams);

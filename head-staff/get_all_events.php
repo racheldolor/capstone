@@ -125,6 +125,7 @@ try {
             cultural_groups,
             event_poster,
             status,
+            campus,
             created_at
         FROM events 
         WHERE $where_clause

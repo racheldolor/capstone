@@ -532,12 +532,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .form-group input,
         .form-group select {
+            width: 100%;
             padding: 0.5rem;
             border: 1px solid #333;
             border-radius: 4px;
             font-size: 0.9rem;
             font-family: inherit;
             color: #000;
+            box-sizing: border-box;
         }
 
         .form-group select:disabled {
@@ -586,13 +588,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .inline-units {
-            width: 80px;
+            width: 90px !important;
             padding: 0.25rem 0.5rem;
             border: 1px solid #333;
             border-radius: 4px;
             font-size: 0.85rem;
             margin-left: 0.5rem;
             margin-right: 1rem;
+            box-sizing: border-box;
         }
 
         /* Table Sections */
@@ -1711,7 +1714,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             'College of Engineering',
                             'College of Architecture, Fine Arts and Design',
                             'College of Engineering Technology',
-                            'College of Informatics and Computing Sciences'
+                            'College of Informatics and Computing Sciences',
+                            'Lobo Campus',
+                            'Balayan Campus',
+                            'Mabini Campus'
                         ],
                         'JPLPC Malvar': [
                             'College of Industrial Technology',
@@ -2321,7 +2327,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             validateNameField(field) {
                 const value = field.value.trim();
-                const nameRegex = /^[a-zA-Z\s.'\-]*$/; // Allow letters, spaces, periods, apostrophes, and hyphens
+                const nameRegex = /^[a-zA-ZÑñ\s.'\-]*$/; // Allow letters, spaces, periods, apostrophes, hyphens, and enye
                 
                 if (value && !nameRegex.test(value)) {
                     this.showFieldError(field, 'Name should only contain letters, spaces, and common punctuation (. \' -).');

@@ -810,7 +810,7 @@ $pdo = getDBConnection();
                 ?>
                 <span><?= htmlspecialchars($first_name) ?></span>
                 <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
-                <?php if ($isCentralHead): ?>
+                <?php if ($isPabloBorbonHead): ?>
                     <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
                 <?php endif; ?>
                 <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
@@ -1209,22 +1209,22 @@ $pdo = getDBConnection();
         }
 
         function getInventoryStatusBadge(status, quantity) {
-            // Auto-set to unavailable if quantity is 0, otherwise available if qty > 0
+            // Display based on quantity and status
+            // If quantity is 0, show "Out of Stock" regardless of status
             if (quantity !== undefined && quantity <= 0) {
-                return '<span class="badge badge-unavailable">Unavailable</span>';
+                return '<span class="badge badge-unavailable">Out of Stock</span>';
             }
             
-            // If quantity > 0, always show as available (borrowed status is shown in borrower modal)
-            if (quantity > 0) {
-                return '<span class="badge badge-available">Available</span>';
-            }
-            
+            // For quantity > 0, show actual status
             const badges = {
                 'available': '<span class="badge badge-available">Available</span>',
+                'borrowed': '<span class="badge badge-maintenance">Borrowed</span>',
                 'maintenance': '<span class="badge badge-maintenance">Maintenance</span>',
-                'unavailable': '<span class="badge badge-unavailable">Unavailable</span>'
+                'reserved': '<span class="badge badge-worn">Reserved</span>',
+                'retired': '<span class="badge badge-unavailable">Retired</span>',
+                'archived': '<span class="badge badge-unavailable">Archived</span>'
             };
-            return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Unknown'}</span>`;
+            return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Available'}</span>`;
         }
 
         // Modal functions

@@ -985,6 +985,22 @@ try {
             max-width: 100%;
         }
 
+        /* When only one column exists (view-only mode) */
+        .events-grid:has(.events-right:only-child) {
+            grid-template-columns: 1fr;
+            max-width: 100%;
+            margin: 0 0 2rem;
+        }
+
+        .events-grid:has(.events-right:only-child) .events-right {
+            max-width: 100%;
+        }
+
+        .events-grid:has(.events-right:only-child) .events-list {
+            height: calc(100vh - 350px);
+            min-height: 600px;
+        }
+
         .events-left,
         .events-right {
             background: white;
@@ -1897,7 +1913,7 @@ try {
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             max-height: 90vh;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
         .applications-modal {
@@ -2406,6 +2422,7 @@ try {
 
                 <!-- Main Content Grid -->
                 <div class="events-grid">
+                    <?php if (!$isPabloBorbonHead): ?>
                     <!-- Left Side - Input New Event -->
                     <div class="events-left">
                         <div class="input-panel">
@@ -2426,11 +2443,11 @@ try {
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="startDate">Start Date*</label>
-                                        <input type="date" id="startDate" name="start_date" required>
+                                        <input type="date" id="startDate" name="start_date" required min="<?= date('Y-m-d') ?>">
                                     </div>
                                     <div class="form-group">
                                         <label for="endDate">End Date*</label>
-                                        <input type="date" id="endDate" name="end_date" required>
+                                        <input type="date" id="endDate" name="end_date" required min="<?= date('Y-m-d') ?>">
                                     </div>
                                 </div>
 
@@ -2534,6 +2551,7 @@ try {
                             </form>
                         </div>
                     </div>
+                    <?php endif; ?>
 
                     <!-- Right Side - Upcoming Events -->
                     <div class="events-right">
@@ -2873,12 +2891,12 @@ try {
 
     <!-- Applications Modal -->
     <div id="applicationsModal" class="modal" style="display: none;">
-        <div class="modal-content applications-modal">
-            <div class="modal-header">
+        <div class="modal-content applications-modal" style="max-width: 1000px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="modal-header" style="flex-shrink: 0;">
                 <h2>Student Applications</h2>
                 <span class="close" onclick="closeApplicationsModal()">&times;</span>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 1.5rem;">
                 <!-- Search Bar -->
                 <div style="margin-bottom: 1.5rem;">
                     <div style="position: relative; max-width: 400px;">
@@ -2950,6 +2968,7 @@ try {
                             <option value="Festival">Festival</option>
                         </select>
                     </div>
+                    <?php if ($canViewAll): ?>
                     <div>
                         <label for="campusFilter">Campus:</label>
                         <select id="campusFilter" onchange="loadAllEvents()">
@@ -2961,6 +2980,7 @@ try {
                             <option value="JPLPC Malvar">JPLPC Malvar</option>
                         </select>
                     </div>
+                    <?php endif; ?>
                     <div>
                         <label for="monthFilter">Month:</label>
                         <input type="month" id="monthFilter" onchange="loadAllEvents()">
@@ -3262,12 +3282,12 @@ try {
 
     <!-- Event Participants Modal -->
     <div id="eventParticipantsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 900px; width: 95%;">
+        <div class="modal-content" style="max-width: 900px; width: 95%; display: flex; flex-direction: column; max-height: 90vh; overflow: hidden;">
             <div class="modal-header">
                 <h2 id="participantsModalTitle">Event Participants</h2>
                 <span class="close" onclick="closeParticipantsModal()">&times;</span>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="overflow-y: auto; flex: 1;">
                 <div id="eventDetailsSection" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
                     <div id="eventDetailsContent">
                         <!-- Event details will be loaded here -->
@@ -3756,9 +3776,13 @@ try {
                             ${app.profile_photo ? `
                                 <div class="detail-section" style="text-align: center; margin-bottom: 1rem;">
                                     <h4>Profile Photo</h4>
-                                    <img src="../${app.profile_photo}" alt="Profile Photo" style="max-width: 150px; max-height: 150px; border: 2px solid #ddd; border-radius: 8px; object-fit: cover;">
+                                    <img src="../${app.profile_photo}" alt="Profile Photo" style="max-width: 150px; max-height: 150px; border: 2px solid #ddd; border-radius: 8px; object-fit: cover; display: block; margin: 0 auto;">
                                 </div>
-                            ` : ''}
+                            ` : `
+                                <div class="detail-section" style="text-align: center; margin-bottom: 1rem; color: #999;">
+                                    <p>No profile photo uploaded</p>
+                                </div>
+                            `}
                             <div class="details-grid">
                                 <div class="detail-section">
                                     <h4>Personal Information</h4>
@@ -5148,7 +5172,8 @@ try {
             // Get filter values
             const status = document.getElementById('statusFilter').value;
             const category = document.getElementById('categoryFilter').value;
-            const campus = document.getElementById('campusFilter').value;
+            const campusFilter = document.getElementById('campusFilter');
+            const campus = campusFilter ? campusFilter.value : '';
             const month = document.getElementById('monthFilter').value;
             
             // Build query parameters
@@ -5208,8 +5233,8 @@ try {
                 html += '<div><strong>Date:</strong> ' + event.start_date_formatted + ' - ' + event.end_date_formatted + '</div>';
                 html += '<div><strong>Location:</strong> ' + event.location + '</div>';
                 html += '<div><strong>Category:</strong> ' + (event.category || 'N/A') + '</div>';
-                if (event.venue) {
-                    html += '<div><strong>Campus:</strong> ' + event.venue + '</div>';
+                if (event.campus) {
+                    html += '<div><strong>Campus:</strong> ' + event.campus + '</div>';
                 }
                 html += '<div><strong>Cultural Groups:</strong> ' + culturalGroups + '</div>';
                 html += '<div><strong>Created:</strong> ' + event.created_at_formatted + '</div>';
@@ -5224,10 +5249,12 @@ try {
                 } else {
                     html += '<div style="font-size: 0.8rem; color: #666;">' + Math.abs(event.days_difference) + ' day(s) ago</div>';
                 }
-                html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
-                html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
-                html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
-                html += '</div>';
+                if (canManage) {
+                    html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
+                    html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
+                    html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
+                    html += '</div>';
+                }
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
@@ -5525,7 +5552,23 @@ try {
                 return;
             }
 
-            if (new Date(startDate) > new Date(endDate)) {
+            // Check if dates are not in the past
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const startDateObj = new Date(startDate);
+            const endDateObj = new Date(endDate);
+            
+            if (startDateObj < today) {
+                alert('Start date cannot be in the past');
+                return;
+            }
+            
+            if (endDateObj < today) {
+                alert('End date cannot be in the past');
+                return;
+            }
+
+            if (startDateObj > endDateObj) {
                 alert('Start date cannot be after end date');
                 return;
             }
@@ -5642,6 +5685,7 @@ try {
                         ${event.days_until === 0 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Today!</div>' : 
                           event.days_until === 1 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Tomorrow</div>' :
                           `<div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">In ${event.days_until} day(s)</div>`}
+                        ${canManage ? `
                         <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
                             <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
                                 Edit
@@ -5649,7 +5693,7 @@ try {
                             <button onclick="archiveEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}');" style="background: #ff9800; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
                                 Archive
                             </button>
-                        </div>
+                        </div>` : ''}
                     </div>
                 `;
             });
@@ -6681,7 +6725,6 @@ try {
                                     return [
                                         'Participation Rate: ' + data.y + '%',
                                         'Participants: ' + data.participants,
-                                        'Eligible Members: ' + data.eligible,
                                         'Event Date: ' + (data.date !== 'N/A' ? new Date(data.date).toLocaleDateString() : 'Not specified')
                                     ];
                                 }

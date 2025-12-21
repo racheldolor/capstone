@@ -429,6 +429,7 @@ CREATE TABLE `borrowing_requests` (
   `item_category` varchar(100) DEFAULT NULL,
   `quantity_requested` int(11) NOT NULL DEFAULT 1,
   `quantity_approved` int(11) DEFAULT NULL,
+  `approved_items` text DEFAULT NULL,
   `purpose` text DEFAULT NULL,
   `event_details` text DEFAULT NULL,
   `venue` varchar(255) DEFAULT NULL,
