@@ -333,6 +333,66 @@ try {
             overflow-x: hidden;
         }
 
+        .sidebar-greeting {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-greeting::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting h3 {
+            margin: 0 0 0.5rem 0;
+            color: white;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            line-height: 1.2;
+        }
+
+        .greeting-hi {
+            font-size: 1.8rem;
+            font-weight: 400;
+        }
+
+        .greeting-name {
+            font-size: 1.8rem;
+        }
+
+        .sidebar-greeting p {
+            margin: 0 0 0 0.5rem;
+            font-style: bold;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.95);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
+        }
+
         .nav-menu {
             list-style: none;
             padding: 1rem 0;
@@ -2132,7 +2192,7 @@ try {
                 ?>
                 <span><?= htmlspecialchars($first_name) ?></span>
                 <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
-                <?php if ($isCentralHead || $isPabloBorbonHead): ?>
+                <?php if ($isCentralHead): ?>
                     <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
                 <?php endif; ?>
                 <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
@@ -2145,6 +2205,13 @@ try {
     <div class="main-container">
         <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-greeting">
+                <h3>
+                    <span class="greeting-hi">Hi,</span>
+                    <span class="greeting-name"><?= htmlspecialchars($first_name) ?></span>
+                </h3>
+                <p><?= htmlspecialchars($role_display) ?></p>
+            </div>
             <nav>
                 <ul class="nav-menu">
                     <li class="nav-item">
@@ -2749,16 +2816,10 @@ try {
                             </div>
 
                             <!-- Charts Grid -->
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                                <!-- Rating Distribution Chart -->
-                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;">
-                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Rating Distribution</h4>
-                                    <canvas id="ratingDistributionChart" width="400" height="300" style="max-width: 100%; height: auto; display: block; margin: 0 auto;"></canvas>
-                                </div>
-
+                            <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
                                 <!-- Question Scores Chart -->
-                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Question Scores</h4>
+                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 800px; width: 100%;">
+                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600; text-align: center;">Question Scores</h4>
                                     <canvas id="questionScoresChart" width="400" height="420" style="max-width: 100%; height: auto;"></canvas>
                                 </div>
                             </div>
@@ -7357,26 +7418,22 @@ try {
 
             // Draw charts with staggered timing for smooth loading
             setTimeout(function() {
-                drawRatingDistributionChart(data.rating_distribution);
+                drawQuestionScoresChart(data.question_scores);
             }, 100);
             
             setTimeout(function() {
-                drawQuestionScoresChart(data.question_scores);
-            }, 300);
-            
-            setTimeout(function() {
                 drawEvaluationTrendsChart(data.trends);
-            }, 500);
+            }, 300);
 
             // Display detailed insights
             setTimeout(function() {
                 displayEvaluationInsights(data.insights);
-            }, 700);
+            }, 500);
 
             // Display comments analysis
             setTimeout(function() {
                 displayCommentsAnalysis(data.comments);
-            }, 900);
+            }, 700);
         }
 
         function drawRatingDistributionChart(ratingData) {
