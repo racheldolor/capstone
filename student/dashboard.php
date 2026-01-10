@@ -1473,6 +1473,382 @@ try {
                 padding: 1rem;
             }
         }
+
+        /* Performer Profile Form View Styles */
+        #performerProfileView {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .performer-profile-card {
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .form-header {
+            background: #fff;
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            border: 1px solid #333;
+            padding: 1rem;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin-right: 1rem;
+        }
+
+        .reference-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        .ref-item {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .ref-item .label {
+            font-weight: 600;
+            min-width: 100px;
+        }
+
+        .form-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+        }
+
+        .form-body {
+            padding: 2rem;
+        }
+
+        .form-section {
+            margin-bottom: 2rem;
+            border: 1px solid #ddd;
+            padding: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .instruction {
+            font-weight: 400;
+            font-style: italic;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .checkmark {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #333;
+            background: #fff;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .checkmark.checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .inline-text {
+            flex: 1;
+            padding: 0.25rem 0.5rem;
+            border: none;
+            border-bottom: 1px solid #333;
+            background: transparent;
+            font-size: 0.85rem;
+            margin-left: 0.5rem;
+        }
+
+        .privacy-note {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            text-align: justify;
+        }
+
+        .consent-section h4 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: #333;
+        }
+
+        .consent-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .radiomark {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            background: #fff;
+            position: relative;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .radiomark.checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            background: #333;
+            border-radius: 50%;
+        }
+
+        .consent-text {
+            font-size: 0.8rem;
+            line-height: 1.4;
+            color: #555;
+            margin-left: 0.5rem;
+        }
+
+        .photo-section {
+            float: right;
+            margin-left: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .photo-placeholder {
+            width: 120px;
+            height: 120px;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #666;
+            text-align: center;
+            background: #f8f9fa;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+
+        .photo-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .form-value {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: #000;
+            background: #f8f9fa;
+            box-sizing: border-box;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .form-group.half {
+            flex: 1;
+        }
+
+        .form-group.quarter {
+            flex: 0.5;
+        }
+
+        .participation-table,
+        .affiliation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .participation-table th,
+        .affiliation-table th,
+        .participation-table td,
+        .affiliation-table td {
+            border: 1px solid #333;
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+        }
+
+        .participation-table th,
+        .affiliation-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .sub-text {
+            font-weight: 400;
+            font-style: italic;
+            font-size: 0.75rem;
+        }
+
+        .certification {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            margin: 2rem 0;
+            gap: 2rem;
+        }
+
+        .signature-field {
+            flex: 2;
+        }
+
+        .signature-field label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .signature-image {
+            border: 2px solid #333;
+            background: #fff;
+            border-radius: 4px;
+            width: 400px;
+            height: 150px;
+            display: block;
+            object-fit: contain;
+        }
+
+        .date-field {
+            flex: 1;
+            padding-bottom: 19%;
+        }
+
+        .date-field label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .header-info {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .checkbox-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            .signature-section {
+                flex-direction: column;
+            }
+
+            .photo-section {
+                float: none;
+                margin: 0 auto 1rem;
+            }
+
+            .signature-image {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1941,63 +2317,24 @@ try {
             <section class="content-section" id="profile">
                 <div class="page-header">
                     <h1 class="page-title">My Profile</h1>
-                    <p class="page-subtitle">View and manage your profile information</p>
+                    <p class="page-subtitle">View your submitted performer profile form</p>
                 </div>
 
-                <div class="profile-container">
-                    <div class="profile-header">
-                        <div class="profile-avatar">
-                            <?php if (!empty($profile_photo) && file_exists('../' . $profile_photo)): ?>
-                                <img src="../<?= htmlspecialchars($profile_photo) ?>" alt="Profile Photo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-                            <?php else: ?>
-                                👤
-                            <?php endif; ?>
-                        </div>
-                        <div class="profile-name">
-                            <?= htmlspecialchars(($student_info['first_name'] ?? '') . ' ' . ($student_info['middle_name'] ?? '') . ' ' . ($student_info['last_name'] ?? '')) ?>
-                        </div>
-                        <div class="profile-role">
-                            Student Artist
-                            <?php if (!empty($student_info['cultural_group'])): ?>
-                                - <?= htmlspecialchars($student_info['cultural_group']) ?>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <div class="profile-details">
-                        <?php if ($student_info): ?>
-                            <div class="detail-group">
-                                <div class="detail-label">SR-Code</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['sr_code'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Email</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['email'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Campus</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['campus'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Program</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['program'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Year Level</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['year_level'] ?? 'N/A') ?></div>
-                            </div>
-                            <?php if (!empty($student_info['contact_number'])): ?>
-                            <div class="detail-group">
-                                <div class="detail-label">Contact Number</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['contact_number']) ?></div>
-                            </div>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            <div class="empty-state">
-                                <p>Profile information not available</p>
-                                <small>Please contact the administrator</small>
-                            </div>
-                        <?php endif; ?>
-                    </div>
+                <div id="profileLoading" class="loading-state" style="display: none; text-align: center; padding: 2rem;">
+                    <p>Loading profile data...</p>
+                </div>
+
+                <div id="profileError" style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                    <h3 style="color: #dc2626; margin-bottom: 1rem;">No Performer Profile Found</h3>
+                    <p style="color: #666; margin-bottom: 2rem;">You haven't submitted your performer profile form yet.</p>
+                    <a href="performer-profile-form.php" style="display: inline-block; background: linear-gradient(135deg, #ff5a5a, #ff7a6b); color: white; padding: 0.75rem 2rem; border-radius: 6px; text-decoration: none; font-weight: 600; box-shadow: 0 4px 15px rgba(255, 90, 90, 0.3);">
+                        Submit Performer Profile Form
+                    </a>
+                </div>
+
+                <div id="performerProfileView" style="display: none;">
+                    <!-- This will be populated with the performer profile form -->
                 </div>
             </section>
         </main>
@@ -2062,6 +2399,8 @@ try {
                             loadUpcomingEvents();
                         } else if (sectionId === 'costume-borrowing') {
                             loadBorrowedCostumes();
+                        } else if (sectionId === 'profile') {
+                            loadPerformerProfile();
                         }
                     }
 
@@ -2078,6 +2417,8 @@ try {
                 loadUpcomingEvents();
             } else if (activeSection === 'costume-borrowing') {
                 loadBorrowedCostumes();
+            } else if (activeSection === 'profile') {
+                loadPerformerProfile();
             }
 
             // Click outside modal to close functionality
@@ -3294,6 +3635,274 @@ try {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
             });
+        }
+
+        // Load and display performer profile form
+        function loadPerformerProfile() {
+            const profileLoading = document.getElementById('profileLoading');
+            const profileError = document.getElementById('profileError');
+            const performerProfileView = document.getElementById('performerProfileView');
+
+            console.log('Loading performer profile...');
+
+            // Show loading state
+            profileLoading.style.display = 'block';
+            profileError.style.display = 'none';
+            performerProfileView.style.display = 'none';
+
+            fetch('get_application_data.php')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Application data response:', data);
+                    profileLoading.style.display = 'none';
+                    
+                    if (data.success) {
+                        displayPerformerProfile(data.application, data.participations, data.affiliations);
+                        performerProfileView.style.display = 'block';
+                    } else {
+                        console.error('Error loading profile:', data.message, data.debug);
+                        profileError.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading profile:', error);
+                    profileLoading.style.display = 'none';
+                    profileError.style.display = 'block';
+                });
+        }
+
+        // Display performer profile form
+        function displayPerformerProfile(app, participations, affiliations) {
+            const performerProfileView = document.getElementById('performerProfileView');
+            
+            // Get cultural group - this is the type of performance
+            const culturalGroup = app.cultural_group || 'Not specified';
+
+            // Create participation table rows
+            let participationRows = '';
+            if (participations && participations.length > 0) {
+                participations.forEach(p => {
+                    participationRows += `
+                        <tr>
+                            <td>${p.participation_date || ''}</td>
+                            <td>${p.activity_title || ''}</td>
+                            <td>${p.venue || ''}</td>
+                            <td>${p.level || ''}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                participationRows = '<tr><td colspan="4" style="text-align: center; color: #666;">No participation records</td></tr>';
+            }
+
+            // Create affiliation table rows
+            let affiliationRows = '';
+            if (affiliations && affiliations.length > 0) {
+                affiliations.forEach(a => {
+                    affiliationRows += `
+                        <tr>
+                            <td>${a.affiliation_position || ''}</td>
+                            <td>${a.organization_name || ''}</td>
+                            <td>${a.year || ''}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                affiliationRows = '<tr><td colspan="3" style="text-align: center; color: #666;">No affiliation records</td></tr>';
+            }
+
+            const html = `
+                <div class="performer-profile-card">
+                    <div class="form-header" style="text-align: center; padding: 2rem 2rem 1rem 2rem; border-bottom: 2px solid #333;">
+                        <h1 class="form-title" style="font-size: 1.8rem; font-weight: 700; color: #333; margin: 0;">PERFORMER'S PROFILE FORM</h1>
+                    </div>
+                    <div class="form-body">
+                        <!-- Cultural Group / Type of Performance Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">CULTURAL GROUP / TYPE OF PERFORMANCE</h3>
+                            <div class="form-value" style="font-size: 1.1rem; font-weight: 600; color: #333; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                                ${culturalGroup}
+                            </div>
+                        </div>
+
+                        <!-- Personal Information Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">PERSONAL INFORMATION</h3>
+                            
+                            <div class="photo-section">
+                                <div class="photo-placeholder">
+                                    ${app.profile_photo ? `<img src="../${app.profile_photo}" alt="Profile Photo">` : 'Passport Size Photo'}
+                                </div>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>First Name</label>
+                                        <div class="form-value">${app.first_name || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Middle Name</label>
+                                        <div class="form-value">${app.middle_name || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Last Name</label>
+                                        <div class="form-value">${app.last_name || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Permanent Address</label>
+                                    <div class="form-value">${app.address || ''}</div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Present Address</label>
+                                    <div class="form-value">${app.present_address || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Date of Birth</label>
+                                        <div class="form-value">${app.date_of_birth || ''}</div>
+                                    </div>
+                                    <div class="form-group quarter">
+                                        <label>Age</label>
+                                        <div class="form-value">${app.age || ''}</div>
+                                    </div>
+                                    <div class="form-group quarter">
+                                        <label>Gender</label>
+                                        <div class="form-value">${app.gender || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Place of Birth</label>
+                                    <div class="form-value">${app.place_of_birth || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Email Address</label>
+                                        <div class="form-value">${app.email || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Contact Number</label>
+                                        <div class="form-value">${app.contact_number || ''}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Family Background Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">FAMILY BACKGROUND</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Father's Name</label>
+                                    <div class="form-value">${app.father_name || ''}</div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Mother's Name</label>
+                                    <div class="form-value">${app.mother_name || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Guardian</label>
+                                        <div class="form-value">${app.guardian || 'N/A'}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Guardian Contact</label>
+                                        <div class="form-value">${app.guardian_contact || 'N/A'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Academic Information Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">ACADEMIC INFORMATION</h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Campus</label>
+                                        <div class="form-value">${app.campus || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>College</label>
+                                        <div class="form-value">${app.college || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>SR-Code</label>
+                                        <div class="form-value">${app.sr_code || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Year Level</label>
+                                        <div class="form-value">${app.year_level || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Program/Course</label>
+                                    <div class="form-value">${app.program || ''}</div>
+                                </div>
+
+                                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1rem;">
+                                    <span style="font-size: 0.9rem; color: #333;">Number of Units Enrolled:</span>
+                                    <div style="display: flex; gap: 1rem; align-items: center;">
+                                        <span style="font-size: 0.85rem;">1st Semester:</span>
+                                        <span style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; min-width: 60px; text-align: center;">${app.first_semester_units || 0}</span>
+                                        <span style="font-size: 0.85rem; margin-left: 1rem;">2nd Semester:</span>
+                                        <span style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; min-width: 60px; text-align: center;">${app.second_semester_units || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Participation Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">PARTICIPATION IN ARTS-RELATED ACTIVITIES <span class="instruction">(Last Five Years)</span></h3>
+                            <table class="participation-table">
+                                <thead>
+                                    <tr>
+                                        <th>DATE</th>
+                                        <th>TITLE/NATURE OF ACTIVITY</th>
+                                        <th>VENUE</th>
+                                        <th>LEVEL <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${participationRows}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Affiliation Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">AFFILIATION/MEMBERSHIP IN ARTS ORGANIZATIONS</h3>
+                            <table class="affiliation-table">
+                                <thead>
+                                    <tr>
+                                        <th>POSITION</th>
+                                        <th>NAME OF ORGANIZATION</th>
+                                        <th>YEAR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${affiliationRows}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            performerProfileView.innerHTML = html;
         }
     </script>
 </body>
