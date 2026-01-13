@@ -5,7 +5,7 @@
 </Files>
 
 # Allow images to be viewed
-<FilesMatch "\.(jpg|jpeg|png|gif)$">
+<FilesMatch "\.(jpg|jpeg|jfif|png|gif)$">
     Order Allow,Deny
     Allow from all
 </FilesMatch>

@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -68,7 +68,7 @@ try {
     }
     
     // Auto-set campus for non-Pablo Borbon users
-    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff', 'central'])));
+    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'central'])));
     
     // Verify campus access for campus-specific users
     if (!$canChooseCampus) {

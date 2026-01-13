@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central'])) {
     header('Location: ../index.php');
     exit();
 }
@@ -40,9 +40,9 @@ $isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 
 // Campus filtering logic:
 // - Admin: see all campuses
-// - Pablo Borbon staff/head: see all campuses
-// - Other campus staff/head: see only their campus
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+// - Pablo Borbon head: see all campuses
+// - Other campus head: see only their campus
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 $canManage = !$isCentralHead && !$isPabloBorbonHead; // Central Head and Pablo Borbon Head are view-only
 
 // Build campus filter for SQL

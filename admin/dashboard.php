@@ -1014,11 +1014,6 @@ ob_end_clean();
             color: white;
         }
 
-        .role-staff {
-            background: #ffc107;
-            color: #333;
-        }
-
         /* Status Badges */
         .status-badge {
             padding: 0.25rem 0.75rem;
@@ -1442,12 +1437,12 @@ ob_end_clean();
                         <div class="search-filters">
                             <form method="GET" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
                                 <input type="hidden" name="tab" value="staffs">
-                                <input type="text" name="search" placeholder="Search staff..." class="search-input" value="<?= htmlspecialchars($search) ?>">
+                                <input type="text" name="search" placeholder="Search users..." class="search-input" value="<?= htmlspecialchars($search) ?>">
                                 <button type="submit" class="search-btn">🔍</button>
                             </form>
                         </div>
 
-                        <!-- Staff Users Table -->
+                        <!-- System Users Table -->
                         <div class="table-container">
                             <table class="users-table">
                                 <thead>
@@ -1465,9 +1460,9 @@ ob_end_clean();
                                         <tr>
                                             <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
                                                 <?php if (!empty($search)): ?>
-                                                    No staff found matching your criteria.
+                                                    No users found matching your criteria.
                                                 <?php else: ?>
-                                                    No staff found. Click "Add New User" to create the first user.
+                                                    No users found. Click "Add New User" to create the first user.
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -1808,7 +1803,6 @@ ob_end_clean();
                             <option value="">Select Role</option>
                             <option value="head">Head</option>
                             <option value="student">Student</option>
-                            <option value="staff">Staff</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1877,7 +1871,6 @@ ob_end_clean();
                         <select id="editRole" name="role" required>
                             <option value="">Select Role</option>
                             <option value="head">Head</option>
-                            <option value="staff">Staff</option>
                         </select>
                     </div>
                     <div class="form-group">

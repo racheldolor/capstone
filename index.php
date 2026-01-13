@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
         try {
             $pdo = getDBConnection();
             
-            // First, check the users table (for admin, staff, head, central) - CASE-SENSITIVE
+            // First, check the users table (for admin, head, central) - CASE-SENSITIVE
             $stmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name, email, password, role, status, campus FROM users WHERE BINARY email = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -79,9 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
                         case 'head':
                             header('Location: head-staff/dashboard.php');
                             exit();
-                        case 'staff':
-                            header('Location: head-staff/dashboard.php');
-                            exit();
                         case 'central':
                             header('Location: central/dashboard.php');
                             exit();
@@ -112,7 +109,6 @@ $cta_label = 'Sign In';
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_role'])) {
     switch ($_SESSION['user_role']) {
         case 'head':
-        case 'staff':
             $cta_url = 'head-staff/dashboard.php';
             break;
         case 'central':

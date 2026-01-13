@@ -5,7 +5,7 @@ require_once '../config/database.php';
 header('Content-Type: application/json');
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
 }
@@ -17,7 +17,7 @@ $user_campus = $_SESSION['user_campus'] ?? null;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 
 try {
     $pdo = getDBConnection();

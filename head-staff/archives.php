@@ -2,8 +2,8 @@
 session_start();
 require_once '../config/database.php';
 
-// Authentication check - Only heads and staff can access archives
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+// Authentication check - Only heads can access archives
+if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'head') {
     header('Location: ../index.php');
     exit();
 }
@@ -32,10 +32,10 @@ $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 $display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
 
 // Campus filtering logic:
-// - Pablo Borbon staff/head: see all campuses
-// - Other campus staff/head: see only their campus
+// - Pablo Borbon head: see all campuses
+// - Other campus head: see only their campus
 $canViewAll = ($user_campus === 'Pablo Borbon');
-$canManage = true; // All heads and staff can manage (archive section doesn't have central head view-only)
+$canManage = true; // All heads can manage (archive section doesn't have central head view-only)
 $campus_filter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : '';
 
 // Build campus filter for SQL

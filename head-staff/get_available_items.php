@@ -13,7 +13,7 @@ $user_campus = $_SESSION['user_campus'] ?? null;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 
 try {
     // Database connection using centralized config

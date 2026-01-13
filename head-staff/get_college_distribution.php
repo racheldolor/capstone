@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit();
@@ -16,7 +16,7 @@ $user_campus = $_SESSION['user_campus'] ?? null;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 
 header('Content-Type: application/json');
 

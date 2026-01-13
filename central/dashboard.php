@@ -41,7 +41,7 @@ $isCentralStaff = ($user_role === 'central' && !$isCentralHead);
 // - Admin: see all campuses
 // - Pablo Borbon staff/head: see all campuses
 // - Other campus staff/head: see only their campus
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 $canManage = !$isCentralHead; // Central Head is view-only
 
 // Build campus filter for SQL

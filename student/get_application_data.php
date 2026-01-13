@@ -91,34 +91,34 @@ try {
         exit();
     }
     
-    // Get participation records - check if table exists first
+    // Get participation records from student_participation_records table
     $participations = [];
     try {
         $stmt = $pdo->prepare("
-            SELECT * FROM participation_records 
-            WHERE application_id = ? OR student_id = ?
-            ORDER BY id ASC
+            SELECT id, participation_date, event_name as activity_title, participation_level as level, rank_award
+            FROM student_participation_records 
+            WHERE student_id = ?
+            ORDER BY participation_date DESC, id DESC
         ");
-        $stmt->execute([$application['id'], $application['id']]);
+        $stmt->execute([$application['id']]);
         $participations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        // Table doesn't exist or error fetching - just use empty array
-        error_log("Participation records not available: " . $e->getMessage());
+        error_log("Participation records error: " . $e->getMessage());
     }
     
-    // Get affiliation records - check if table exists first
+    // Get affiliation records from student_affiliation_records table
     $affiliations = [];
     try {
         $stmt = $pdo->prepare("
-            SELECT * FROM affiliation_records 
-            WHERE application_id = ? OR student_id = ?
-            ORDER BY id ASC
+            SELECT id, position as affiliation_position, organization as organization_name, years_active as year
+            FROM student_affiliation_records 
+            WHERE student_id = ?
+            ORDER BY id DESC
         ");
-        $stmt->execute([$application['id'], $application['id']]);
+        $stmt->execute([$application['id']]);
         $affiliations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        // Table doesn't exist or error fetching - just use empty array
-        error_log("Affiliation records not available: " . $e->getMessage());
+        error_log("Affiliation records error: " . $e->getMessage());
     }
     
     echo json_encode([

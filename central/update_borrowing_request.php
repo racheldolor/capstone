@@ -13,7 +13,7 @@ ob_start();
 
 try {
     // Check if user is logged in and has proper role
-    if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
+    if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central'])) {
         throw new Exception('Unauthorized access');
     }
 
