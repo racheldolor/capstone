@@ -132,10 +132,11 @@ try {
                             performance_type,
                             first_semester_units,
                             second_semester_units,
+                            instructors,
                             status,
                             is_archived,
                             created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ");
                     
                     // Generate default password using SR code (student can change later)
@@ -184,6 +185,7 @@ try {
                         $application['performance_type'],
                         $application['first_semester_units'],
                         $application['second_semester_units'],
+                        $application['instructors'],
                         $studentStatus,
                         $isArchived
                     ]);
@@ -216,9 +218,10 @@ try {
                             performance_type,
                             first_semester_units,
                             second_semester_units,
+                            instructors,
                             status,
                             created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ");
                     
                     $stmt->execute([
@@ -246,6 +249,7 @@ try {
                         $application['performance_type'],
                         $application['first_semester_units'],
                         $application['second_semester_units'],
+                        $application['instructors'],
                         $studentStatus
                     ]);
                 }
@@ -270,8 +274,8 @@ try {
                 foreach ($participationRecords as $record) {
                     $stmt = $pdo->prepare("
                         INSERT INTO student_participation_records 
-                        (student_id, participation_date, event_name, venue, participation_level, rank_award)
-                        VALUES (?, ?, ?, '', ?, ?)
+                        (student_id, participation_date, event_name, participation_level, rank_award)
+                        VALUES (?, ?, ?, ?, ?)
                     ");
                     $stmt->execute([
                         $studentId,

@@ -77,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'], $_POST['pass
                     // Redirect by role and campus
                     switch ($user['role']) {
                         case 'head':
+                        case 'director':
                             header('Location: head-staff/dashboard.php');
                             exit();
                         case 'central':
@@ -109,6 +110,7 @@ $cta_label = 'Sign In';
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_role'])) {
     switch ($_SESSION['user_role']) {
         case 'head':
+        case 'director':
             $cta_url = 'head-staff/dashboard.php';
             break;
         case 'central':

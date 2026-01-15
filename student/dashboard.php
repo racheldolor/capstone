@@ -588,6 +588,216 @@ try {
             border-radius: 4px;
         }
 
+        /* Performer Profile Form Styles */
+        .performer-profile-container {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .performer-profile-card {
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .performer-profile-card .form-header {
+            background: #fff;
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .performer-profile-card .form-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+        }
+
+        .performer-profile-card .form-body {
+            padding: 2rem;
+        }
+
+        .performer-profile-card .form-section {
+            margin-bottom: 2rem;
+            border: 1px solid #ddd;
+            padding: 1.5rem;
+        }
+
+        .performer-profile-card .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .performer-profile-card .instruction {
+            font-weight: 400;
+            font-style: italic;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .performer-profile-card .form-value {
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #333;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+        }
+
+        .performer-profile-card .photo-section {
+            float: right;
+            margin-left: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .performer-profile-card .photo-placeholder {
+            width: 120px;
+            height: 120px;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #666;
+            text-align: center;
+            background: #f8f9fa;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+
+        .performer-profile-card .photo-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .performer-profile-card .photo-edit-controls {
+            display: none;
+            gap: 0.5rem;
+            flex-direction: column;
+        }
+
+        .performer-profile-card .photo-edit-controls.active {
+            display: flex;
+        }
+
+        .performer-profile-card .photo-upload-btn,
+        .performer-profile-card .photo-delete-btn {
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: background 0.3s ease;
+            width: 120px;
+        }
+
+        .performer-profile-card .photo-upload-btn {
+            background: #ff5a5a;
+            color: white;
+        }
+
+        .performer-profile-card .photo-upload-btn:hover {
+            background: #ff3333;
+        }
+
+        .performer-profile-card .photo-delete-btn {
+            background: #dc3545;
+            color: white;
+        }
+
+        .performer-profile-card .photo-delete-btn:hover {
+            background: #c82333;
+        }
+
+        .performer-profile-card .form-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .performer-profile-card .form-group {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+
+        .performer-profile-card .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .performer-profile-card .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .performer-profile-card .form-group.half {
+            flex: 1;
+        }
+
+        .performer-profile-card .form-group.quarter {
+            flex: 0.5;
+        }
+
+        .performer-profile-card .participation-table,
+        .performer-profile-card .affiliation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .performer-profile-card .participation-table th,
+        .performer-profile-card .affiliation-table th,
+        .performer-profile-card .participation-table td,
+        .performer-profile-card .affiliation-table td {
+            border: 1px solid #333;
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+        }
+
+        .performer-profile-card .participation-table th,
+        .performer-profile-card .affiliation-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .performer-profile-card .sub-text {
+            font-weight: 400;
+            font-style: italic;
+            font-size: 0.75rem;
+        }
+
+        .performer-profile-card .table-edit-controls {
+            display: none;
+            margin-top: 0.5rem;
+        }
+
+        .performer-profile-card .table-edit-controls.active {
+            display: block;
+        }
+
+        .performer-profile-card .edit-column {
+            display: none;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .content-grid {
@@ -1689,381 +1899,7 @@ try {
             }
         }
 
-        /* Performer Profile Form View Styles */
-        #performerProfileView {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .performer-profile-card {
-            background: #fff;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .form-header {
-            background: #fff;
-            padding: 1.5rem 2rem;
-            border-bottom: 2px solid #333;
-        }
-
-        .header-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-            border: 1px solid #333;
-            padding: 1rem;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-        }
-
-        .logo {
-            width: 60px;
-            height: 60px;
-            margin-right: 1rem;
-        }
-
-        .reference-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            font-size: 0.9rem;
-        }
-
-        .ref-item {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .ref-item .label {
-            font-weight: 600;
-            min-width: 100px;
-        }
-
-        .form-title {
-            text-align: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #333;
-            margin: 0;
-        }
-
-        .form-body {
-            padding: 2rem;
-        }
-
-        .form-section {
-            margin-bottom: 2rem;
-            border: 1px solid #ddd;
-            padding: 1.5rem;
-        }
-
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #eee;
-        }
-
-        .instruction {
-            font-weight: 400;
-            font-style: italic;
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .checkbox-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .checkbox-item.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .checkmark {
-            width: 16px;
-            height: 16px;
-            border: 2px solid #333;
-            background: #fff;
-            position: relative;
-            flex-shrink: 0;
-        }
-
-        .checkmark.checked::after {
-            content: '✓';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 12px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .inline-text {
-            flex: 1;
-            padding: 0.25rem 0.5rem;
-            border: none;
-            border-bottom: 1px solid #333;
-            background: transparent;
-            font-size: 0.85rem;
-            margin-left: 0.5rem;
-        }
-
-        .privacy-note {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 4px;
-            margin: 1rem 0;
-            font-size: 0.8rem;
-            line-height: 1.5;
-            text-align: justify;
-        }
-
-        .consent-section h4 {
-            font-size: 1rem;
-            margin-bottom: 0.75rem;
-            color: #333;
-        }
-
-        .consent-options {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .radio-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .radiomark {
-            width: 16px;
-            height: 16px;
-            border: 2px solid #333;
-            border-radius: 50%;
-            background: #fff;
-            position: relative;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .radiomark.checked::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 8px;
-            height: 8px;
-            background: #333;
-            border-radius: 50%;
-        }
-
-        .consent-text {
-            font-size: 0.8rem;
-            line-height: 1.4;
-            color: #555;
-            margin-left: 0.5rem;
-        }
-
-        .photo-section {
-            float: right;
-            margin-left: 1rem;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-
-        .photo-placeholder {
-            width: 120px;
-            height: 120px;
-            border: 2px solid #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            color: #666;
-            text-align: center;
-            background: #f8f9fa;
-            margin-bottom: 0.5rem;
-            overflow: hidden;
-        }
-
-        .photo-placeholder img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .form-grid {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-group label {
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-            font-size: 0.9rem;
-            color: #333;
-        }
-
-        .form-value {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            font-family: inherit;
-            color: #000;
-            background: #f8f9fa;
-            box-sizing: border-box;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-start;
-        }
-
-        .form-group.half {
-            flex: 1;
-        }
-
-        .form-group.quarter {
-            flex: 0.5;
-        }
-
-        .participation-table,
-        .affiliation-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-
-        .participation-table th,
-        .affiliation-table th,
-        .participation-table td,
-        .affiliation-table td {
-            border: 1px solid #333;
-            padding: 0.75rem 0.5rem;
-            text-align: left;
-        }
-
-        .participation-table th,
-        .affiliation-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            font-size: 0.85rem;
-        }
-
-        .sub-text {
-            font-weight: 400;
-            font-style: italic;
-            font-size: 0.75rem;
-        }
-
-        .certification {
-            margin: 1.5rem 0;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-
-        .signature-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: end;
-            margin: 2rem 0;
-            gap: 2rem;
-        }
-
-        .signature-field {
-            flex: 2;
-        }
-
-        .signature-field label {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-        }
-
-        .signature-image {
-            border: 2px solid #333;
-            background: #fff;
-            border-radius: 4px;
-            width: 400px;
-            height: 150px;
-            display: block;
-            object-fit: contain;
-        }
-
-        .date-field {
-            flex: 1;
-            padding-bottom: 19%;
-        }
-
-        .date-field label {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-        }
-
-        @media (max-width: 768px) {
-            .header-info {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            .checkbox-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-row {
-                flex-direction: column;
-            }
-
-            .signature-section {
-                flex-direction: column;
-            }
-
-            .photo-section {
-                float: none;
-                margin: 0 auto 1rem;
-            }
-
-            .signature-image {
-                width: 100%;
-            }
-        }
+        /* Performer Profile Form View Styles - All scoped to .performer-profile-card */
     </style>
 </head>
 <body>
@@ -3264,6 +3100,16 @@ try {
                 return;
             }
             
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+                alert('Invalid file type. Please upload a PDF, JPG, or PNG file.');
+                return;
+            }
+            
             // Check file size (5MB limit)
             if (file.size > 5 * 1024 * 1024) {
                 alert('File size must be less than 5MB');
@@ -4018,17 +3864,17 @@ try {
 
                             <div class="form-grid">
                                 <div class="form-row">
-                                    <div class="form-group half">
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
                                         <label>First Name</label>
-                                        <div class="form-value" id="profile_firstName">${app.first_name || ''}</div>
+                                        <div class="form-value" id="profile_firstName">${app.first_name || '&nbsp;'}</div>
                                     </div>
-                                    <div class="form-group half">
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
                                         <label>Middle Name</label>
-                                        <div class="form-value" id="profile_middleName">${app.middle_name || ''}</div>
+                                        <div class="form-value" id="profile_middleName">${app.middle_name || '&nbsp;'}</div>
                                     </div>
-                                    <div class="form-group half">
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
                                         <label>Last Name</label>
-                                        <div class="form-value" id="profile_lastName">${app.last_name || ''}</div>
+                                        <div class="form-value" id="profile_lastName">${app.last_name || '&nbsp;'}</div>
                                     </div>
                                 </div>
 
@@ -4141,6 +3987,12 @@ try {
                                         <span style="font-size: 0.85rem; margin-left: 1rem;">2nd Semester:</span>
                                         <span id="profile_secondSemesterUnits" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; min-width: 60px; text-align: center;">${app.second_semester_units || 0}</span>
                                     </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Instructors</label>
+                                    <div class="form-value" id="profile_instructors">${app.instructors || 'Not specified'}</div>
+                                    <small id="instructors_note" style="display: none; color: #666; font-size: 0.85rem; font-style: italic; margin-top: 0.25rem;">Separate each name with a comma</small>
                                 </div>
                             </div>
                         </div>
@@ -4303,7 +4155,7 @@ try {
                 'email', 'contactNumber', 'permanentAddress', 'presentAddress',
                 'fatherName', 'motherName', 'guardian', 'guardianContact',
                 'campus', 'college', 'srCode', 'yearLevel', 'program',
-                'firstSemesterUnits', 'secondSemesterUnits'
+                'firstSemesterUnits', 'secondSemesterUnits', 'instructors'
             ];
 
             // Save original data
@@ -4323,6 +4175,12 @@ try {
             const photoControls = document.getElementById('photoEditControls');
             if (photoControls) {
                 photoControls.classList.add('active');
+            }
+
+            // Show instructors note
+            const instructorsNote = document.getElementById('instructors_note');
+            if (instructorsNote) {
+                instructorsNote.style.display = 'block';
             }
 
             // Show table edit controls
@@ -4387,6 +4245,12 @@ try {
             document.getElementById('participationControls').classList.remove('active');
             document.getElementById('affiliationControls').classList.remove('active');
 
+            // Hide instructors note
+            const instructorsNote = document.getElementById('instructors_note');
+            if (instructorsNote) {
+                instructorsNote.style.display = 'none';
+            }
+
             // Hide delete column in tables
             document.querySelectorAll('.edit-column').forEach(el => {
                 el.style.display = 'none';
@@ -4417,31 +4281,108 @@ try {
             
             // Collect updated data
             const updatedData = {
-                first_name: document.getElementById('profile_firstName')?.textContent || '',
-                middle_name: document.getElementById('profile_middleName')?.textContent || '',
-                last_name: document.getElementById('profile_lastName')?.textContent || '',
-                date_of_birth: document.getElementById('profile_dateOfBirth')?.textContent || '',
-                age: document.getElementById('profile_age')?.textContent || '',
-                gender: document.getElementById('profile_gender')?.textContent || '',
-                place_of_birth: document.getElementById('profile_placeOfBirth')?.textContent || '',
-                email: document.getElementById('profile_email')?.textContent || '',
-                contact_number: document.getElementById('profile_contactNumber')?.textContent || '',
-                address: document.getElementById('profile_permanentAddress')?.textContent || '',
-                present_address: document.getElementById('profile_presentAddress')?.textContent || '',
-                father_name: document.getElementById('profile_fatherName')?.textContent || '',
-                mother_name: document.getElementById('profile_motherName')?.textContent || '',
-                guardian: document.getElementById('profile_guardian')?.textContent || '',
-                guardian_contact: document.getElementById('profile_guardianContact')?.textContent || '',
-                campus: document.getElementById('profile_campus')?.textContent || '',
-                college: document.getElementById('profile_college')?.textContent || '',
-                sr_code: document.getElementById('profile_srCode')?.textContent || '',
-                year_level: document.getElementById('profile_yearLevel')?.textContent || '',
-                program: document.getElementById('profile_program')?.textContent || '',
-                first_semester_units: document.getElementById('profile_firstSemesterUnits')?.textContent || '0',
-                second_semester_units: document.getElementById('profile_secondSemesterUnits')?.textContent || '0',
+                first_name: document.getElementById('profile_firstName')?.textContent.trim() || '',
+                middle_name: document.getElementById('profile_middleName')?.textContent.trim() || '',
+                last_name: document.getElementById('profile_lastName')?.textContent.trim() || '',
+                date_of_birth: document.getElementById('profile_dateOfBirth')?.textContent.trim() || '',
+                age: document.getElementById('profile_age')?.textContent.trim() || '',
+                gender: document.getElementById('profile_gender')?.textContent.trim() || '',
+                place_of_birth: document.getElementById('profile_placeOfBirth')?.textContent.trim() || '',
+                email: document.getElementById('profile_email')?.textContent.trim() || '',
+                contact_number: document.getElementById('profile_contactNumber')?.textContent.trim() || '',
+                address: document.getElementById('profile_permanentAddress')?.textContent.trim() || '',
+                present_address: document.getElementById('profile_presentAddress')?.textContent.trim() || '',
+                father_name: document.getElementById('profile_fatherName')?.textContent.trim() || '',
+                mother_name: document.getElementById('profile_motherName')?.textContent.trim() || '',
+                guardian: document.getElementById('profile_guardian')?.textContent.trim() || '',
+                guardian_contact: document.getElementById('profile_guardianContact')?.textContent.trim() || '',
+                campus: document.getElementById('profile_campus')?.textContent.trim() || '',
+                college: document.getElementById('profile_college')?.textContent.trim() || '',
+                sr_code: document.getElementById('profile_srCode')?.textContent.trim() || '',
+                year_level: document.getElementById('profile_yearLevel')?.textContent.trim() || '',
+                program: document.getElementById('profile_program')?.textContent.trim() || '',
+                first_semester_units: document.getElementById('profile_firstSemesterUnits')?.textContent.trim() || '0',
+                second_semester_units: document.getElementById('profile_secondSemesterUnits')?.textContent.trim() || '0',
+                instructors: document.getElementById('profile_instructors')?.textContent.trim() || '',
                 // Add pending changes
                 pendingChanges: pendingChanges
             };
+            
+            // Validate required fields
+            const validationErrors = [];
+            
+            // Name validation (no numbers or special characters except . ' -)
+            const nameRegex = /^[a-zA-ZÑñ\s.'\-]+$/;
+            const nameFields = [
+                { value: updatedData.first_name, label: 'First Name' },
+                { value: updatedData.last_name, label: 'Last Name' },
+                { value: updatedData.father_name, label: "Father's Name" },
+                { value: updatedData.mother_name, label: "Mother's Name" }
+            ];
+            
+            nameFields.forEach(field => {
+                if (field.value && !nameRegex.test(field.value)) {
+                    validationErrors.push(`${field.label} should only contain letters, spaces, and common punctuation (. ' -)`);
+                }
+                if (field.value && /\d/.test(field.value)) {
+                    validationErrors.push(`${field.label} cannot contain numbers`);
+                }
+            });
+            
+            // Middle name is optional but if provided, must be valid
+            if (updatedData.middle_name && !nameRegex.test(updatedData.middle_name)) {
+                validationErrors.push("Middle Name should only contain letters, spaces, and common punctuation (. ' -)");
+            }
+            
+            // Required field validation
+            if (!updatedData.first_name) validationErrors.push('First Name is required');
+            if (!updatedData.last_name) validationErrors.push('Last Name is required');
+            if (!updatedData.email) validationErrors.push('Email is required');
+            if (!updatedData.campus) validationErrors.push('Campus is required');
+            if (!updatedData.sr_code) validationErrors.push('SR Code is required');
+            
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (updatedData.email && !emailRegex.test(updatedData.email)) {
+                validationErrors.push('Please enter a valid email address');
+            }
+            
+            // SR Code format validation (XX-XXXXX)
+            const srCodeRegex = /^\d{2}-\d{5}$/;
+            if (updatedData.sr_code && !srCodeRegex.test(updatedData.sr_code)) {
+                validationErrors.push('SR Code format should be XX-XXXXX (e.g., 22-12345)');
+            }
+            
+            // Contact number validation (11 digits, starting with 09)
+            if (updatedData.contact_number) {
+                const digits = updatedData.contact_number.replace(/\D/g, '');
+                if (digits && (digits.length !== 11 || !digits.startsWith('09'))) {
+                    validationErrors.push('Contact number should be 11 digits starting with 09');
+                }
+            }
+            
+            // Age validation
+            if (updatedData.age) {
+                const age = parseInt(updatedData.age);
+                if (isNaN(age) || age < 1 || age > 150) {
+                    validationErrors.push('Please enter a valid age');
+                }
+            }
+            
+            // Units validation (must be numbers)
+            if (updatedData.first_semester_units && isNaN(parseInt(updatedData.first_semester_units))) {
+                validationErrors.push('First Semester Units must be a number');
+            }
+            if (updatedData.second_semester_units && isNaN(parseInt(updatedData.second_semester_units))) {
+                validationErrors.push('Second Semester Units must be a number');
+            }
+            
+            // Show validation errors
+            if (validationErrors.length > 0) {
+                closeSaveModal();
+                alert('⚠️ Please fix the following errors:\n\n' + validationErrors.join('\n'));
+                return;
+            }
             
             console.log('Data to send:', JSON.stringify(updatedData, null, 2));
 

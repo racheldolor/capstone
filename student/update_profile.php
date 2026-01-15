@@ -49,6 +49,7 @@ try {
             program = ?,
             first_semester_units = ?,
             second_semester_units = ?,
+            instructors = ?,
             updated_at = NOW()
         WHERE id = ?
     ");
@@ -76,6 +77,7 @@ try {
         $data['program'],
         $data['first_semester_units'],
         $data['second_semester_units'],
+        $data['instructors'],
         $student_id
     ]);
     

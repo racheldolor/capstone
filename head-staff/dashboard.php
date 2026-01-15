@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'director'])) {
     header('Location: ../index.php');
     exit();
 }
@@ -30,20 +30,19 @@ $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 // Display campus name (Pablo Borbon shows as "All Campuses")
 $display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
 
-// Central Head emails (view-only access)
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
-$isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
-$isCentralStaff = ($user_role === 'central' && !$isCentralHead);
+// Director role has view-only access to all campuses
+$isDirector = ($user_role === 'director');
 
-// Pablo Borbon Head users have view-only access
+// Pablo Borbon Head users now have full management across all campuses
 $isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 
 // Campus filtering logic:
 // - Admin: see all campuses
-// - Pablo Borbon head: see all campuses
+// - Pablo Borbon head: see all campuses with full management
+// - Director: see all campuses (view-only)
 // - Other campus head: see only their campus
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
-$canManage = !$isCentralHead && !$isPabloBorbonHead; // Central Head and Pablo Borbon Head are view-only
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head') || $user_role === 'director');
+$canManage = !$isDirector; // Only Director is view-only
 
 // Build campus filter for SQL
 if ($canViewAll) {
@@ -2192,7 +2191,7 @@ try {
                 ?>
                 <span><?= htmlspecialchars($first_name) ?></span>
                 <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
-                <?php if ($isCentralHead): ?>
+                <?php if ($isDirector): ?>
                     <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
                 <?php endif; ?>
                 <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
@@ -2239,7 +2238,7 @@ try {
                             Inventory
                         </a>
                     </li>
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <li class="nav-item">
                         <a href="archives.php" class="nav-link">
                             Archives
@@ -2328,7 +2327,7 @@ try {
             <section class="content-section" id="student-profiles">
                 <div class="page-header">
                     <h1 class="page-title">Student Artist Profiles</h1>
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <button class="add-btn" onclick="openApplicationsModal()">
                         <span>+</span>
                         View Applications
@@ -2357,7 +2356,7 @@ try {
                     <div class="overview-left">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h3 style="margin: 0; color: #666;">Distribution of Student Artists</h3>
-                            <?php if ($user_campus === 'Pablo Borbon' || $canViewAll): ?>
+                            <?php if ($canViewAll): ?>
                                 <select id="campusFilterDropdown" onchange="filterByCampus()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
                                     <option value="Pablo Borbon" <?= $campus_filter === 'Pablo Borbon' ? 'selected' : '' ?>>Pablo Borbon</option>
                                     <option value="Alangilan" <?= $campus_filter === 'Alangilan' ? 'selected' : '' ?>>Alangilan</option>
@@ -2489,7 +2488,7 @@ try {
 
                 <!-- Main Content Grid -->
                 <div class="events-grid">
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <!-- Left Side - Input New Event -->
                     <div class="events-left">
                         <div class="input-panel">
@@ -2868,7 +2867,7 @@ try {
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
                     <h1 class="page-title">Inventory</h1>
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <div style="display: flex; gap: 1rem;">
                         <button class="add-btn" onclick="openAddItemModal()">
                             <span>+</span>
