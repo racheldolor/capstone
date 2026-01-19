@@ -175,14 +175,16 @@ try {
     } else {
         // Insert new item with campus
         // For new items, always set status to 'available' (valid enum value)
-        $sql = "INSERT INTO inventory (item_name, category, quantity, condition_status, status, description, campus) 
-                VALUES (:item_name, :category, :quantity, :condition_status, :status, :description, :campus)";
+        // Set available_quantity equal to quantity initially (no items borrowed yet)
+        $sql = "INSERT INTO inventory (item_name, category, quantity, available_quantity, condition_status, status, description, campus) 
+                VALUES (:item_name, :category, :quantity, :available_quantity, :condition_status, :status, :description, :campus)";
         
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([
             ':item_name' => trim($input['name']),
             ':category' => $input['category'],
             ':quantity' => $quantity,
+            ':available_quantity' => $quantity, // Initially, all items are available
             ':condition_status' => $input['condition'],
             ':status' => 'available', // Always use valid status value
             ':description' => trim($input['description'] ?? ''),

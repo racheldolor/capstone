@@ -506,14 +506,14 @@ try {
                         <h4>Return</h4>
                         <div class="checkbox-group">
                             <div class="checkbox-item">
-                                <input type="checkbox" id="good_condition" name="condition[]" value="good_condition">
+                                <input type="checkbox" id="good_condition" name="condition" value="good_condition">
                                 <span class="checkmark"></span>
                                 <label for="good_condition" class="checkbox-label">
                                     Properties was/were returned in good condition
                                 </label>
                             </div>
                             <div class="checkbox-item">
-                                <input type="checkbox" id="with_damage" name="condition[]" value="with_damage">
+                                <input type="checkbox" id="with_damage" name="condition" value="with_damage">
                                 <span class="checkmark"></span>
                                 <label for="with_damage" class="checkbox-label">
                                     Properties was/were returned with damage
@@ -544,6 +544,23 @@ try {
                     const checkbox = this.querySelector('input[type="checkbox"]');
                     if (checkbox) {
                         checkbox.checked = !checkbox.checked;
+                        
+                        // Trigger change event to handle mutual exclusivity
+                        checkbox.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+            
+            // Make condition checkboxes mutually exclusive
+            const conditionCheckboxes = document.querySelectorAll('input[name="condition"]');
+            conditionCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        conditionCheckboxes.forEach(other => {
+                            if (other !== this) {
+                                other.checked = false;
+                            }
+                        });
                     }
                 });
             });
@@ -553,7 +570,7 @@ try {
             if (form) {
                 form.addEventListener('submit', function(e) {
                     const selectedItems = document.querySelectorAll('input[name="selected_items[]"]:checked');
-                    const selectedConditions = document.querySelectorAll('input[name="condition[]"]:checked');
+                    const selectedCondition = document.querySelector('input[name="condition"]:checked');
                     
                     if (selectedItems.length === 0) {
                         e.preventDefault();
@@ -561,7 +578,7 @@ try {
                         return;
                     }
                     
-                    if (selectedConditions.length === 0) {
+                    if (!selectedCondition) {
                         e.preventDefault();
                         alert('Please select the condition of the returned items.');
                         return;

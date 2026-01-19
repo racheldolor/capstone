@@ -74,30 +74,21 @@ try {
     try {
         // If approving with selected items, validate and update inventory
         if ($status === 'approved' && !empty($selected_items)) {
-            // Validate selected items exist and are available AND from same campus
-            $item_ids = array_map(function($item) { return $item['id']; }, $selected_items);
-            $placeholders = implode(',', array_fill(0, count($item_ids), '?'));
-            
-            $stmt = $pdo->prepare("
-                SELECT id, name, status, campus 
-                FROM inventory 
-                WHERE id IN ($placeholders) AND status = 'available' AND campus = ?
-            ");
-            $params_with_campus = array_merge($item_ids, [$request_campus]);
-            $stmt->execute($params_with_campus);
-            $available_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            if (count($available_items) !== count($selected_items)) {
-                throw new Exception('Some selected items are no longer available');
+            foreach ($selected_items as $item) {
+                $item_id = $item['id'] ?? null;
+                $quantity = intval($item['quantity'] ?? 1);
+                
+                if ($item_id && $quantity > 0) {
+                    // Reduce available_quantity when item is borrowed
+                    $inventory_stmt = $pdo->prepare("
+                        UPDATE inventory 
+                        SET available_quantity = GREATEST(0, available_quantity - ?), 
+                            updated_at = NOW() 
+                        WHERE id = ?
+                    ");
+                    $inventory_stmt->execute([$quantity, $item_id]);
+                }
             }
-
-            // Update inventory status to 'borrowed'
-            $stmt = $pdo->prepare("
-                UPDATE inventory 
-                SET status = 'borrowed', updated_at = CURRENT_TIMESTAMP 
-                WHERE id IN ($placeholders)
-            ");
-            $stmt->execute($item_ids);
 
             // Store approved items as JSON in the request
             $approved_items_json = json_encode($selected_items);

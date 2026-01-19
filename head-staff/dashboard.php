@@ -28,7 +28,12 @@ $campus_name_map = [
 $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
 // Display campus name
-$display_campus = $user_campus;
+// Director role should display Pablo Borbon
+if ($user_role === 'director') {
+    $display_campus = 'Pablo Borbon';
+} else {
+    $display_campus = $user_campus;
+}
 
 // Director role has view-only access to all campuses
 $isDirector = ($user_role === 'director');

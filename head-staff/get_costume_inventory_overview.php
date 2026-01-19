@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'head') {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin', 'director'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit();

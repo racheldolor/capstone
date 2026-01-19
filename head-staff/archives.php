@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check - Only heads can access archives
-if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'head') {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
     header('Location: ../index.php');
     exit();
 }

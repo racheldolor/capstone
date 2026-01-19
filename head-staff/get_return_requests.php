@@ -81,6 +81,7 @@ try {
             rr.item_id,
             rr.item_name,
             rr.item_category,
+            rr.quantity_returned,
             rr.return_condition,
             rr.condition_notes,
             rr.status,
