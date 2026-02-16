@@ -2560,7 +2560,7 @@ try {
                             </div>
                         <?php else: ?>
                             <?php foreach ($students as $student): ?>
-                                <div class="table-row" style="display: grid; grid-template-columns: 120px 1fr 200px 250px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
+                                <div class="table-row" style="display: grid; grid-template-columns: 120px 1fr 200px 250px 200px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
                                     <div style="padding: 0 0.5rem; font-weight: 600; color: #dc2626;">
                                         <?= htmlspecialchars($student['sr_code']) ?>
                                     </div>
@@ -2581,10 +2581,14 @@ try {
                                     <div style="padding: 0 0.5rem; font-size: 0.9rem;">
                                         <?= htmlspecialchars($student['email']) ?>
                                     </div>
-                                    <div style="padding: 0 0.5rem;">
+                                    <div style="padding: 0 0.5rem; display: flex; gap: 0.5rem;">
                                         <button onclick="viewStudentProfile(<?= $student['id'] ?>)" 
                                                 style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
                                             View
+                                        </button>
+                                        <button onclick="exportStudentProfilePDF(<?= $student['id'] ?>)" 
+                                                style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                                            📄 Export
                                         </button>
                                     </div>
                                 </div>
@@ -3750,6 +3754,23 @@ try {
             preventBackgroundScroll();
             switchStudentTab('profile'); // Start with profile tab
             loadStudentProfile(studentId);
+        }
+
+        function exportStudentProfilePDF(studentId) {
+            // Show loading indicator
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '⏳ Generating...';
+            button.disabled = true;
+
+            // Redirect to export URL
+            window.location.href = 'export_student_profile_pdf.php?student_id=' + studentId;
+
+            // Reset button after a delay
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 2000);
         }
 
         function switchStudentTab(tabName) {

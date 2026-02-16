@@ -2433,6 +2433,9 @@ try {
                             <p class="page-subtitle">View and edit your performer profile information</p>
                         </div>
                         <div style="display: flex; gap: 1rem;" id="profileActions">
+                            <button class="action-btn" id="exportProfileBtn" onclick="exportProfileToPDF()" style="display: none; background: linear-gradient(135deg, #10b981, #059669);">
+                                📄 Export to PDF
+                            </button>
                             <button class="action-btn" id="editProfileBtn" onclick="requestEditProfile()" style="display: inline-block;">
                                 ✏️ Edit Profile
                             </button>
@@ -3833,15 +3836,21 @@ try {
                     if (data.success) {
                         displayPerformerProfile(data.application, data.participations, data.affiliations);
                         performerProfileView.style.display = 'block';
+                        // Show export button when profile is available
+                        document.getElementById('exportProfileBtn').style.display = 'inline-block';
                     } else {
                         console.error('Error loading profile:', data.message, data.debug);
                         profileError.style.display = 'block';
+                        // Hide export button when no profile data
+                        document.getElementById('exportProfileBtn').style.display = 'none';
                     }
                 })
                 .catch(error => {
                     console.error('Error loading profile:', error);
                     profileLoading.style.display = 'none';
                     profileError.style.display = 'block';
+                    // Hide export button on error
+                    document.getElementById('exportProfileBtn').style.display = 'none';
                 });
         }
 
@@ -4120,6 +4129,24 @@ try {
             } else {
                 console.log('❌ Photo upload input STILL NOT found after render!');
             }
+        }
+
+        // Export Profile to PDF Function
+        function exportProfileToPDF() {
+            // Show loading indicator
+            const exportBtn = document.getElementById('exportProfileBtn');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '⏳ Generating PDF...';
+            exportBtn.disabled = true;
+
+            // Open the export URL in a new window to trigger download
+            window.location.href = 'export_profile_pdf.php';
+
+            // Reset button after a delay
+            setTimeout(() => {
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }, 2000);
         }
 
         // Edit Profile Functions
