@@ -33,10 +33,28 @@ $isCentralHead = in_array($user_email, $centralHeadEmails);
 $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 $canManage = !$isCentralHead;
 
+// Get campus filter from URL parameter (for users who can view all)
+$requestedCampusFilter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : '';
+
 // Build campus filter with support for both short and full campus names
 $campusFilter = '';
 $campusParams = [];
-if (!$canViewAll && $user_campus) {
+
+// If user can view all campuses AND a specific campus filter is requested, use that
+if ($canViewAll && !empty($requestedCampusFilter)) {
+    if ($requestedCampusFilter === 'JPLPC Malvar') {
+        $campusFilter = ' AND (campus = ? OR campus = ?)';
+        $campusParams = ['JPLPC Malvar', 'Malvar'];
+    } elseif ($requestedCampusFilter === 'ARASOF Nasugbu') {
+        $campusFilter = ' AND (campus = ? OR campus = ?)';
+        $campusParams = ['ARASOF Nasugbu', 'Nasugbu'];
+    } else {
+        $campusFilter = ' AND campus = ?';
+        $campusParams = [$requestedCampusFilter];
+    }
+}
+// If user cannot view all, restrict to their own campus
+elseif (!$canViewAll && $user_campus) {
     if ($user_campus === 'JPLPC Malvar') {
         $campusFilter = ' AND (campus = ? OR campus = ?)';
         $campusParams = ['JPLPC Malvar', 'Malvar'];

@@ -3575,6 +3575,7 @@ try {
         const canViewAll = <?php echo $canViewAll ? 'true' : 'false'; ?>;
         const canManage = <?php echo $canManage ? 'true' : 'false'; ?>;
         const userRole = '<?php echo $user_role; ?>';
+        const defaultCampusFilter = '<?php echo htmlspecialchars($campus_filter, ENT_QUOTES); ?>';
 
         // Utility function to format dates
         function formatDate(dateString) {
@@ -4161,9 +4162,9 @@ try {
         }
 
         function getCurrentCampusFilter() {
-            // Get current campus filter from URL parameters or default
+            // Get current campus filter from URL parameters or use the PHP-set default
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('campus_filter') || 'Alangilan';
+            return urlParams.get('campus_filter') || defaultCampusFilter || 'Pablo Borbon';
         }
 
         function populateCulturalGroups(selectedGroup) {
@@ -4275,7 +4276,11 @@ try {
             loadingDiv.style.display = 'block';
             contentDiv.style.display = 'none';
             
-            fetch('get_applications.php')
+            // Get current campus filter
+            const campusFilter = getCurrentCampusFilter();
+            const url = `get_applications.php?campus_filter=${encodeURIComponent(campusFilter)}`;
+            
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     loadingDiv.style.display = 'none';

@@ -12,11 +12,26 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
 // RBAC: Determine access level
 $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
-$user_campus = $_SESSION['user_campus'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
 $canManage = !$isCentralHead;
+
+// Pablo Borbon Head users have full management access across all campuses
+$isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 
 // Check write permission
 if (!$canManage) {
@@ -66,9 +81,24 @@ try {
         }
         
         // Verify campus access for campus-specific users
-        if ($user_role !== 'admin' && $user_role !== 'central') {
+        // Pablo Borbon heads can approve applications for any campus
+        if ($user_role !== 'admin' && !$isPabloBorbonHead) {
             if ($user_campus && $application['campus'] !== $user_campus) {
-                throw new Exception('You do not have permission to update this application');
+                // Check for campus name variations (short vs full names)
+                $allowAccess = false;
+                if ($user_campus === 'JPLPC Malvar' && $application['campus'] === 'Malvar') {
+                    $allowAccess = true;
+                } elseif ($user_campus === 'Malvar' && $application['campus'] === 'JPLPC Malvar') {
+                    $allowAccess = true;
+                } elseif ($user_campus === 'ARASOF Nasugbu' && $application['campus'] === 'Nasugbu') {
+                    $allowAccess = true;
+                } elseif ($user_campus === 'Nasugbu' && $application['campus'] === 'ARASOF Nasugbu') {
+                    $allowAccess = true;
+                }
+                
+                if (!$allowAccess) {
+                    throw new Exception('You do not have permission to update this application');
+                }
             }
         }
         
