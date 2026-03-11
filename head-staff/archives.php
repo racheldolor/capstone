@@ -30,6 +30,7 @@ $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
 // Display campus name
 $display_campus = $user_campus;
+$isDirector = ($user_role === 'director');
 
 // Campus filtering logic:
 // - Pablo Borbon head: see all campuses
@@ -554,7 +555,7 @@ $active_section = isset($_GET['section']) ? $_GET['section'] : 'events';
                     <span class="greeting-hi">Hi,</span>
                     <span class="greeting-name"><?= htmlspecialchars($first_name) ?></span>
                 </h3>
-                <p><?= htmlspecialchars($role_display) ?> - <?= htmlspecialchars($display_campus) ?></p>
+                <p><?= htmlspecialchars($role_display) ?><?php if (!$isDirector): ?> - <?= htmlspecialchars($display_campus) ?><?php endif; ?></p>
             </div>
             <nav>
                 <ul class="nav-menu">

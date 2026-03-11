@@ -887,7 +887,7 @@ $pdo = getDBConnection();
                     <span class="greeting-hi">Hi,</span>
                     <span class="greeting-name"><?= htmlspecialchars($first_name) ?></span>
                 </h3>
-                <p><?= htmlspecialchars($role_display) ?> - <?= htmlspecialchars($display_campus) ?></p>
+                <p><?= htmlspecialchars($role_display) ?><?php if (!$isDirector): ?> - <?= htmlspecialchars($display_campus) ?><?php endif; ?></p>
             </div>
             <nav>
                 <ul class="nav-menu">

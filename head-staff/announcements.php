@@ -719,7 +719,7 @@ try {
                     <span class="greeting-hi">Hi,</span>
                     <span class="greeting-name"><?php echo htmlspecialchars(explode(' ', $user_name)[0] ?? 'Staff'); ?></span>
                 </h3>
-                <p><?php echo strtoupper($user_role); ?> - <?php echo strtoupper($display_campus); ?></p>
+                <p><?php echo strtoupper($user_role); ?><?php if (!$isDirector): ?> - <?php echo strtoupper($display_campus); ?><?php endif; ?></p>
             </div>
             <nav>
                 <ul class="nav-menu">
