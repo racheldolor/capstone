@@ -48,6 +48,7 @@ $isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 // - Other campus head: see only their campus
 $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head') || $user_role === 'director');
 $canManage = !$isDirector; // Only Director is view-only
+$canManageEvents = true; // Director can create/edit events like head staff
 
 // Build campus filter for SQL
 if ($canViewAll) {
@@ -2365,6 +2366,11 @@ try {
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="announcements.php" class="nav-link">
+                            Announcements
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="#" class="nav-link" data-section="student-profiles">
                             Student Artist Profiles
                         </a>
@@ -2638,7 +2644,7 @@ try {
 
                 <!-- Main Content Grid -->
                 <div class="events-grid">
-                    <?php if ($canManage): ?>
+                    <?php if ($canManageEvents): ?>
                     <!-- Left Side - Input New Event -->
                     <div class="events-left">
                         <div class="input-panel">
@@ -3574,6 +3580,7 @@ try {
         const userCampus = '<?php echo $user_campus ?? ''; ?>';
         const canViewAll = <?php echo $canViewAll ? 'true' : 'false'; ?>;
         const canManage = <?php echo $canManage ? 'true' : 'false'; ?>;
+        const canManageEvents = <?php echo $canManageEvents ? 'true' : 'false'; ?>;
         const userRole = '<?php echo $user_role; ?>';
         const defaultCampusFilter = '<?php echo htmlspecialchars($campus_filter, ENT_QUOTES); ?>';
 
@@ -5819,7 +5826,7 @@ try {
                 } else {
                     html += '<div style="font-size: 0.8rem; color: #666;">' + Math.abs(event.days_difference) + ' day(s) ago</div>';
                 }
-                if (canManage) {
+                if (canManageEvents) {
                     html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
                     html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
                     html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
@@ -6255,7 +6262,7 @@ try {
                         ${event.days_until === 0 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Today!</div>' : 
                           event.days_until === 1 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Tomorrow</div>' :
                           `<div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">In ${event.days_until} day(s)</div>`}
-                        ${canManage ? `
+                        ${canManageEvents ? `
                         <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
                             <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
                                 Edit

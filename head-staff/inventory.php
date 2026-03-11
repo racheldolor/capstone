@@ -897,6 +897,11 @@ $pdo = getDBConnection();
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="announcements.php" class="nav-link">
+                            Announcements
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="dashboard.php?section=student-profiles" class="nav-link">
                             Student Artist Profiles
                         </a>

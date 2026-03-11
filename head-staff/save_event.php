@@ -89,6 +89,37 @@ try {
     if ($result) {
         $event_id = $pdo->lastInsertId();
         
+        // Auto-create announcement when director creates an event
+        if ($user_role === 'director') {
+            try {
+                $announcement_title = "New Event: " . $title;
+                $announcement_content = $description . "\n\nEvent Details:\n";
+                $announcement_content .= "Date: " . date('F j, Y', strtotime($start_date));
+                if ($start_date !== $end_date) {
+                    $announcement_content .= " - " . date('F j, Y', strtotime($end_date));
+                }
+                $announcement_content .= "\nLocation: " . $location;
+                $announcement_content .= "\nCategory: " . $category;
+                
+                $announcement_stmt = $pdo->prepare("
+                    INSERT INTO announcements 
+                    (title, content, target_audience, target_campus, target_cultural_group, publish_date, priority, is_pinned, is_published, is_active, created_by) 
+                    VALUES (?, ?, 'students', ?, ?, NOW(), 'medium', 0, 1, 1, ?)
+                ");
+                
+                $announcement_stmt->execute([
+                    $announcement_title,
+                    $announcement_content,
+                    $campus,
+                    $cultural_groups_json,
+                    $_SESSION['user_id'] ?? null
+                ]);
+            } catch (Exception $e) {
+                error_log("Error creating announcement for event: " . $e->getMessage());
+                // Don't fail the event creation if announcement fails
+            }
+        }
+        
         echo json_encode([
             'success' => true, 
             'message' => 'Event saved successfully!',
