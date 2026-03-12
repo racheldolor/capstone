@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin', 'director'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
 }
@@ -34,32 +34,35 @@ try {
         exit();
     }
     
-    // Get the student's original application to fetch performance_type (desired cultural group) and profile_photo
+    // Get participation records
     $stmt = $pdo->prepare("
-        SELECT performance_type, profile_photo 
-        FROM applications 
-        WHERE sr_code = ? OR email = ?
-        ORDER BY submitted_at DESC
-        LIMIT 1
+        SELECT participation_date as date, event_name as title, 
+               participation_level as level, rank_award as rank
+        FROM student_participation_records
+        WHERE student_id = ?
+        ORDER BY participation_date DESC
     ");
-    $stmt->execute([$student['sr_code'], $student['email']]);
-    $application = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->execute([$student_id]);
+    $participation = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Parse and clean the performance_type to extract just the group name
-    $desired_group = null;
-    if ($application && $application['performance_type']) {
-        $performance_type = $application['performance_type'];
-        // Extract group name after the colon (e.g., "dance: Indak Yaman Dance Varsity" -> "Indak Yaman Dance Varsity")
-        if (strpos($performance_type, ':') !== false) {
-            $desired_group = trim(substr($performance_type, strpos($performance_type, ':') + 1));
-        } else {
-            $desired_group = $performance_type;
-        }
-    }
+    // Get affiliation records
+    $stmt = $pdo->prepare("
+        SELECT position, organization, years_active as year
+        FROM student_affiliation_records
+        WHERE student_id = ?
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute([$student_id]);
+    $affiliation = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Add desired cultural group and profile photo to student data
-    $student['desired_cultural_group'] = $desired_group;
-    $student['profile_photo'] = $application['profile_photo'] ?? null;
+    // Add participation and affiliation to student data
+    $student['participation'] = $participation;
+    $student['affiliation'] = $affiliation;
+    
+    // Store the student_id for reference
+    $student['student_id'] = $student_id;
+    
+    // profile_photo is already in the student_artists data, no need to fetch from applications
     
     echo json_encode([
         'success' => true, 

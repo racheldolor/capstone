@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'director'])) {
     header('Location: ../index.php');
     exit();
 }
@@ -27,23 +27,28 @@ $campus_name_map = [
 ];
 $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
-// Display campus name (Pablo Borbon shows as "All Campuses")
-$display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
+// Display campus name
+// Director role should display Pablo Borbon
+if ($user_role === 'director') {
+    $display_campus = 'Pablo Borbon';
+} else {
+    $display_campus = $user_campus;
+}
 
-// Central Head emails (view-only access)
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
-$isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
-$isCentralStaff = ($user_role === 'central' && !$isCentralHead);
+// Director role has view-only access to all campuses
+$isDirector = ($user_role === 'director');
 
-// Pablo Borbon Head users have view-only access
+// Pablo Borbon Head users now have full management across all campuses
 $isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 
 // Campus filtering logic:
 // - Admin: see all campuses
-// - Pablo Borbon staff/head: see all campuses
-// - Other campus staff/head: see only their campus
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
-$canManage = !$isCentralHead && !$isPabloBorbonHead; // Central Head and Pablo Borbon Head are view-only
+// - Pablo Borbon head: see all campuses with full management
+// - Director: see all campuses (view-only)
+// - Other campus head: see only their campus
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head') || $user_role === 'director');
+$canManage = !$isDirector; // Only Director is view-only
+$canManageEvents = true; // Director can create/edit events like head staff
 
 // Build campus filter for SQL
 if ($canViewAll) {
@@ -331,6 +336,66 @@ try {
             z-index: 50;
             overflow-y: auto;
             overflow-x: hidden;
+        }
+
+        .sidebar-greeting {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-greeting::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting h3 {
+            margin: 0 0 0.5rem 0;
+            color: white;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            line-height: 1.2;
+        }
+
+        .greeting-hi {
+            font-size: 1.8rem;
+            font-weight: 400;
+        }
+
+        .greeting-name {
+            font-size: 1.8rem;
+        }
+
+        .sidebar-greeting p {
+            margin: 0 0 0 0.5rem;
+            font-style: bold;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.95);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
         }
 
         .nav-menu {
@@ -985,6 +1050,22 @@ try {
             max-width: 100%;
         }
 
+        /* When only one column exists (view-only mode) */
+        .events-grid:has(.events-right:only-child) {
+            grid-template-columns: 1fr;
+            max-width: 100%;
+            margin: 0 0 2rem;
+        }
+
+        .events-grid:has(.events-right:only-child) .events-right {
+            max-width: 100%;
+        }
+
+        .events-grid:has(.events-right:only-child) .events-list {
+            height: calc(100vh - 350px);
+            min-height: 600px;
+        }
+
         .events-left,
         .events-right {
             background: white;
@@ -1301,6 +1382,156 @@ try {
 
         .view-all-link:hover {
             text-decoration: underline;
+        }
+
+        /* Performer Profile Form Styles */
+        .performer-profile-card {
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .performer-profile-card .form-header {
+            background: #fff;
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .performer-profile-card .form-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+        }
+
+        .performer-profile-card .form-body {
+            padding: 2rem;
+        }
+
+        .performer-profile-card .form-section {
+            margin-bottom: 2rem;
+            border: 1px solid #ddd;
+            padding: 1.5rem;
+        }
+
+        .performer-profile-card .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .performer-profile-card .instruction {
+            font-weight: 400;
+            font-style: italic;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .performer-profile-card .form-value {
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #333;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+        }
+
+        .performer-profile-card .photo-section {
+            float: right;
+            margin-left: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .performer-profile-card .photo-placeholder {
+            width: 120px;
+            height: 120px;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #666;
+            text-align: center;
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+
+        .performer-profile-card .photo-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .performer-profile-card .form-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .performer-profile-card .form-group {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+
+        .performer-profile-card .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .performer-profile-card .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .performer-profile-card .form-group.half {
+            flex: 1;
+        }
+
+        .performer-profile-card .form-group.quarter {
+            flex: 0.5;
+        }
+
+        .performer-profile-card .participation-table,
+        .performer-profile-card .affiliation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .performer-profile-card .participation-table th,
+        .performer-profile-card .affiliation-table th,
+        .performer-profile-card .participation-table td,
+        .performer-profile-card .affiliation-table td {
+            border: 1px solid #333;
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+        }
+
+        .performer-profile-card .participation-table th,
+        .performer-profile-card .affiliation-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .performer-profile-card .sub-text {
+            font-weight: 400;
+            font-style: italic;
+            font-size: 0.75rem;
         }
 
         /* Responsive */
@@ -1897,7 +2128,7 @@ try {
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             max-height: 90vh;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
         .applications-modal {
@@ -2108,19 +2339,10 @@ try {
             <h1 class="header-title">Culture and Arts - Dashboard</h1>
         </div>
         <div class="header-right">
-            <div class="user-info">
-                <span>👤</span>
-                <?php 
-                $first_name = explode(' ', $_SESSION['user_name'])[0];
-                $role_display = strtoupper($user_role);
-                ?>
-                <span><?= htmlspecialchars($first_name) ?></span>
-                <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
-                <?php if ($isCentralHead || $isPabloBorbonHead): ?>
-                    <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
-                <?php endif; ?>
-                <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
-            </div>
+            <?php 
+            $first_name = explode(' ', $_SESSION['user_name'])[0];
+            $role_display = strtoupper($user_role);
+            ?>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
@@ -2129,11 +2351,23 @@ try {
     <div class="main-container">
         <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-greeting">
+                <h3>
+                    <span class="greeting-hi">Hi,</span>
+                    <span class="greeting-name"><?= htmlspecialchars($first_name) ?></span>
+                </h3>
+                <p><?= htmlspecialchars($role_display) ?><?php if (!$isDirector): ?> - <?= htmlspecialchars($display_campus) ?><?php endif; ?></p>
+            </div>
             <nav>
                 <ul class="nav-menu">
                     <li class="nav-item">
                         <a href="#" class="nav-link active" data-section="dashboard">
                             Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="announcements.php" class="nav-link">
+                            Announcements
                         </a>
                     </li>
                     <li class="nav-item">
@@ -2156,7 +2390,7 @@ try {
                             Inventory
                         </a>
                     </li>
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <li class="nav-item">
                         <a href="archives.php" class="nav-link">
                             Archives
@@ -2245,7 +2479,7 @@ try {
             <section class="content-section" id="student-profiles">
                 <div class="page-header">
                     <h1 class="page-title">Student Artist Profiles</h1>
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <button class="add-btn" onclick="openApplicationsModal()">
                         <span>+</span>
                         View Applications
@@ -2274,7 +2508,7 @@ try {
                     <div class="overview-left">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h3 style="margin: 0; color: #666;">Distribution of Student Artists</h3>
-                            <?php if ($user_campus === 'Pablo Borbon' || $canViewAll): ?>
+                            <?php if ($canViewAll): ?>
                                 <select id="campusFilterDropdown" onchange="filterByCampus()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
                                     <option value="Pablo Borbon" <?= $campus_filter === 'Pablo Borbon' ? 'selected' : '' ?>>Pablo Borbon</option>
                                     <option value="Alangilan" <?= $campus_filter === 'Alangilan' ? 'selected' : '' ?>>Alangilan</option>
@@ -2332,7 +2566,7 @@ try {
                             </div>
                         <?php else: ?>
                             <?php foreach ($students as $student): ?>
-                                <div class="table-row" style="display: grid; grid-template-columns: 120px 1fr 200px 250px 120px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
+                                <div class="table-row" style="display: grid; grid-template-columns: 120px 1fr 200px 250px 200px; padding: 1rem; border-bottom: 1px solid #e0e0e0; align-items: center;">
                                     <div style="padding: 0 0.5rem; font-weight: 600; color: #dc2626;">
                                         <?= htmlspecialchars($student['sr_code']) ?>
                                     </div>
@@ -2353,10 +2587,14 @@ try {
                                     <div style="padding: 0 0.5rem; font-size: 0.9rem;">
                                         <?= htmlspecialchars($student['email']) ?>
                                     </div>
-                                    <div style="padding: 0 0.5rem;">
+                                    <div style="padding: 0 0.5rem; display: flex; gap: 0.5rem;">
                                         <button onclick="viewStudentProfile(<?= $student['id'] ?>)" 
                                                 style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
                                             View
+                                        </button>
+                                        <button onclick="exportStudentProfilePDF(<?= $student['id'] ?>)" 
+                                                style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                                            📄 Export
                                         </button>
                                     </div>
                                 </div>
@@ -2406,6 +2644,7 @@ try {
 
                 <!-- Main Content Grid -->
                 <div class="events-grid">
+                    <?php if ($canManageEvents): ?>
                     <!-- Left Side - Input New Event -->
                     <div class="events-left">
                         <div class="input-panel">
@@ -2426,11 +2665,11 @@ try {
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="startDate">Start Date*</label>
-                                        <input type="date" id="startDate" name="start_date" required>
+                                        <input type="date" id="startDate" name="start_date" required min="<?= date('Y-m-d') ?>">
                                     </div>
                                     <div class="form-group">
                                         <label for="endDate">End Date*</label>
-                                        <input type="date" id="endDate" name="end_date" required>
+                                        <input type="date" id="endDate" name="end_date" required min="<?= date('Y-m-d') ?>">
                                     </div>
                                 </div>
 
@@ -2534,6 +2773,7 @@ try {
                             </form>
                         </div>
                     </div>
+                    <?php endif; ?>
 
                     <!-- Right Side - Upcoming Events -->
                     <div class="events-right">
@@ -2731,16 +2971,10 @@ try {
                             </div>
 
                             <!-- Charts Grid -->
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                                <!-- Rating Distribution Chart -->
-                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;">
-                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Rating Distribution</h4>
-                                    <canvas id="ratingDistributionChart" width="400" height="300" style="max-width: 100%; height: auto; display: block; margin: 0 auto;"></canvas>
-                                </div>
-
+                            <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
                                 <!-- Question Scores Chart -->
-                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">Question Scores</h4>
+                                <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 800px; width: 100%;">
+                                    <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem; font-weight: 600; text-align: center;">Question Scores</h4>
                                     <canvas id="questionScoresChart" width="400" height="420" style="max-width: 100%; height: auto;"></canvas>
                                 </div>
                             </div>
@@ -2789,7 +3023,7 @@ try {
             <section class="content-section" id="costume-inventory">
                 <div class="page-header">
                     <h1 class="page-title">Inventory</h1>
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <div style="display: flex; gap: 1rem;">
                         <button class="add-btn" onclick="openAddItemModal()">
                             <span>+</span>
@@ -2873,12 +3107,12 @@ try {
 
     <!-- Applications Modal -->
     <div id="applicationsModal" class="modal" style="display: none;">
-        <div class="modal-content applications-modal">
-            <div class="modal-header">
+        <div class="modal-content applications-modal" style="max-width: 1000px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="modal-header" style="flex-shrink: 0;">
                 <h2>Student Applications</h2>
                 <span class="close" onclick="closeApplicationsModal()">&times;</span>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 1.5rem;">
                 <!-- Search Bar -->
                 <div style="margin-bottom: 1.5rem;">
                     <div style="position: relative; max-width: 400px;">
@@ -2905,17 +3139,44 @@ try {
 
     <!-- Student Profile Modal -->
     <div id="studentProfileModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 800px; width: 90%;">
+        <div class="modal-content" style="max-width: 1400px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
-                <h2>Student Profile</h2>
+                <h2>Student Information</h2>
                 <span class="close" onclick="closeStudentModal()">&times;</span>
             </div>
-            <div class="modal-body">
-                <div id="studentLoading" style="display: none;">
-                    <div class="loading-spinner">Loading student profile...</div>
+            
+            <!-- Tab Navigation -->
+            <div style="border-bottom: 2px solid #e0e0e0; background: #f8f9fa; padding: 0 1.5rem;">
+                <div style="display: flex; gap: 0;">
+                    <button class="student-tab-btn active" data-tab="profile" onclick="switchStudentTab('profile')" style="padding: 1rem 2rem; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 3px solid #dc2626; color: #dc2626; transition: all 0.3s;">
+                        Profile
+                    </button>
+                    <button class="student-tab-btn" data-tab="certificates" onclick="switchStudentTab('certificates')" style="padding: 1rem 2rem; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 3px solid transparent; color: #666; transition: all 0.3s;">
+                        Certificates
+                    </button>
                 </div>
-                <div id="studentContent">
-                    <!-- Student profile will be loaded here -->
+            </div>
+            
+            <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 2rem;">
+                <div id="studentLoading" style="display: none;">
+                    <div class="loading-spinner">Loading student information...</div>
+                </div>
+                
+                <!-- Profile Tab Content -->
+                <div id="profileTab" class="student-tab-content" style="display: block;">
+                    <div id="studentContent">
+                        <!-- Student profile will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Certificates Tab Content -->
+                <div id="certificatesTab" class="student-tab-content" style="display: none;">
+                    <div id="certificatesLoading" style="display: none; text-align: center; padding: 2rem; color: #666;">
+                        Loading certificates...
+                    </div>
+                    <div id="certificatesContainer">
+                        <!-- Certificates will be loaded here -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -2950,6 +3211,7 @@ try {
                             <option value="Festival">Festival</option>
                         </select>
                     </div>
+                    <?php if ($canViewAll): ?>
                     <div>
                         <label for="campusFilter">Campus:</label>
                         <select id="campusFilter" onchange="loadAllEvents()">
@@ -2961,6 +3223,7 @@ try {
                             <option value="JPLPC Malvar">JPLPC Malvar</option>
                         </select>
                     </div>
+                    <?php endif; ?>
                     <div>
                         <label for="monthFilter">Month:</label>
                         <input type="month" id="monthFilter" onchange="loadAllEvents()">
@@ -3262,12 +3525,12 @@ try {
 
     <!-- Event Participants Modal -->
     <div id="eventParticipantsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 900px; width: 95%;">
+        <div class="modal-content" style="max-width: 900px; width: 95%; display: flex; flex-direction: column; max-height: 90vh; overflow: hidden;">
             <div class="modal-header">
                 <h2 id="participantsModalTitle">Event Participants</h2>
                 <span class="close" onclick="closeParticipantsModal()">&times;</span>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="overflow-y: auto; flex: 1;">
                 <div id="eventDetailsSection" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
                     <div id="eventDetailsContent">
                         <!-- Event details will be loaded here -->
@@ -3317,7 +3580,9 @@ try {
         const userCampus = '<?php echo $user_campus ?? ''; ?>';
         const canViewAll = <?php echo $canViewAll ? 'true' : 'false'; ?>;
         const canManage = <?php echo $canManage ? 'true' : 'false'; ?>;
+        const canManageEvents = <?php echo $canManageEvents ? 'true' : 'false'; ?>;
         const userRole = '<?php echo $user_role; ?>';
+        const defaultCampusFilter = '<?php echo htmlspecialchars($campus_filter, ENT_QUOTES); ?>';
 
         // Utility function to format dates
         function formatDate(dateString) {
@@ -3487,11 +3752,61 @@ try {
             alert('Add student modal functionality coming soon!');
         }
 
+        // Global variable to store current student ID
+        let currentViewingStudentId = null;
+
         function viewStudentProfile(studentId) {
+            currentViewingStudentId = studentId; // Store globally for later use
             const modal = document.getElementById('studentProfileModal');
             modal.style.display = 'flex';
             preventBackgroundScroll();
+            switchStudentTab('profile'); // Start with profile tab
             loadStudentProfile(studentId);
+        }
+
+        function exportStudentProfilePDF(studentId) {
+            // Show loading indicator
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '⏳ Generating...';
+            button.disabled = true;
+
+            // Redirect to export URL
+            window.location.href = 'export_student_profile_pdf.php?student_id=' + studentId;
+
+            // Reset button after a delay
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 2000);
+        }
+
+        function switchStudentTab(tabName) {
+            // Update tab buttons
+            const tabButtons = document.querySelectorAll('.student-tab-btn');
+            tabButtons.forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('active');
+                    btn.style.borderBottom = '3px solid #dc2626';
+                    btn.style.color = '#dc2626';
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.borderBottom = '3px solid transparent';
+                    btn.style.color = '#666';
+                }
+            });
+
+            // Update tab content
+            const tabContents = document.querySelectorAll('.student-tab-content');
+            tabContents.forEach(content => {
+                content.style.display = 'none';
+            });
+
+            if (tabName === 'profile') {
+                document.getElementById('profileTab').style.display = 'block';
+            } else if (tabName === 'certificates') {
+                document.getElementById('certificatesTab').style.display = 'block';
+            }
         }
 
         // Student Profile Modal Functions
@@ -3522,6 +3837,8 @@ try {
                 
                 if (data.success) {
                     displayStudentProfile(data.student);
+                    // Load certificates in background for certificates tab
+                    loadStudentCertificates(studentId);
                 } else {
                     contentDiv.innerHTML = '<p class="error">Error loading student profile: ' + data.message + '</p>';
                 }
@@ -3533,94 +3850,370 @@ try {
             });
         }
 
-        function displayStudentProfile(student) {
-            const contentDiv = document.getElementById('studentContent');
-            const currentCulturalGroup = student.cultural_group || '';
+        function loadStudentCertificates(studentId) {
+            const certificatesLoading = document.getElementById('certificatesLoading');
+            const certificatesContainer = document.getElementById('certificatesContainer');
             
+            
+            fetch('get_student_certificates.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ student_id: studentId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                certificatesLoading.style.display = 'none';
+                if (data.success) {
+                    displayStudentCertificates(data.certificates || []);
+                } else {
+                    certificatesContainer.innerHTML = '<p style="color: #dc2626; text-align: center; padding: 2rem;">Error loading certificates: ' + data.message + '</p>';
+                }
+            })
+            .catch(error => {
+                certificatesLoading.style.display = 'none';
+                certificatesContainer.innerHTML = '<p style="color: #dc2626; text-align: center; padding: 2rem;">Error loading certificates: ' + error.message + '</p>';
+            });
+        }
+
+        function displayStudentCertificates(certificates) {
+            const container = document.getElementById('certificatesContainer');
+            
+            if (certificates.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; background: #f8f9fa; border-radius: 8px; border: 2px dashed #ddd;">
+                        <p style="color: #666; margin: 0; font-size: 1rem;">No certificates uploaded yet</p>
+                        <small style="color: #999;">This student has not uploaded any certificates or achievements</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">';
+            certificates.forEach(cert => {
+                const fileExtension = cert.file_path.split('.').pop().toLowerCase();
+                const isImage = ['jpg', 'jpeg', 'png'].includes(fileExtension);
+                
+                html += `
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
+                        <div style="aspect-ratio: 16/9; background: #f8f9fa; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 2px solid #dc2626;">
+                            ${isImage ? 
+                                `<img src="${cert.file_path}" alt="${cert.title}" style="width: 100%; height: 100%; object-fit: cover;">` :
+                                `<div style="text-align: center; color: #666;">
+                                    <div style="font-size: 3rem; margin-bottom: 0.5rem;">📄</div>
+                                    <div style="font-weight: 600;">PDF Certificate</div>
+                                </div>`
+                            }
+                        </div>
+                        <div style="padding: 1.25rem;">
+                            <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem; font-weight: 600;">${cert.title}</h4>
+                            ${cert.description ? `<p style="margin: 0 0 0.75rem 0; color: #666; font-size: 0.9rem; line-height: 1.4;">${cert.description}</p>` : ''}
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid #e0e0e0; margin-top: 0.75rem;">
+                                <div style="color: #888; font-size: 0.85rem;">
+                                    <div><strong>Date:</strong> ${new Date(cert.date_received).toLocaleDateString()}</div>
+                                    <div style="margin-top: 0.25rem;"><strong>Uploaded:</strong> ${cert.uploaded_at}</div>
+                                </div>
+                            </div>
+                            <button onclick="viewCertificate('${cert.file_path}')" style="width: 100%; margin-top: 1rem; padding: 0.75rem; border: 2px solid #dc2626; background: white; color: #dc2626; border-radius: 4px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.background='#dc2626'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='#dc2626';">
+                                View Certificate
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        function viewCertificate(filePath) {
+            window.open(filePath, '_blank');
+        }
+
+        function displayStudentProfile(student) {
+            const studentProfileContent = document.getElementById('studentContent');
+            
+            // Get cultural group value from the cultural_group field (text)
+            let culturalGroupValue = student.cultural_group || 'Not assigned';
+
+            // Parse participation and affiliation data
+            let participationRows = '';
+            if (student.participation && student.participation.length > 0) {
+                participationRows = student.participation.map(p => `
+                    <tr>
+                        <td>${p.date || ''}</td>
+                        <td>${p.title || ''}</td>
+                        <td>${p.level || ''}</td>
+                        <td>${p.rank || ''}</td>
+                    </tr>
+                `).join('');
+            } else {
+                participationRows = '<tr><td colspan="4" style="text-align: center; color: #666;">No participation records</td></tr>';
+            }
+
+            let affiliationRows = '';
+            if (student.affiliation && student.affiliation.length > 0) {
+                affiliationRows = student.affiliation.map(a => `
+                    <tr>
+                        <td>${a.position || ''}</td>
+                        <td>${a.organization || ''}</td>
+                        <td>${a.year || ''}</td>
+                    </tr>
+                `).join('');
+            } else {
+                affiliationRows = '<tr><td colspan="3" style="text-align: center; color: #666;">No affiliation records</td></tr>';
+            }
+            
+            // Build HTML matching student's profile form exactly
             const html = `
-                <div style="margin-bottom: 2rem;">
-                    <div style="display: flex; gap: 2rem; align-items: flex-start;">
-                        <div style="flex: 1;">
-                            <h3 style="color: #dc2626; margin-bottom: 1rem; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem;">Personal Information</h3>
-                            <div style="space-y: 0.75rem;">
-                                <p><strong>SR Code:</strong> ${student.sr_code}</p>
-                                <p><strong>Full Name:</strong> ${student.first_name} ${student.middle_name || ''} ${student.last_name}</p>
-                                <p><strong>Email:</strong> ${student.email}</p>
-                                <p><strong>Campus:</strong> ${student.campus}</p>
-                                <p><strong>Program:</strong> ${student.program}</p>
-                                <p><strong>Year Level:</strong> ${student.year_level}</p>
-                                <p><strong>Date Registered:</strong> ${new Date(student.created_at).toLocaleDateString()}</p>
+                <div class="performer-profile-card">
+                    <div class="form-header">
+                        <h1 class="form-title">PERFORMER'S PROFILE FORM</h1>
+                    </div>
+                    <div class="form-body">
+                        <!-- Cultural Group / Type of Performance Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">CULTURAL GROUP / TYPE OF PERFORMANCE</h3>
+                            <div class="form-value" style="font-size: 1.1rem; font-weight: 600; color: #333;">
+                                ${culturalGroupValue}
                             </div>
                         </div>
-                        <div style="flex-shrink: 0;">
-                            ${student.profile_photo ? `
-                                <img src="get_profile_photo.php?file=${student.profile_photo}" 
-                                     alt="Profile Photo" 
-                                     style="width: 150px; height: 150px; border-radius: 8px; object-fit: cover; border: 3px solid #dc2626; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
-                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                <div style="display: none; width: 150px; height: 150px; background: #f8f9fa; border: 2px dashed #dc2626; border-radius: 8px; align-items: center; justify-content: center; color: #666; text-align: center; font-size: 0.85rem;">
-                                    <span>No Photo<br>Available</span>
+
+                        <!-- Personal Information Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">PERSONAL INFORMATION</h3>
+                            
+                            <div class="photo-section">
+                                <div class="photo-placeholder">
+                                    ${student.profile_photo ? `<img src="../${student.profile_photo}?v=${Date.now()}" alt="Profile Photo">` : '<span>Passport Size Photo</span>'}
                                 </div>
-                            ` : `
-                                <div style="width: 150px; height: 150px; background: #f8f9fa; border: 2px dashed #dc2626; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #666; text-align: center; font-size: 0.85rem;">
-                                    <span>No Photo<br>Available</span>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
+                                        <label>First Name</label>
+                                        <div class="form-value">${student.first_name || '&nbsp;'}</div>
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
+                                        <label>Middle Name</label>
+                                        <div class="form-value">${student.middle_name || '&nbsp;'}</div>
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
+                                        <label>Last Name</label>
+                                        <div class="form-value">${student.last_name || '&nbsp;'}</div>
+                                    </div>
                                 </div>
-                            `}
+
+                                <div class="form-group">
+                                    <label>Permanent Address</label>
+                                    <div class="form-value">${student.address || ''}</div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Present Address</label>
+                                    <div class="form-value">${student.present_address || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Date of Birth</label>
+                                        <div class="form-value">${student.date_of_birth || ''}</div>
+                                    </div>
+                                    <div class="form-group quarter">
+                                        <label>Age</label>
+                                        <div class="form-value">${student.age || ''}</div>
+                                    </div>
+                                    <div class="form-group quarter">
+                                        <label>Gender</label>
+                                        <div class="form-value">${student.gender || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Place of Birth</label>
+                                    <div class="form-value">${student.place_of_birth || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Email Address</label>
+                                        <div class="form-value">${student.email || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Contact Number</label>
+                                        <div class="form-value">${student.contact_number || ''}</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                
-                <div style="border-top: 1px solid #e0e0e0; padding-top: 1.5rem;">
-                    <h3 style="color: #dc2626; margin-bottom: 1rem;">Cultural Group Assignment</h3>
-                    
-                    ${!currentCulturalGroup && student.desired_cultural_group ? `
-                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 4px solid #17a2b8; border-radius: 4px;">
-                        <p style="margin: 0; color: #333;"><strong>Applied for:</strong> <span style="color: #17a2b8; font-weight: 600;">${student.desired_cultural_group}</span></p>
-                        <small style="color: #666; font-style: italic;">This is the cultural group the student originally wanted to join</small>
-                    </div>
-                    ` : ''}
-                    
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <label for="culturalGroup" style="font-weight: 600;">Current Assignment:</label>
-                        <select id="culturalGroup" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
-                            <option value="">Not Assigned</option>
-                            <option value="Dulaang Batangan" ${currentCulturalGroup === 'Dulaang Batangan' ? 'selected' : ''}>Dulaang Batangan</option>
-                            <option value="BatStateU Dance Company" ${currentCulturalGroup === 'BatStateU Dance Company' ? 'selected' : ''}>BatStateU Dance Company</option>
-                            <option value="Diwayanis Dance Theatre" ${currentCulturalGroup === 'Diwayanis Dance Theatre' ? 'selected' : ''}>Diwayanis Dance Theatre</option>
-                            <option value="BatStateU Band" ${currentCulturalGroup === 'BatStateU Band' ? 'selected' : ''}>BatStateU Band</option>
-                            <option value="Indak Yaman Dance Varsity" ${currentCulturalGroup === 'Indak Yaman Dance Varsity' ? 'selected' : ''}>Indak Yaman Dance Varsity</option>
-                            <option value="Ritmo Voice" ${currentCulturalGroup === 'Ritmo Voice' ? 'selected' : ''}>Ritmo Voice</option>
-                            <option value="Sandugo Dance Group" ${currentCulturalGroup === 'Sandugo Dance Group' ? 'selected' : ''}>Sandugo Dance Group</option>
-                            <option value="Areglo Band" ${currentCulturalGroup === 'Areglo Band' ? 'selected' : ''}>Areglo Band</option>
-                            <option value="Teatro Aliwana" ${currentCulturalGroup === 'Teatro Aliwana' ? 'selected' : ''}>Teatro Aliwana</option>
-                            <option value="The Levites" ${currentCulturalGroup === 'The Levites' ? 'selected' : ''}>The Levites</option>
-                            <option value="Melophiles" ${currentCulturalGroup === 'Melophiles' ? 'selected' : ''}>Melophiles</option>
-                            <option value="Sindayog" ${currentCulturalGroup === 'Sindayog' ? 'selected' : ''}>Sindayog</option>
-                        </select>
-                        ${student.status === 'suspended' ? 
-                            `<button disabled style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: not-allowed; opacity: 0.6;" title="Cannot update assignment - student account is suspended">
-                                Update Assignment (Suspended)
-                            </button>` :
-                            `<button onclick="updateCulturalGroup(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
-                                Update Assignment
-                            </button>`
-                        }
+
+                        <!-- Family Background Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">FAMILY BACKGROUND</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Father's Name</label>
+                                    <div class="form-value">${student.father_name || ''}</div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Mother's Name</label>
+                                    <div class="form-value">${student.mother_name || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Guardian</label>
+                                        <div class="form-value">${student.guardian || 'N/A'}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Guardian Contact</label>
+                                        <div class="form-value">${student.guardian_contact || 'N/A'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Academic Information Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">ACADEMIC INFORMATION</h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Campus</label>
+                                        <div class="form-value">${student.campus || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>College</label>
+                                        <div class="form-value">${student.college || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>SR-Code</label>
+                                        <div class="form-value">${student.sr_code || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Year Level</label>
+                                        <div class="form-value">${student.year_level || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Program/Course</label>
+                                    <div class="form-value">${student.program || ''}</div>
+                                </div>
+
+                                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1rem;">
+                                    <span style="font-size: 0.9rem; color: #333;">Number of Units Enrolled:</span>
+                                    <div style="display: flex; gap: 1rem; align-items: center;">
+                                        <span style="font-size: 0.85rem;">1st Semester:</span>
+                                        <span style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; min-width: 60px; text-align: center;">${student.first_semester_units || 0}</span>
+                                        <span style="font-size: 0.85rem; margin-left: 1rem;">2nd Semester:</span>
+                                        <span style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; min-width: 60px; text-align: center;">${student.second_semester_units || 0}</span>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Instructors</label>
+                                    <div class="form-value">${student.instructors || 'Not specified'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Participation Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">PARTICIPATION IN ARTS-RELATED ACTIVITIES <span class="instruction">(Last Five Years)</span></h3>
+                            <table class="participation-table">
+                                <thead>
+                                    <tr>
+                                        <th>DATE</th>
+                                        <th>TITLE/NATURE OF ACTIVITY</th>
+                                        <th>LEVEL <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
+                                        <th>RANK/AWARD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${participationRows}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Affiliation Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">AFFILIATION/MEMBERSHIP IN ARTS ORGANIZATIONS</h3>
+                            <table class="affiliation-table">
+                                <thead>
+                                    <tr>
+                                        <th>POSITION</th>
+                                        <th>NAME OF ORGANIZATION</th>
+                                        <th>YEAR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${affiliationRows}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             `;
             
-            contentDiv.innerHTML = html;
+            studentProfileContent.innerHTML = html;
+            
+            // Populate cultural groups dropdown with current selection
+            populateCulturalGroups(student.cultural_group);
         }
 
         function getCurrentCampusFilter() {
-            // Get current campus filter from URL parameters or default
+            // Get current campus filter from URL parameters or use the PHP-set default
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('campus_filter') || 'Alangilan';
+            return urlParams.get('campus_filter') || defaultCampusFilter || 'Pablo Borbon';
         }
 
-        function updateCulturalGroup(studentId) {
-            const select = document.getElementById('culturalGroup');
+        function populateCulturalGroups(selectedGroup) {
+            const select = document.getElementById('culturalGroupAssignSelect');
+            if (!select) return;
+
+            // Hardcoded cultural groups based on the system
+            const culturalGroups = [
+                'Dulaang Batangan',
+                'BatStateU Dance Company',
+                'Diwayanis Dance Theatre',
+                'BatStateU Band',
+                'Indak Yaman Dance Varsity',
+                'Ritmo Voice',
+                'Sandugo Dance Group',
+                'Areglo Band',
+                'Teatro Aliwana',
+                'The Levites',
+                'Melophiles',
+                'Sindayog'
+            ];
+
+            select.innerHTML = '<option value="">-- Select Cultural Group --</option>';
+            culturalGroups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group;
+                option.textContent = group;
+                if (group === selectedGroup) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        function updateCulturalGroup() {
+            const select = document.getElementById('culturalGroupAssignSelect');
             const culturalGroup = select.value;
+            
+            if (!currentViewingStudentId) {
+                alert('Error: No student selected');
+                return;
+            }
             
             fetch('update_cultural_group.php', {
                 method: 'POST',
@@ -3628,7 +4221,7 @@ try {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ 
-                    student_id: studentId, 
+                    student_id: currentViewingStudentId, 
                     cultural_group: culturalGroup 
                 })
             })
@@ -3690,7 +4283,11 @@ try {
             loadingDiv.style.display = 'block';
             contentDiv.style.display = 'none';
             
-            fetch('get_applications.php')
+            // Get current campus filter
+            const campusFilter = getCurrentCampusFilter();
+            const url = `get_applications.php?campus_filter=${encodeURIComponent(campusFilter)}`;
+            
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     loadingDiv.style.display = 'none';
@@ -3756,9 +4353,13 @@ try {
                             ${app.profile_photo ? `
                                 <div class="detail-section" style="text-align: center; margin-bottom: 1rem;">
                                     <h4>Profile Photo</h4>
-                                    <img src="../${app.profile_photo}" alt="Profile Photo" style="max-width: 150px; max-height: 150px; border: 2px solid #ddd; border-radius: 8px; object-fit: cover;">
+                                    <img src="../${app.profile_photo}" alt="Profile Photo" style="max-width: 150px; max-height: 150px; border: 2px solid #ddd; border-radius: 8px; object-fit: cover; display: block; margin: 0 auto;">
                                 </div>
-                            ` : ''}
+                            ` : `
+                                <div class="detail-section" style="text-align: center; margin-bottom: 1rem; color: #999;">
+                                    <p>No profile photo uploaded</p>
+                                </div>
+                            `}
                             <div class="details-grid">
                                 <div class="detail-section">
                                     <h4>Personal Information</h4>
@@ -5148,7 +5749,8 @@ try {
             // Get filter values
             const status = document.getElementById('statusFilter').value;
             const category = document.getElementById('categoryFilter').value;
-            const campus = document.getElementById('campusFilter').value;
+            const campusFilter = document.getElementById('campusFilter');
+            const campus = campusFilter ? campusFilter.value : '';
             const month = document.getElementById('monthFilter').value;
             
             // Build query parameters
@@ -5208,8 +5810,8 @@ try {
                 html += '<div><strong>Date:</strong> ' + event.start_date_formatted + ' - ' + event.end_date_formatted + '</div>';
                 html += '<div><strong>Location:</strong> ' + event.location + '</div>';
                 html += '<div><strong>Category:</strong> ' + (event.category || 'N/A') + '</div>';
-                if (event.venue) {
-                    html += '<div><strong>Campus:</strong> ' + event.venue + '</div>';
+                if (event.campus) {
+                    html += '<div><strong>Campus:</strong> ' + event.campus + '</div>';
                 }
                 html += '<div><strong>Cultural Groups:</strong> ' + culturalGroups + '</div>';
                 html += '<div><strong>Created:</strong> ' + event.created_at_formatted + '</div>';
@@ -5224,10 +5826,12 @@ try {
                 } else {
                     html += '<div style="font-size: 0.8rem; color: #666;">' + Math.abs(event.days_difference) + ' day(s) ago</div>';
                 }
-                html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
-                html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
-                html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
-                html += '</div>';
+                if (canManageEvents) {
+                    html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">';
+                    html += '<button onclick="editEvent(' + event.id + ')" style="background: #6c757d; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>';
+                    html += '<button onclick="archiveEvent(' + event.id + ', \'' + event.title.replace(/'/g, "\\'") + '\')" style="background: #ff9800; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Archive</button>';
+                    html += '</div>';
+                }
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
@@ -5525,7 +6129,23 @@ try {
                 return;
             }
 
-            if (new Date(startDate) > new Date(endDate)) {
+            // Check if dates are not in the past
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const startDateObj = new Date(startDate);
+            const endDateObj = new Date(endDate);
+            
+            if (startDateObj < today) {
+                alert('Start date cannot be in the past');
+                return;
+            }
+            
+            if (endDateObj < today) {
+                alert('End date cannot be in the past');
+                return;
+            }
+
+            if (startDateObj > endDateObj) {
                 alert('Start date cannot be after end date');
                 return;
             }
@@ -5642,6 +6262,7 @@ try {
                         ${event.days_until === 0 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Today!</div>' : 
                           event.days_until === 1 ? '<div style="font-size: 0.8rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">Tomorrow</div>' :
                           `<div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">In ${event.days_until} day(s)</div>`}
+                        ${canManageEvents ? `
                         <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
                             <button onclick="editEvent(${event.id})" style="background: #6c757d; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
                                 Edit
@@ -5649,7 +6270,7 @@ try {
                             <button onclick="archiveEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}');" style="background: #ff9800; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
                                 Archive
                             </button>
-                        </div>
+                        </div>` : ''}
                     </div>
                 `;
             });
@@ -6681,7 +7302,6 @@ try {
                                     return [
                                         'Participation Rate: ' + data.y + '%',
                                         'Participants: ' + data.participants,
-                                        'Eligible Members: ' + data.eligible,
                                         'Event Date: ' + (data.date !== 'N/A' ? new Date(data.date).toLocaleDateString() : 'Not specified')
                                     ];
                                 }
@@ -7314,26 +7934,22 @@ try {
 
             // Draw charts with staggered timing for smooth loading
             setTimeout(function() {
-                drawRatingDistributionChart(data.rating_distribution);
+                drawQuestionScoresChart(data.question_scores);
             }, 100);
             
             setTimeout(function() {
-                drawQuestionScoresChart(data.question_scores);
-            }, 300);
-            
-            setTimeout(function() {
                 drawEvaluationTrendsChart(data.trends);
-            }, 500);
+            }, 300);
 
             // Display detailed insights
             setTimeout(function() {
                 displayEvaluationInsights(data.insights);
-            }, 700);
+            }, 500);
 
             // Display comments analysis
             setTimeout(function() {
                 displayCommentsAnalysis(data.comments);
-            }, 900);
+            }, 700);
         }
 
         function drawRatingDistributionChart(ratingData) {

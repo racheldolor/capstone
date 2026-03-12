@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
@@ -251,6 +251,59 @@ try {
                 }
                 
                 $studentId = $pdo->lastInsertId();
+                
+                // Copy profile photo to student_artists if exists
+                if (!empty($application['profile_photo'])) {
+                    $stmt = $pdo->prepare("UPDATE student_artists SET profile_photo = ? WHERE id = ?");
+                    $stmt->execute([$application['profile_photo'], $studentId]);
+                }
+                
+                // Copy participation records from application_participation to student_participation_records
+                $stmt = $pdo->prepare("
+                    SELECT participation_date, event_name, participation_level, rank_award 
+                    FROM application_participation 
+                    WHERE application_id = ?
+                ");
+                $stmt->execute([$applicationId]);
+                $participationRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($participationRecords as $record) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO student_participation_records 
+                        (student_id, participation_date, event_name, venue, participation_level, rank_award)
+                        VALUES (?, ?, ?, '', ?, ?)
+                    ");
+                    $stmt->execute([
+                        $studentId,
+                        $record['participation_date'],
+                        $record['event_name'],
+                        $record['participation_level'],
+                        $record['rank_award']
+                    ]);
+                }
+                
+                // Copy affiliation records from application_affiliations to student_affiliation_records
+                $stmt = $pdo->prepare("
+                    SELECT position, organization, years_active 
+                    FROM application_affiliations 
+                    WHERE application_id = ?
+                ");
+                $stmt->execute([$applicationId]);
+                $affiliationRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($affiliationRecords as $record) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO student_affiliation_records 
+                        (student_id, position, organization, years_active)
+                        VALUES (?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $studentId,
+                        $record['position'],
+                        $record['organization'],
+                        $record['years_active']
+                    ]);
+                }
             }
         }
         

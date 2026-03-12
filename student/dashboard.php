@@ -191,7 +191,7 @@ try {
             SELECT COUNT(*) as count
             FROM events
             WHERE (cultural_groups LIKE ? OR cultural_groups LIKE ? OR cultural_groups = '[]')
-            AND (venue = ? OR venue IS NULL OR venue = '')
+            AND (campus = ? OR campus IS NULL OR campus = '')
             AND end_date >= CURDATE()
             AND status IN ('published', 'ongoing')
         ");
@@ -316,6 +316,66 @@ try {
             height: calc(100vh - 70px);
             overflow-y: auto;
             z-index: 90;
+        }
+
+        .sidebar-greeting {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-greeting::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting h3 {
+            margin: 0 0 0.5rem 0;
+            color: white;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            line-height: 1.2;
+        }
+
+        .greeting-hi {
+            font-size: 1.8rem;
+            font-weight: 400;
+        }
+
+        .greeting-name {
+            font-size: 1.8rem;
+        }
+
+        .sidebar-greeting p {
+            margin: 0 0 0 0.5rem;
+            font-style: bold;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.95);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
         }
 
         .nav-menu {
@@ -586,6 +646,216 @@ try {
             padding: 0.5rem;
             background: #f8f9fa;
             border-radius: 4px;
+        }
+
+        /* Performer Profile Form Styles */
+        .performer-profile-container {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .performer-profile-card {
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .performer-profile-card .form-header {
+            background: #fff;
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .performer-profile-card .form-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+        }
+
+        .performer-profile-card .form-body {
+            padding: 2rem;
+        }
+
+        .performer-profile-card .form-section {
+            margin-bottom: 2rem;
+            border: 1px solid #ddd;
+            padding: 1.5rem;
+        }
+
+        .performer-profile-card .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .performer-profile-card .instruction {
+            font-weight: 400;
+            font-style: italic;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .performer-profile-card .form-value {
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #333;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+        }
+
+        .performer-profile-card .photo-section {
+            float: right;
+            margin-left: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .performer-profile-card .photo-placeholder {
+            width: 120px;
+            height: 120px;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #666;
+            text-align: center;
+            background: #f8f9fa;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+
+        .performer-profile-card .photo-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .performer-profile-card .photo-edit-controls {
+            display: none;
+            gap: 0.5rem;
+            flex-direction: column;
+        }
+
+        .performer-profile-card .photo-edit-controls.active {
+            display: flex;
+        }
+
+        .performer-profile-card .photo-upload-btn,
+        .performer-profile-card .photo-delete-btn {
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: background 0.3s ease;
+            width: 120px;
+        }
+
+        .performer-profile-card .photo-upload-btn {
+            background: #ff5a5a;
+            color: white;
+        }
+
+        .performer-profile-card .photo-upload-btn:hover {
+            background: #ff3333;
+        }
+
+        .performer-profile-card .photo-delete-btn {
+            background: #dc3545;
+            color: white;
+        }
+
+        .performer-profile-card .photo-delete-btn:hover {
+            background: #c82333;
+        }
+
+        .performer-profile-card .form-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .performer-profile-card .form-group {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+
+        .performer-profile-card .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .performer-profile-card .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .performer-profile-card .form-group.half {
+            flex: 1;
+        }
+
+        .performer-profile-card .form-group.quarter {
+            flex: 0.5;
+        }
+
+        .performer-profile-card .participation-table,
+        .performer-profile-card .affiliation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .performer-profile-card .participation-table th,
+        .performer-profile-card .affiliation-table th,
+        .performer-profile-card .participation-table td,
+        .performer-profile-card .affiliation-table td {
+            border: 1px solid #333;
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+        }
+
+        .performer-profile-card .participation-table th,
+        .performer-profile-card .affiliation-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .performer-profile-card .sub-text {
+            font-weight: 400;
+            font-style: italic;
+            font-size: 0.75rem;
+        }
+
+        .performer-profile-card .table-edit-controls {
+            display: none;
+            margin-top: 0.5rem;
+        }
+
+        .performer-profile-card .table-edit-controls.active {
+            display: block;
+        }
+
+        .performer-profile-card .edit-column {
+            display: none;
         }
 
         /* Responsive */
@@ -1225,6 +1495,221 @@ try {
             background: #5a6268;
         }
 
+        .action-btn.success {
+            background: #28a745;
+        }
+
+        .action-btn.success:hover {
+            background: #218838;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 2rem;
+            border: none;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from { 
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to { 
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #dc2626;
+        }
+
+        .modal-body {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #dc2626;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .modal-footer button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .editable-field {
+            padding: 0.5rem;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .editable-field:focus {
+            outline: none;
+            border-color: #dc2626;
+            background: #fff;
+        }
+
+        .editable-field[contenteditable="false"] {
+            background: #f8f9fa;
+        }
+
+        /* Table Edit Buttons */
+        .table-edit-controls {
+            display: none;
+            margin-top: 1rem;
+            gap: 0.5rem;
+        }
+
+        .table-edit-controls.active {
+            display: flex;
+        }
+
+        .edit-table-row {
+            background: #f8f9fa;
+        }
+
+        .edit-table-row input,
+        .edit-table-row select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid #dc2626;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .edit-table-row select {
+            background: white;
+            cursor: pointer;
+        }
+
+        .delete-row-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .delete-row-btn:hover {
+            background: #c82333;
+        }
+
+        .photo-edit-controls {
+            display: none;
+            margin-top: 1rem;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .photo-edit-controls.active {
+            display: flex;
+        }
+
+        .photo-upload-btn, .photo-delete-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .photo-upload-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .photo-upload-btn:hover {
+            background: #218838;
+        }
+
+        .photo-delete-btn {
+            background: #dc3545;
+            color: white;
+        }
+
+        .photo-delete-btn:hover {
+            background: #c82333;
+        }
+
         /* Borrowed Costumes Styles */
         .borrowed-costumes-list {
             padding: 0;
@@ -1473,6 +1958,8 @@ try {
                 padding: 1rem;
             }
         }
+
+        /* Performer Profile Form View Styles - All scoped to .performer-profile-card */
     </style>
 </head>
 <body>
@@ -1483,17 +1970,10 @@ try {
             <h1 class="header-title">Student Dashboard - Culture and Arts</h1>
         </div>
         <div class="header-right">
-            <div class="user-info">
-                <span>👤</span>
-                <?php 
-                $first_name = $student_info['first_name'] ?? 'Student';
-                $campus = $student_info['campus'] ?? '';
-                ?>
-                <span><?= htmlspecialchars($first_name) ?></span>
-                <?php if ($campus): ?>
-                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($campus) ?></span>
-                <?php endif; ?>
-            </div>
+            <?php 
+            $first_name = $student_info['first_name'] ?? 'Student';
+            $campus = $student_info['campus'] ?? '';
+            ?>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
@@ -1502,6 +1982,13 @@ try {
     <div class="main-container">
         <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-greeting">
+                <h3>
+                    <span class="greeting-hi">Hi,</span>
+                    <span class="greeting-name"><?= htmlspecialchars($first_name) ?></span>
+                </h3>
+                <p>STUDENT - <?= htmlspecialchars($campus) ?></p>
+            </div>
             <nav>
                 <ul class="nav-menu">
                     <li class="nav-item">
@@ -1940,67 +2427,84 @@ try {
             <!-- Profile Section -->
             <section class="content-section" id="profile">
                 <div class="page-header">
-                    <h1 class="page-title">My Profile</h1>
-                    <p class="page-subtitle">View and manage your profile information</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h1 class="page-title">My Profile</h1>
+                            <p class="page-subtitle">View and edit your performer profile information</p>
+                        </div>
+                        <div style="display: flex; gap: 1rem;" id="profileActions">
+                            <button class="action-btn" id="exportProfileBtn" onclick="exportProfileToPDF()" style="display: none; background: linear-gradient(135deg, #10b981, #059669);">
+                                📄 Export to PDF
+                            </button>
+                            <button class="action-btn" id="editProfileBtn" onclick="requestEditProfile()" style="display: inline-block;">
+                                ✏️ Edit Profile
+                            </button>
+                            <button class="action-btn success" id="saveProfileBtn" onclick="saveProfile()" style="display: none;">
+                                💾 Save Changes
+                            </button>
+                            <button class="action-btn secondary" id="cancelEditBtn" onclick="cancelEdit()" style="display: none;">
+                                ✖️ Cancel
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="profile-container">
-                    <div class="profile-header">
-                        <div class="profile-avatar">
-                            <?php if (!empty($profile_photo) && file_exists('../' . $profile_photo)): ?>
-                                <img src="../<?= htmlspecialchars($profile_photo) ?>" alt="Profile Photo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-                            <?php else: ?>
-                                👤
-                            <?php endif; ?>
-                        </div>
-                        <div class="profile-name">
-                            <?= htmlspecialchars(($student_info['first_name'] ?? '') . ' ' . ($student_info['middle_name'] ?? '') . ' ' . ($student_info['last_name'] ?? '')) ?>
-                        </div>
-                        <div class="profile-role">
-                            Student Artist
-                            <?php if (!empty($student_info['cultural_group'])): ?>
-                                - <?= htmlspecialchars($student_info['cultural_group']) ?>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <div class="profile-details">
-                        <?php if ($student_info): ?>
-                            <div class="detail-group">
-                                <div class="detail-label">SR-Code</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['sr_code'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Email</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['email'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Campus</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['campus'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Program</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['program'] ?? 'N/A') ?></div>
-                            </div>
-                            <div class="detail-group">
-                                <div class="detail-label">Year Level</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['year_level'] ?? 'N/A') ?></div>
-                            </div>
-                            <?php if (!empty($student_info['contact_number'])): ?>
-                            <div class="detail-group">
-                                <div class="detail-label">Contact Number</div>
-                                <div class="detail-value"><?= htmlspecialchars($student_info['contact_number']) ?></div>
-                            </div>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            <div class="empty-state">
-                                <p>Profile information not available</p>
-                                <small>Please contact the administrator</small>
-                            </div>
-                        <?php endif; ?>
-                    </div>
+                <div id="profileLoading" class="loading-state" style="display: none; text-align: center; padding: 2rem;">
+                    <p>Loading profile data...</p>
+                </div>
+
+                <div id="profileError" style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                    <h3 style="color: #dc2626; margin-bottom: 1rem;">No Performer Profile Found</h3>
+                    <p style="color: #666; margin-bottom: 2rem;">You haven't submitted your performer profile form yet.</p>
+                    <a href="performer-profile-form.php" style="display: inline-block; background: linear-gradient(135deg, #ff5a5a, #ff7a6b); color: white; padding: 0.75rem 2rem; border-radius: 6px; text-decoration: none; font-weight: 600; box-shadow: 0 4px 15px rgba(255, 90, 90, 0.3);">
+                        Submit Performer Profile Form
+                    </a>
+                </div>
+
+                <div id="performerProfileView" style="display: none;">
+                    <!-- This will be populated with the performer profile form -->
                 </div>
             </section>
         </main>
+    </div>
+
+    <!-- Password Verification Modal -->
+    <div id="passwordVerificationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔒 Verify Your Identity</h2>
+                <span class="close" onclick="closePasswordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p><strong>Are you sure you want to edit your profile?</strong></p>
+                <p>Please enter your password to confirm your identity and enable editing.</p>
+                <input type="password" id="verifyPassword" class="modal-input" placeholder="Enter your password" />
+                <div id="passwordError" style="color: #dc2626; margin-top: 0.5rem; display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn secondary" onclick="closePasswordModal()">Cancel</button>
+                <button class="action-btn" onclick="verifyPassword()">Verify & Edit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Confirmation Modal -->
+    <div id="saveConfirmationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💾 Save Changes?</h2>
+                <span class="close" onclick="closeSaveModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p><strong>Do you want to save your changes?</strong></p>
+                <p>Your profile information will be updated with the changes you made.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn secondary" onclick="closeSaveModal()">No, Cancel</button>
+                <button class="action-btn success" onclick="confirmSave()">Yes, Save Changes</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -2062,6 +2566,8 @@ try {
                             loadUpcomingEvents();
                         } else if (sectionId === 'costume-borrowing') {
                             loadBorrowedCostumes();
+                        } else if (sectionId === 'profile') {
+                            loadPerformerProfile();
                         }
                     }
 
@@ -2078,6 +2584,8 @@ try {
                 loadUpcomingEvents();
             } else if (activeSection === 'costume-borrowing') {
                 loadBorrowedCostumes();
+            } else if (activeSection === 'profile') {
+                loadPerformerProfile();
             }
 
             // Click outside modal to close functionality
@@ -2652,6 +3160,16 @@ try {
             
             if (!title || !date || !file) {
                 alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+                alert('Invalid file type. Please upload a PDF, JPG, or PNG file.');
                 return;
             }
             
@@ -3294,6 +3812,1145 @@ try {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
             });
+        }
+
+        // Load and display performer profile form
+        function loadPerformerProfile() {
+            const profileLoading = document.getElementById('profileLoading');
+            const profileError = document.getElementById('profileError');
+            const performerProfileView = document.getElementById('performerProfileView');
+
+            console.log('Loading performer profile...');
+
+            // Show loading state
+            profileLoading.style.display = 'block';
+            profileError.style.display = 'none';
+            performerProfileView.style.display = 'none';
+
+            fetch('get_application_data.php')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Application data response:', data);
+                    profileLoading.style.display = 'none';
+                    
+                    if (data.success) {
+                        displayPerformerProfile(data.application, data.participations, data.affiliations);
+                        performerProfileView.style.display = 'block';
+                        // Show export button when profile is available
+                        document.getElementById('exportProfileBtn').style.display = 'inline-block';
+                    } else {
+                        console.error('Error loading profile:', data.message, data.debug);
+                        profileError.style.display = 'block';
+                        // Hide export button when no profile data
+                        document.getElementById('exportProfileBtn').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading profile:', error);
+                    profileLoading.style.display = 'none';
+                    profileError.style.display = 'block';
+                    // Hide export button on error
+                    document.getElementById('exportProfileBtn').style.display = 'none';
+                });
+        }
+
+        // Display performer profile form
+        function displayPerformerProfile(app, participations, affiliations) {
+            const performerProfileView = document.getElementById('performerProfileView');
+            
+            console.log('Displaying profile, photo path:', app.profile_photo);
+            
+            // Get cultural group - this is the type of performance
+            const culturalGroup = app.cultural_group || 'Not specified';
+
+            // Create participation table rows
+            let participationRows = '';
+            if (participations && participations.length > 0) {
+                participations.forEach(p => {
+                    participationRows += `
+                        <tr data-participation-id="${p.id || ''}">
+                            <td class="editable-participation-date">${p.participation_date || ''}</td>
+                            <td class="editable-participation-event">${p.activity_title || ''}</td>
+                            <td class="editable-participation-level">${p.level || ''}</td>
+                            <td class="editable-participation-rank">${p.rank_award || ''}</td>
+                            <td class="edit-column" style="display: none;">
+                                <button class="delete-row-btn" onclick="deleteParticipationRow(${p.id || 0})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                participationRows = '<tr><td colspan="5" style="text-align: center; color: #666;">No participation records</td></tr>';
+            }
+
+            // Create affiliation table rows
+            let affiliationRows = '';
+            if (affiliations && affiliations.length > 0) {
+                affiliations.forEach(a => {
+                    affiliationRows += `
+                        <tr data-affiliation-id="${a.id || ''}">
+                            <td class="editable-affiliation-position">${a.affiliation_position || ''}</td>
+                            <td class="editable-affiliation-org">${a.organization_name || ''}</td>
+                            <td class="editable-affiliation-year">${a.year || ''}</td>
+                            <td class="edit-column" style="display: none;">
+                                <button class="delete-row-btn" onclick="deleteAffiliationRow(${a.id || 0})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                affiliationRows = '<tr><td colspan="4" style="text-align: center; color: #666;">No affiliation records</td></tr>';
+            }
+
+            const html = `
+                <div class="performer-profile-card">
+                    <div class="form-header" style="text-align: center; padding: 2rem 2rem 1rem 2rem; border-bottom: 2px solid #333;">
+                        <h1 class="form-title" style="font-size: 1.8rem; font-weight: 700; color: #333; margin: 0;">PERFORMER'S PROFILE FORM</h1>
+                    </div>
+                    <div class="form-body">
+                        <!-- Cultural Group / Type of Performance Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">CULTURAL GROUP / TYPE OF PERFORMANCE</h3>
+                            <div class="form-value" style="font-size: 1.1rem; font-weight: 600; color: #333; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                                ${culturalGroup}
+                            </div>
+                        </div>
+
+                        <!-- Personal Information Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">PERSONAL INFORMATION</h3>
+                            
+                            <div class="photo-section">
+                                <div class="photo-placeholder" id="profilePhotoContainer">
+                                    ${app.profile_photo ? `<img src="../${app.profile_photo}?v=${Date.now()}" alt="Profile Photo" id="profilePhotoImg">` : '<span id="profilePhotoPlaceholder">Passport Size Photo</span>'}
+                                </div>
+                                <div class="photo-edit-controls" id="photoEditControls">
+                                    <input type="file" id="photoUploadInput" accept="image/jpeg,image/jpg,image/png,image/jfif" style="display: none;">
+                                    <button class="photo-upload-btn" onclick="document.getElementById('photoUploadInput').click()">📷 Upload Photo</button>
+                                    <button class="photo-delete-btn" onclick="deleteProfilePhoto()">🗑️ Delete Photo</button>
+                                </div>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
+                                        <label>First Name</label>
+                                        <div class="form-value" id="profile_firstName">${app.first_name || '&nbsp;'}</div>
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
+                                        <label>Middle Name</label>
+                                        <div class="form-value" id="profile_middleName">${app.middle_name || '&nbsp;'}</div>
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 0;">
+                                        <label>Last Name</label>
+                                        <div class="form-value" id="profile_lastName">${app.last_name || '&nbsp;'}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Permanent Address</label>
+                                    <div class="form-value" id="profile_permanentAddress">${app.address || ''}</div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Present Address</label>
+                                    <div class="form-value" id="profile_presentAddress">${app.present_address || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Date of Birth</label>
+                                        <div class="form-value" id="profile_dateOfBirth">${app.date_of_birth || ''}</div>
+                                    </div>
+                                    <div class="form-group quarter">
+                                        <label>Age</label>
+                                        <div class="form-value" id="profile_age">${app.age || ''}</div>
+                                    </div>
+                                    <div class="form-group quarter">
+                                        <label>Gender</label>
+                                        <div class="form-value" id="profile_gender">${app.gender || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Place of Birth</label>
+                                    <div class="form-value" id="profile_placeOfBirth">${app.place_of_birth || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Email Address</label>
+                                        <div class="form-value" id="profile_email">${app.email || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Contact Number</label>
+                                        <div class="form-value" id="profile_contactNumber">${app.contact_number || ''}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Family Background Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">FAMILY BACKGROUND</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Father's Name</label>
+                                    <div class="form-value" id="profile_fatherName">${app.father_name || ''}</div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Mother's Name</label>
+                                    <div class="form-value" id="profile_motherName">${app.mother_name || ''}</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Guardian</label>
+                                        <div class="form-value" id="profile_guardian">${app.guardian || 'N/A'}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Guardian Contact</label>
+                                        <div class="form-value" id="profile_guardianContact">${app.guardian_contact || 'N/A'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Academic Information Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">ACADEMIC INFORMATION</h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>Campus</label>
+                                        <div class="form-value" id="profile_campus">${app.campus || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>College</label>
+                                        <div class="form-value" id="profile_college">${app.college || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label>SR-Code</label>
+                                        <div class="form-value" id="profile_srCode">${app.sr_code || ''}</div>
+                                    </div>
+                                    <div class="form-group half">
+                                        <label>Year Level</label>
+                                        <div class="form-value" id="profile_yearLevel">${app.year_level || ''}</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Program/Course</label>
+                                    <div class="form-value" id="profile_program">${app.program || ''}</div>
+                                </div>
+
+                                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1rem;">
+                                    <span style="font-size: 0.9rem; color: #333;">Number of Units Enrolled:</span>
+                                    <div style="display: flex; gap: 1rem; align-items: center;">
+                                        <span style="font-size: 0.85rem;">1st Semester:</span>
+                                        <span id="profile_firstSemesterUnits" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; min-width: 60px; text-align: center;">${app.first_semester_units || 0}</span>
+                                        <span style="font-size: 0.85rem; margin-left: 1rem;">2nd Semester:</span>
+                                        <span id="profile_secondSemesterUnits" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; min-width: 60px; text-align: center;">${app.second_semester_units || 0}</span>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Instructors</label>
+                                    <div class="form-value" id="profile_instructors">${app.instructors || 'Not specified'}</div>
+                                    <small id="instructors_note" style="display: none; color: #666; font-size: 0.85rem; font-style: italic; margin-top: 0.25rem;">Separate each name with a comma</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Participation Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">PARTICIPATION IN ARTS-RELATED ACTIVITIES <span class="instruction">(Last Five Years)</span></h3>
+                            <table class="participation-table" id="participationTable">
+                                <thead>
+                                    <tr>
+                                        <th>DATE</th>
+                                        <th>TITLE/NATURE OF ACTIVITY</th>
+                                        <th>LEVEL <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
+                                        <th>RANK/AWARD</th>
+                                        <th class="edit-column" style="display: none;">ACTION</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="participationTableBody">
+                                    ${participationRows}
+                                </tbody>
+                            </table>
+                            <div class="table-edit-controls" id="participationControls">
+                                <button class="action-btn" onclick="addParticipationRow()">➕ Add Participation</button>
+                            </div>
+                        </div>
+
+                        <!-- Affiliation Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">AFFILIATION/MEMBERSHIP IN ARTS ORGANIZATIONS</h3>
+                            <table class="affiliation-table" id="affiliationTable">
+                                <thead>
+                                    <tr>
+                                        <th>POSITION</th>
+                                        <th>NAME OF ORGANIZATION</th>
+                                        <th>YEAR</th>
+                                        <th class="edit-column" style="display: none;">ACTION</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="affiliationTableBody">
+                                    ${affiliationRows}
+                                </tbody>
+                            </table>
+                            <div class="table-edit-controls" id="affiliationControls">
+                                <button class="action-btn" onclick="addAffiliationRow()">➕ Add Affiliation</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            performerProfileView.innerHTML = html;
+            
+            // Attach photo upload event listener AFTER HTML is rendered
+            const photoUploadInput = document.getElementById('photoUploadInput');
+            if (photoUploadInput) {
+                console.log('✅ Photo upload input found after render, attaching event listener');
+                photoUploadInput.addEventListener('change', function(event) {
+                    console.log('📁 File input changed, files:', event.target.files);
+                    if (event.target.files && event.target.files[0]) {
+                        uploadProfilePhoto(event.target.files[0]);
+                    } else {
+                        console.log('❌ No file selected');
+                    }
+                });
+            } else {
+                console.log('❌ Photo upload input STILL NOT found after render!');
+            }
+        }
+
+        // Export Profile to PDF Function
+        function exportProfileToPDF() {
+            // Show loading indicator
+            const exportBtn = document.getElementById('exportProfileBtn');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '⏳ Generating PDF...';
+            exportBtn.disabled = true;
+
+            // Open the export URL in a new window to trigger download
+            window.location.href = 'export_profile_pdf.php';
+
+            // Reset button after a delay
+            setTimeout(() => {
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }, 2000);
+        }
+
+        // Edit Profile Functions
+        let isEditMode = false;
+        let originalProfileData = {};
+        
+        // Pending changes tracking
+        let pendingChanges = {
+            participation: {
+                toAdd: [],
+                toDelete: []
+            },
+            affiliation: {
+                toAdd: [],
+                toDelete: []
+            },
+            photo: {
+                action: null, // 'upload' or 'delete'
+                file: null,
+                preview: null
+            }
+        };
+
+        function requestEditProfile() {
+            // Show password verification modal
+            document.getElementById('passwordVerificationModal').style.display = 'block';
+            document.getElementById('verifyPassword').value = '';
+            document.getElementById('passwordError').style.display = 'none';
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordVerificationModal').style.display = 'none';
+            document.getElementById('verifyPassword').value = '';
+            document.getElementById('passwordError').style.display = 'none';
+        }
+
+        function verifyPassword() {
+            const password = document.getElementById('verifyPassword').value;
+            const errorDiv = document.getElementById('passwordError');
+
+            if (!password) {
+                errorDiv.textContent = 'Please enter your password';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Show loading state
+            errorDiv.textContent = 'Verifying...';
+            errorDiv.style.color = '#666';
+            errorDiv.style.display = 'block';
+
+            // Verify password via API
+            fetch('verify_password.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Password correct - enable edit mode
+                    closePasswordModal();
+                    enableEditMode();
+                } else {
+                    // Password incorrect
+                    errorDiv.textContent = data.message || 'Incorrect password. Please try again.';
+                    errorDiv.style.color = '#dc2626';
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorDiv.textContent = 'Error verifying password. Please try again.';
+                errorDiv.style.color = '#dc2626';
+                errorDiv.style.display = 'block';
+            });
+        }
+
+        function enableEditMode() {
+            isEditMode = true;
+
+            // Show save and cancel buttons, hide edit button
+            document.getElementById('editProfileBtn').style.display = 'none';
+            document.getElementById('saveProfileBtn').style.display = 'inline-block';
+            document.getElementById('cancelEditBtn').style.display = 'inline-block';
+
+            // Make fields editable
+            const editableFields = [
+                'firstName', 'middleName', 'lastName',
+                'dateOfBirth', 'age', 'gender', 'placeOfBirth',
+                'email', 'contactNumber', 'permanentAddress', 'presentAddress',
+                'fatherName', 'motherName', 'guardian', 'guardianContact',
+                'campus', 'college', 'srCode', 'yearLevel', 'program',
+                'firstSemesterUnits', 'secondSemesterUnits', 'instructors'
+            ];
+
+            // Save original data
+            originalProfileData = {};
+            editableFields.forEach(field => {
+                const element = document.getElementById(`profile_${field}`);
+                if (element) {
+                    originalProfileData[field] = element.textContent;
+                    element.contentEditable = 'true';
+                    element.classList.add('editable-field');
+                    element.style.border = '2px solid #dc2626';
+                    element.style.background = '#fff';
+                }
+            });
+
+            // Show photo edit controls
+            const photoControls = document.getElementById('photoEditControls');
+            if (photoControls) {
+                photoControls.classList.add('active');
+            }
+
+            // Show instructors note
+            const instructorsNote = document.getElementById('instructors_note');
+            if (instructorsNote) {
+                instructorsNote.style.display = 'block';
+            }
+
+            // Show table edit controls
+            document.getElementById('participationControls').classList.add('active');
+            document.getElementById('affiliationControls').classList.add('active');
+
+            // Show delete column in tables
+            document.querySelectorAll('.edit-column').forEach(el => {
+                el.style.display = 'table-cell';
+            });
+
+            // Show notification
+            alert('✏️ Edit mode enabled! You can now modify your profile information, add/delete records, and update your photo.');
+        }
+
+        function cancelEdit() {
+            if (!confirm('Are you sure you want to cancel? All unsaved changes will be lost.')) {
+                return;
+            }
+
+            isEditMode = false;
+            
+            // Clear pending changes including photo
+            pendingChanges = {
+                participation: { toAdd: [], toDelete: [] },
+                affiliation: { toAdd: [], toDelete: [] },
+                photo: { action: null, file: null, preview: null }
+            };
+
+            // Restore original data
+            Object.keys(originalProfileData).forEach(field => {
+                const element = document.getElementById(`profile_${field}`);
+                if (element) {
+                    element.textContent = originalProfileData[field];
+                    element.contentEditable = 'false';
+                    element.classList.remove('editable-field');
+                    element.style.border = '2px solid transparent';
+                    element.style.background = '#f8f9fa';
+                }
+            });
+
+            // Hide photo edit controls
+            const photoControls = document.getElementById('photoEditControls');
+            if (photoControls) {
+                photoControls.classList.remove('active');
+            }
+            
+            // Reset photo button states
+            const uploadBtn = document.querySelector('.photo-upload-btn');
+            const deleteBtn = document.querySelector('.photo-delete-btn');
+            if (uploadBtn) {
+                uploadBtn.textContent = '📷 Upload Photo';
+                uploadBtn.style.backgroundColor = '';
+            }
+            if (deleteBtn) {
+                deleteBtn.textContent = '🗑️ Delete Photo';
+                deleteBtn.style.backgroundColor = '';
+                deleteBtn.style.color = '';
+            }
+
+            // Hide table edit controls
+            document.getElementById('participationControls').classList.remove('active');
+            document.getElementById('affiliationControls').classList.remove('active');
+
+            // Hide instructors note
+            const instructorsNote = document.getElementById('instructors_note');
+            if (instructorsNote) {
+                instructorsNote.style.display = 'none';
+            }
+
+            // Hide delete column in tables
+            document.querySelectorAll('.edit-column').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            // Show edit button, hide save and cancel buttons
+            document.getElementById('editProfileBtn').style.display = 'inline-block';
+            document.getElementById('saveProfileBtn').style.display = 'none';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+            
+            // Reload profile to restore any table changes
+            loadPerformerProfile();
+        }
+
+        function saveProfile() {
+            // Show save confirmation modal
+            document.getElementById('saveConfirmationModal').style.display = 'block';
+        }
+
+        function closeSaveModal() {
+            document.getElementById('saveConfirmationModal').style.display = 'none';
+        }
+
+        function confirmSave() {
+            // Log pending changes for debugging
+            console.log('=== SAVING PROFILE ===');
+            console.log('Pending Changes:', JSON.stringify(pendingChanges, null, 2));
+            
+            // Collect updated data
+            const updatedData = {
+                first_name: document.getElementById('profile_firstName')?.textContent.trim() || '',
+                middle_name: document.getElementById('profile_middleName')?.textContent.trim() || '',
+                last_name: document.getElementById('profile_lastName')?.textContent.trim() || '',
+                date_of_birth: document.getElementById('profile_dateOfBirth')?.textContent.trim() || '',
+                age: document.getElementById('profile_age')?.textContent.trim() || '',
+                gender: document.getElementById('profile_gender')?.textContent.trim() || '',
+                place_of_birth: document.getElementById('profile_placeOfBirth')?.textContent.trim() || '',
+                email: document.getElementById('profile_email')?.textContent.trim() || '',
+                contact_number: document.getElementById('profile_contactNumber')?.textContent.trim() || '',
+                address: document.getElementById('profile_permanentAddress')?.textContent.trim() || '',
+                present_address: document.getElementById('profile_presentAddress')?.textContent.trim() || '',
+                father_name: document.getElementById('profile_fatherName')?.textContent.trim() || '',
+                mother_name: document.getElementById('profile_motherName')?.textContent.trim() || '',
+                guardian: document.getElementById('profile_guardian')?.textContent.trim() || '',
+                guardian_contact: document.getElementById('profile_guardianContact')?.textContent.trim() || '',
+                campus: document.getElementById('profile_campus')?.textContent.trim() || '',
+                college: document.getElementById('profile_college')?.textContent.trim() || '',
+                sr_code: document.getElementById('profile_srCode')?.textContent.trim() || '',
+                year_level: document.getElementById('profile_yearLevel')?.textContent.trim() || '',
+                program: document.getElementById('profile_program')?.textContent.trim() || '',
+                first_semester_units: document.getElementById('profile_firstSemesterUnits')?.textContent.trim() || '0',
+                second_semester_units: document.getElementById('profile_secondSemesterUnits')?.textContent.trim() || '0',
+                instructors: document.getElementById('profile_instructors')?.textContent.trim() || '',
+                // Add pending changes
+                pendingChanges: pendingChanges
+            };
+            
+            // Validate required fields
+            const validationErrors = [];
+            
+            // Name validation (no numbers or special characters except . ' -)
+            const nameRegex = /^[a-zA-ZÑñ\s.'\-]+$/;
+            const nameFields = [
+                { value: updatedData.first_name, label: 'First Name' },
+                { value: updatedData.last_name, label: 'Last Name' },
+                { value: updatedData.father_name, label: "Father's Name" },
+                { value: updatedData.mother_name, label: "Mother's Name" }
+            ];
+            
+            nameFields.forEach(field => {
+                if (field.value && !nameRegex.test(field.value)) {
+                    validationErrors.push(`${field.label} should only contain letters, spaces, and common punctuation (. ' -)`);
+                }
+                if (field.value && /\d/.test(field.value)) {
+                    validationErrors.push(`${field.label} cannot contain numbers`);
+                }
+            });
+            
+            // Middle name is optional but if provided, must be valid
+            if (updatedData.middle_name && !nameRegex.test(updatedData.middle_name)) {
+                validationErrors.push("Middle Name should only contain letters, spaces, and common punctuation (. ' -)");
+            }
+            
+            // Required field validation
+            if (!updatedData.first_name) validationErrors.push('First Name is required');
+            if (!updatedData.last_name) validationErrors.push('Last Name is required');
+            if (!updatedData.email) validationErrors.push('Email is required');
+            if (!updatedData.campus) validationErrors.push('Campus is required');
+            if (!updatedData.sr_code) validationErrors.push('SR Code is required');
+            
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (updatedData.email && !emailRegex.test(updatedData.email)) {
+                validationErrors.push('Please enter a valid email address');
+            }
+            
+            // SR Code format validation (XX-XXXXX)
+            const srCodeRegex = /^\d{2}-\d{5}$/;
+            if (updatedData.sr_code && !srCodeRegex.test(updatedData.sr_code)) {
+                validationErrors.push('SR Code format should be XX-XXXXX (e.g., 22-12345)');
+            }
+            
+            // Contact number validation (11 digits, starting with 09)
+            if (updatedData.contact_number) {
+                const digits = updatedData.contact_number.replace(/\D/g, '');
+                if (digits && (digits.length !== 11 || !digits.startsWith('09'))) {
+                    validationErrors.push('Contact number should be 11 digits starting with 09');
+                }
+            }
+            
+            // Age validation
+            if (updatedData.age) {
+                const age = parseInt(updatedData.age);
+                if (isNaN(age) || age < 1 || age > 150) {
+                    validationErrors.push('Please enter a valid age');
+                }
+            }
+            
+            // Units validation (must be numbers)
+            if (updatedData.first_semester_units && isNaN(parseInt(updatedData.first_semester_units))) {
+                validationErrors.push('First Semester Units must be a number');
+            }
+            if (updatedData.second_semester_units && isNaN(parseInt(updatedData.second_semester_units))) {
+                validationErrors.push('Second Semester Units must be a number');
+            }
+            
+            // Show validation errors
+            if (validationErrors.length > 0) {
+                closeSaveModal();
+                alert('⚠️ Please fix the following errors:\n\n' + validationErrors.join('\n'));
+                return;
+            }
+            
+            console.log('Data to send:', JSON.stringify(updatedData, null, 2));
+
+            // Close modal and show loading
+            closeSaveModal();
+            const saveBtn = document.getElementById('saveProfileBtn');
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = 'Saving All Changes...';
+            saveBtn.disabled = true;
+
+            // Process photo changes first if any
+            let photoPromise = Promise.resolve();
+            
+            if (pendingChanges.photo.action === 'upload' && pendingChanges.photo.file) {
+                console.log('🔄 Uploading photo to server...');
+                console.log('Photo file:', pendingChanges.photo.file.name, pendingChanges.photo.file.size, 'bytes');
+                
+                const formData = new FormData();
+                formData.append('profile_photo', pendingChanges.photo.file);
+                
+                photoPromise = fetch('upload_profile_photo.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    console.log('Photo upload response status:', response.status);
+                    return response.json();
+                })
+                .then(photoData => {
+                    console.log('Photo upload result:', photoData);
+                    return photoData;
+                });
+            } else if (pendingChanges.photo.action === 'delete') {
+                console.log('🗑️ Deleting photo from server...');
+                photoPromise = fetch('delete_profile_photo.php', {
+                    method: 'POST'
+                }).then(response => response.json());
+            }
+            
+            // Wait for photo operation to complete, then save profile
+            photoPromise.then(photoResult => {
+                if (photoResult && photoResult.success === false) {
+                    throw new Error(photoResult.message || 'Photo operation failed');
+                }
+                
+                console.log('Photo operation completed:', photoResult);
+                
+                // Update photo display immediately based on operation
+                const photoContainer = document.getElementById('profilePhotoContainer');
+                if (photoContainer) {
+                    if (photoResult && photoResult.photo_url) {
+                        // Photo uploaded - show new image
+                        photoContainer.innerHTML = `<img src="../${photoResult.photo_url}?v=${Date.now()}" alt="Profile Photo" id="profilePhotoImg">`;
+                    } else if (pendingChanges.photo.action === 'delete') {
+                        // Photo deleted - show placeholder
+                        photoContainer.innerHTML = '<span id="profilePhotoPlaceholder">Passport Size Photo</span>';
+                    }
+                }
+                
+                console.log('Sending profile update to server...');
+                
+                // Send update request
+                return fetch('update_profile.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatedData)
+                });
+            })
+            .then(response => {
+                console.log('Server response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Server response data:', data);
+                
+                if (data.success) {
+                    // Clear pending changes first
+                    pendingChanges = {
+                        participation: { toAdd: [], toDelete: [] },
+                        affiliation: { toAdd: [], toDelete: [] },
+                        photo: { action: null, file: null, preview: null }
+                    };
+                    
+                    isEditMode = false;
+                    
+                    // Force reload to show updated photo from database
+                    alert('✅ Profile updated successfully! All changes saved to database.');
+                    location.reload(true); // Hard reload to clear cache
+                } else {
+                    console.error('Save failed:', data);
+                    alert('❌ Error updating profile: ' + (data.message || 'Unknown error'));
+                    if (data.debug) {
+                        console.error('Debug info:', data.debug);
+                    }
+                    saveBtn.textContent = originalText;
+                    saveBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error during save:', error);
+                alert('❌ Error updating profile: ' + error.message);
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+            });
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const passwordModal = document.getElementById('passwordVerificationModal');
+            const saveModal = document.getElementById('saveConfirmationModal');
+            
+            if (event.target == passwordModal) {
+                closePasswordModal();
+            }
+            if (event.target == saveModal) {
+                closeSaveModal();
+            }
+        }
+
+        // Handle Enter key in password field
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('verifyPassword');
+            if (passwordInput) {
+                passwordInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        verifyPassword();
+                    }
+                });
+            }
+
+            // Photo upload event listener is now attached in displayPerformerProfile() after HTML renders
+        });
+
+        // Participation Functions
+        function addParticipationRow() {
+            const tbody = document.getElementById('participationTableBody');
+            const newRow = document.createElement('tr');
+            newRow.classList.add('edit-table-row');
+            newRow.setAttribute('data-new', 'true');
+            
+            newRow.innerHTML = `
+                <td><input type="date" class="participation-date" placeholder="Date"></td>
+                <td><input type="text" class="participation-event" placeholder="Event Name"></td>
+                <td>
+                    <select class="participation-level">
+                        <option value="">Select Level</option>
+                        <option value="School">School</option>
+                        <option value="Municipal">Municipal</option>
+                        <option value="Provincial">Provincial</option>
+                        <option value="Regional">Regional</option>
+                        <option value="National">National</option>
+                        <option value="International">International</option>
+                    </select>
+                </td>
+                <td><input type="text" class="participation-rank" placeholder="Rank/Award"></td>
+                <td class="edit-column">
+                    <button class="action-btn secondary" onclick="saveParticipationRow(this)">Add</button>
+                    <button class="delete-row-btn" onclick="removeNewRow(this)">Cancel</button>
+                </td>
+            `;
+            
+            tbody.appendChild(newRow);
+        }
+
+        function saveParticipationRow(btn) {
+            const row = btn.closest('tr');
+            const data = {
+                date: row.querySelector('.participation-date').value,
+                event_name: row.querySelector('.participation-event').value,
+                level: row.querySelector('.participation-level').value,
+                rank_award: row.querySelector('.participation-rank').value || ''
+            };
+
+            if (!data.date || !data.event_name) {
+                alert('Please fill in Date and Event Name');
+                return;
+            }
+
+            // Add to pending changes (not saved to database yet)
+            pendingChanges.participation.toAdd.push(data);
+            console.log('✅ Participation staged for add:', data);
+            console.log('Total pending participation adds:', pendingChanges.participation.toAdd.length);
+            
+            // Mark row as pending and disable inputs
+            row.classList.add('pending-row');
+            row.querySelectorAll('input, select').forEach(input => input.disabled = true);
+            
+            // Change buttons
+            btn.textContent = 'Added (Pending)';
+            btn.disabled = true;
+            btn.style.background = '#ffc107';
+            const cancelBtn = row.querySelector('.delete-row-btn');
+            cancelBtn.textContent = 'Remove';
+            cancelBtn.onclick = function() { removePendingParticipation(row, pendingChanges.participation.toAdd.length - 1); };
+            
+            alert('✅ Participation record will be added when you click Save Profile');
+        }
+
+        function deleteParticipationRow(id) {
+            // Stage for deletion (not deleted from database yet)
+            const row = document.querySelector(`tr[data-participation-id="${id}"]`);
+            if (!row) return;
+            
+            // Add to pending deletes
+            pendingChanges.participation.toDelete.push(id);
+            console.log('✅ Participation staged for deletion, ID:', id);
+            console.log('Total pending participation deletes:', pendingChanges.participation.toDelete.length);
+            
+            // Mark row as pending deletion
+            row.classList.add('pending-delete');
+            row.style.background = '#ffebee';
+            row.style.textDecoration = 'line-through';
+            row.style.opacity = '0.6';
+            
+            // Change delete button
+            const deleteBtn = row.querySelector('.delete-row-btn');
+            deleteBtn.textContent = 'Undo';
+            deleteBtn.onclick = function() { undoDeleteParticipation(id, row); };
+            deleteBtn.style.background = '#2196F3';
+            
+            alert('⚠️ Record marked for deletion. Click Save Profile to confirm.');
+        }
+        
+        function undoDeleteParticipation(id, row) {
+            // Remove from pending deletes
+            const index = pendingChanges.participation.toDelete.indexOf(id);
+            if (index > -1) {
+                pendingChanges.participation.toDelete.splice(index, 1);
+            }
+            
+            // Restore row appearance
+            row.classList.remove('pending-delete');
+            row.style.background = '';
+            row.style.textDecoration = '';
+            row.style.opacity = '';
+            
+            // Restore delete button
+            const deleteBtn = row.querySelector('.delete-row-btn');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.onclick = function() { deleteParticipationRow(id); };
+            deleteBtn.style.background = '';
+        }
+        
+        function removePendingParticipation(row, index) {
+            // Remove from pending adds
+            pendingChanges.participation.toAdd.splice(index, 1);
+            row.remove();
+        }
+
+        // Affiliation Functions
+        function addAffiliationRow() {
+            const tbody = document.getElementById('affiliationTableBody');
+            const newRow = document.createElement('tr');
+            newRow.classList.add('edit-table-row');
+            newRow.setAttribute('data-new', 'true');
+            
+            newRow.innerHTML = `
+                <td><input type="text" class="affiliation-position" placeholder="Position"></td>
+                <td><input type="text" class="affiliation-org" placeholder="Organization Name"></td>
+                <td><input type="text" class="affiliation-year" placeholder="Year"></td>
+                <td class="edit-column">
+                    <button class="action-btn secondary" onclick="saveAffiliationRow(this)">Add</button>
+                    <button class="delete-row-btn" onclick="removeNewRow(this)">Cancel</button>
+                </td>
+            `;
+            
+            tbody.appendChild(newRow);
+        }
+
+        function saveAffiliationRow(btn) {
+            const row = btn.closest('tr');
+            const data = {
+                position: row.querySelector('.affiliation-position').value,
+                organization: row.querySelector('.affiliation-org').value,
+                years_active: row.querySelector('.affiliation-year').value
+            };
+
+            if (!data.position || !data.organization) {
+                alert('Please fill in Position and Organization Name');
+                return;
+            }
+
+            // Add to pending changes (not saved to database yet)
+            pendingChanges.affiliation.toAdd.push(data);
+            
+            // Mark row as pending and disable inputs
+            row.classList.add('pending-row');
+            row.querySelectorAll('input').forEach(input => input.disabled = true);
+            
+            // Change buttons
+            btn.textContent = 'Added (Pending)';
+            btn.disabled = true;
+            btn.style.background = '#ffc107';
+            const cancelBtn = row.querySelector('.delete-row-btn');
+            cancelBtn.textContent = 'Remove';
+            cancelBtn.onclick = function() { removePendingAffiliation(row, pendingChanges.affiliation.toAdd.length - 1); };
+            
+            alert('✅ Affiliation record will be added when you click Save Profile');
+        }
+
+        function deleteAffiliationRow(id) {
+            // Stage for deletion (not deleted from database yet)
+            const row = document.querySelector(`tr[data-affiliation-id="${id}"]`);
+            if (!row) return;
+            
+            // Add to pending deletes
+            pendingChanges.affiliation.toDelete.push(id);
+            
+            // Mark row as pending deletion
+            row.classList.add('pending-delete');
+            row.style.background = '#ffebee';
+            row.style.textDecoration = 'line-through';
+            row.style.opacity = '0.6';
+            
+            // Change delete button
+            const deleteBtn = row.querySelector('.delete-row-btn');
+            deleteBtn.textContent = 'Undo';
+            deleteBtn.onclick = function() { undoDeleteAffiliation(id, row); };
+            deleteBtn.style.background = '#2196F3';
+            
+            alert('⚠️ Record marked for deletion. Click Save Profile to confirm.');
+        }
+        
+        function undoDeleteAffiliation(id, row) {
+            // Remove from pending deletes
+            const index = pendingChanges.affiliation.toDelete.indexOf(id);
+            if (index > -1) {
+                pendingChanges.affiliation.toDelete.splice(index, 1);
+            }
+            
+            // Restore row appearance
+            row.classList.remove('pending-delete');
+            row.style.background = '';
+            row.style.textDecoration = '';
+            row.style.opacity = '';
+            
+            // Restore delete button
+            const deleteBtn = row.querySelector('.delete-row-btn');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.onclick = function() { deleteAffiliationRow(id); };
+            deleteBtn.style.background = '';
+        }
+        
+        function removePendingAffiliation(row, index) {
+            // Remove from pending adds
+            pendingChanges.affiliation.toAdd.splice(index, 1);
+            row.remove();
+        }
+
+        function removeNewRow(btn) {
+            btn.closest('tr').remove();
+        }
+
+        // Photo Functions
+        function uploadProfilePhoto(file) {
+            console.log('📸 uploadProfilePhoto called with file:', file);
+            
+            // Only allow photo upload in edit mode
+            if (!isEditMode) {
+                alert('⚠️ Please click "Edit Profile" first to upload a photo.');
+                console.log('❌ Not in edit mode');
+                return;
+            }
+            
+            if (!file) {
+                alert('Please select a file');
+                console.log('❌ No file selected');
+                return;
+            }
+
+            console.log('File details:', {
+                name: file.name,
+                type: file.type,
+                size: file.size
+            });
+
+            if (!file.type.match('image/jpeg') && !file.type.match('image/jpg') && !file.type.match('image/png')) {
+                alert('Only JPG, JPEG, and PNG files are allowed');
+                console.log('❌ Invalid file type:', file.type);
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                console.log('❌ File too large:', file.size);
+                return;
+            }
+
+            console.log('✅ File validation passed, reading file...');
+
+            // Stage the photo upload - don't save yet
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                console.log('✅ File read successfully, staging photo...');
+                
+                // Store the file and preview in pending changes
+                pendingChanges.photo.action = 'upload';
+                pendingChanges.photo.file = file;
+                pendingChanges.photo.preview = e.target.result;
+                
+                console.log('Pending changes after staging:', pendingChanges);
+                
+                // Update the photo preview immediately in the container
+                const photoContainer = document.getElementById('profilePhotoContainer');
+                if (photoContainer) {
+                    photoContainer.innerHTML = `<img src="${e.target.result}" alt="Profile Photo" id="profilePhotoImg">`;
+                    console.log('✅ Photo preview updated in container');
+                } else {
+                    console.log('❌ Photo container not found!');
+                }
+                
+                // Update button to show pending status
+                const uploadBtn = document.querySelector('.photo-upload-btn');
+                if (uploadBtn) {
+                    uploadBtn.textContent = '📷 Photo Selected (Pending)';
+                    uploadBtn.style.backgroundColor = '#FFC107';
+                    console.log('✅ Upload button updated');
+                } else {
+                    console.log('❌ Upload button not found!');
+                }
+                
+                // Show message that photo will be saved when Save Profile is clicked
+                alert('📸 Photo selected! Click "Save Profile" to upload.');
+            };
+            reader.readAsDataURL(file);
+            
+            // Clear file input
+            document.getElementById('photoUploadInput').value = '';
+        }
+
+        function deleteProfilePhoto() {
+            console.log('🗑️ deleteProfilePhoto called');
+            console.log('Current photo in pending changes:', pendingChanges.photo);
+            
+            // Only allow photo deletion in edit mode
+            if (!isEditMode) {
+                alert('⚠️ Please click "Edit Profile" first to delete a photo.');
+                console.log('❌ Not in edit mode');
+                return;
+            }
+            
+            // Check if there's actually a photo to delete
+            const photoContainer = document.getElementById('profilePhotoContainer');
+            const hasPhoto = photoContainer && photoContainer.querySelector('img');
+            
+            if (!hasPhoto && !pendingChanges.photo.file) {
+                alert('⚠️ No photo to delete.');
+                console.log('❌ No photo exists to delete');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to mark your profile photo for deletion?')) {
+                console.log('❌ User cancelled deletion');
+                return;
+            }
+
+            console.log('✅ Staging photo deletion...');
+
+            // Stage the photo deletion - don't delete yet
+            pendingChanges.photo.action = 'delete';
+            pendingChanges.photo.file = null;
+            pendingChanges.photo.preview = null;
+            
+            // Update the photo preview to show placeholder (reuse photoContainer from above)
+            if (photoContainer) {
+                photoContainer.innerHTML = '<span id="profilePhotoPlaceholder">Passport Size Photo</span>';
+            }
+            
+            // Update button to show pending status
+            const deleteBtn = document.querySelector('.photo-delete-btn');
+            if (deleteBtn) {
+                deleteBtn.textContent = '🗑️ Marked for Deletion (Pending)';
+                deleteBtn.style.backgroundColor = '#f44336';
+                deleteBtn.style.color = 'white';
+            }
+            
+            // Show message that deletion will happen when Save Profile is clicked
+            alert('🗑️ Photo marked for deletion! Click "Save Profile" to confirm.');
         }
     </script>
 </body>

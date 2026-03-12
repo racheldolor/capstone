@@ -5,7 +5,7 @@ require_once '../config/database.php';
 header('Content-Type: application/json');
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
 }

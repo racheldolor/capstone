@@ -73,8 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim($_POST['email'] ?? '');
         $address = trim($_POST['address'] ?? '');
         
-        // Equipment categories with specifications
+        // Equipment categories with specifications and quantities
         $equipment_details = [];
+        $approved_items_array = [];
         $selected_categories = $_POST['equipment_types'] ?? [];
         
         // Debug: Log what we received
@@ -84,20 +85,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($selected_categories as $category) {
             $specification_field = $category; // costumes, equipment, instruments, props, others
             $specification = trim($_POST[$specification_field] ?? '');
+            $qty_field = 'qty_' . $category;
+            $quantity = intval($_POST[$qty_field] ?? 1);
             
-            error_log("Category: $category, Specification: '$specification'");
+            // Ensure quantity is at least 1
+            if ($quantity < 1) $quantity = 1;
             
+            error_log("Category: $category, Specification: '$specification', Qty: $quantity");
+            
+            // Build item name for display
             if (!empty($specification)) {
-                $equipment_details[] = ucfirst($category) . ': ' . $specification;
+                $equipment_details[] = ucfirst($category) . ': ' . $specification . ' (Qty: ' . $quantity . ')';
             } else {
-                $equipment_details[] = ucfirst($category);
+                $equipment_details[] = ucfirst($category) . ' (Qty: ' . $quantity . ')';
             }
+            
+            // Build approved_items array structure for later approval
+            $approved_items_array[] = [
+                'category' => $category,
+                'name' => !empty($specification) ? $specification : ucfirst($category),
+                'quantity' => $quantity
+            ];
         }
         
         // Create item name from selected categories and their specifications
         $item_name = !empty($equipment_details) ? implode('; ', $equipment_details) : 'General Equipment Request';
         
+        // Convert approved_items to JSON for storage
+        $approved_items_json = json_encode($approved_items_array);
+        
         error_log("Final item_name: " . $item_name);
+        error_log("Approved items JSON: " . $approved_items_json);
         
         $date_of_request = $_POST['date_of_request'] ?? date('Y-m-d');
         $dates_of_use = trim($_POST['dates_of_use'] ?? '');
@@ -134,9 +152,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("
             INSERT INTO borrowing_requests (
                 student_id, student_campus, student_name, student_email,
-                student_contact, item_id, item_name, purpose, start_date, end_date, 
+                student_contact, item_id, item_name, approved_items, purpose, start_date, end_date, 
                 dates_of_use, venue, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
         
         $result = $stmt->execute([
@@ -147,6 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $contact_number,
             $default_item_id,
             $item_name,
+            $approved_items_json,
             $purpose,
             $date_of_request,
             $estimated_return_date,
@@ -344,7 +363,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .checkbox-grid {
             display: grid;
-            grid-template-columns: 150px 1fr;
+            grid-template-columns: 150px 1fr 100px;
             gap: 1rem;
             align-items: start;
         }
@@ -403,6 +422,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .specification-inputs input:disabled {
+            background: #f5f5f5;
+            color: #999;
+        }
+
+        .quantity-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .quantity-inputs input {
+            padding: 0.5rem;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            height: 42px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .quantity-inputs input:disabled {
             background: #f5f5f5;
             color: #999;
         }
@@ -682,9 +722,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             /* Checkbox Grid */
             .checkbox-grid {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
-                align-items: start;
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
             }
 
             .checkbox-list {
@@ -707,6 +747,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flex-direction: column;
                 gap: 0.35rem;
                 font-size: 0.9rem;
+                width: 100%;
+            }
+            
+            .specification-inputs,
+            .quantity-inputs {
                 width: 100%;
             }
 
@@ -962,6 +1007,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <input type="text" name="props" placeholder="Specify props..." readonly style="background: #f5f5f5; color: #999;">
                                     <input type="text" name="others" placeholder="Specify others..." readonly style="background: #f5f5f5; color: #999;">
                                 </div>
+                                <div class="quantity-inputs">
+                                    <input type="number" name="qty_costumes" min="1" value="1" disabled style="background: #f5f5f5; color: #999;">
+                                    <input type="number" name="qty_equipment" min="1" value="1" disabled style="background: #f5f5f5; color: #999;">
+                                    <input type="number" name="qty_instruments" min="1" value="1" disabled style="background: #f5f5f5; color: #999;">
+                                    <input type="number" name="qty_props" min="1" value="1" disabled style="background: #f5f5f5; color: #999;">
+                                    <input type="number" name="qty_others" min="1" value="1" disabled style="background: #f5f5f5; color: #999;">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1036,17 +1088,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'props': document.querySelector('input[name="props"]'),
                 'others': document.querySelector('input[name="others"]')
             };
+            const qtyInputs = {
+                'costumes': document.querySelector('input[name="qty_costumes"]'),
+                'equipment': document.querySelector('input[name="qty_equipment"]'),
+                'instruments': document.querySelector('input[name="qty_instruments"]'),
+                'props': document.querySelector('input[name="qty_props"]'),
+                'others': document.querySelector('input[name="qty_others"]')
+            };
 
             checkboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', function() {
                     const value = this.value;
                     const input = inputs[value];
+                    const qtyInput = qtyInputs[value];
+                    
                     if (input) {
                         input.readOnly = !this.checked;
                         input.style.backgroundColor = this.checked ? '#fff' : '#f5f5f5';
                         input.style.color = this.checked ? '#333' : '#999';
                         if (!this.checked) {
                             input.value = '';
+                        }
+                    }
+                    
+                    if (qtyInput) {
+                        qtyInput.disabled = !this.checked;
+                        qtyInput.style.backgroundColor = this.checked ? '#fff' : '#f5f5f5';
+                        qtyInput.style.color = this.checked ? '#333' : '#999';
+                        if (!this.checked) {
+                            qtyInput.value = '1';
                         }
                     }
                 });

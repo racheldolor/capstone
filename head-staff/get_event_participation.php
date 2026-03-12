@@ -2,8 +2,8 @@
 session_start();
 require_once '../config/database.php';
 
-// Check if user is authenticated as head or staff
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+// Check if user is authenticated as head
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin', 'director'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -16,7 +16,7 @@ $user_campus = $_SESSION['user_campus'] ?? null;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 $canManage = !$isCentralHead;
 
 // Build campus filter for SQL
@@ -51,7 +51,7 @@ try {
         " . $whereClause . "
         GROUP BY e.id, e.title, e.description, e.location, e.start_date, e.end_date, 
                  e.category, e.cultural_groups, e.status, e.campus, e.created_at
-        ORDER BY e.created_at DESC
+        ORDER BY e.start_date ASC
     ");
     
     $stmt->execute($campusParams);

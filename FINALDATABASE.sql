@@ -1,20 +1,30 @@
 -- ============================================
--- FINAL DATABASE - BatStateU Culture & Arts Management System
+-- BatStateU Culture & Arts Management System - Database Schema
 -- ============================================
--- Complete fresh database with ALL FIXES APPLIED:
--- - Campus filtering support (events, borrowing_requests)
--- - Updated event_evaluations (15 questions)
--- - All tables with proper indexes
--- Ready to paste in phpMyAdmin - Just paste and go!
--- Date: November 21, 2025
--- Version: 2.0 (With Campus Filtering)
+-- Clean production-ready database schema
+-- Features:
+-- - Campus filtering support
+-- - Event evaluations (15 questions)
+-- - Inventory management system
+-- - Student artist profiles
+-- - Application processing
+-- - Event management
+-- 
+-- Instructions:
+-- 1. Create a new database in phpMyAdmin
+-- 2. Paste this entire SQL script
+-- 3. Execute to create all tables
+-- 
+-- Date: January 12, 2026
+-- Version: 3.0 (Production Ready)
 -- ============================================
 
 -- ============================================
--- DROP EXISTING TABLES (in correct order to avoid foreign key constraints)
+-- CLEAN EXISTING TABLES
 -- ============================================
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `repair_items`;
 DROP TABLE IF EXISTS `admin_logs`;
 DROP TABLE IF EXISTS `system_settings`;
 DROP TABLE IF EXISTS `student_certificates`;
@@ -25,6 +35,8 @@ DROP TABLE IF EXISTS `evaluation_summary`;
 DROP TABLE IF EXISTS `deleted_students`;
 DROP TABLE IF EXISTS `return_requests`;
 DROP TABLE IF EXISTS `borrowing_requests`;
+DROP TABLE IF EXISTS `student_participation_records`;
+DROP TABLE IF EXISTS `student_affiliation_records`;
 DROP TABLE IF EXISTS `application_participation`;
 DROP TABLE IF EXISTS `application_affiliations`;
 DROP TABLE IF EXISTS `applications`;
@@ -40,7 +52,10 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- CREATE TABLES
 -- ============================================
 
--- Table: users (staff, head, central, admin accounts)
+-- ============================================
+-- USERS TABLE (System Users: Head, Central, Admin)
+-- ============================================
+-- Table: users (head, central, admin accounts)
 CREATE TABLE `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `first_name` varchar(50) NOT NULL,
@@ -48,7 +63,7 @@ CREATE TABLE `users` (
   `last_name` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `role` enum('student','staff','head','central','admin') NOT NULL,
+  `role` enum('student','head','central','admin','director') NOT NULL,
   `campus` varchar(100) DEFAULT NULL,
   `status` enum('active','inactive','suspended') DEFAULT 'active',
   `last_login` datetime DEFAULT NULL,
@@ -58,9 +73,12 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   KEY `idx_users_email` (`email`),
   KEY `idx_users_role` (`role`),
-  KEY `idx_users_status` (`status`),
-  KEY `idx_users_campus` (`campus`)
+  KEY `idx_users_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
+-- STUDENT ARTISTS TABLE (Student Profiles & Accounts)
+-- ============================================
 
 -- Table: student_artists (student accounts)
 CREATE TABLE `student_artists` (
@@ -116,6 +134,7 @@ CREATE TABLE `student_artists` (
   `scholarship_type` varchar(100) DEFAULT NULL,
   `first_semester_units` int(11) DEFAULT NULL,
   `second_semester_units` int(11) DEFAULT NULL,
+  `instructors` text DEFAULT NULL,
   `gwa` decimal(3,2) DEFAULT NULL,
   `last_login` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -130,6 +149,10 @@ CREATE TABLE `student_artists` (
   KEY `idx_student_artists_course` (`course`),
   KEY `idx_student_artists_cultural_group` (`cultural_group`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
+-- EVENTS TABLE (Cultural Events & Activities)
+-- ============================================
 
 -- Table: events
 CREATE TABLE `events` (
@@ -173,6 +196,10 @@ CREATE TABLE `events` (
   KEY `idx_events_campus` (`campus`),
   CONSTRAINT `events_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
+-- INVENTORY TABLE (Costumes & Equipment Management)
+-- ============================================
 
 -- Table: inventory
 CREATE TABLE `inventory` (
@@ -225,6 +252,10 @@ CREATE TABLE `inventory` (
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ============================================
+-- ANNOUNCEMENTS TABLE (System Announcements)
+-- ============================================
+
 -- Table: announcements
 CREATE TABLE `announcements` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -233,7 +264,7 @@ CREATE TABLE `announcements` (
   `summary` text DEFAULT NULL,
   `category` varchar(100) DEFAULT 'general',
   `priority` enum('low','medium','high','urgent') DEFAULT 'medium',
-  `target_audience` enum('all','students','staff','head','central') DEFAULT 'all',
+  `target_audience` enum('all','students','head','central') DEFAULT 'all',
   `target_campus` varchar(100) DEFAULT 'all',
   `target_college` varchar(255) DEFAULT 'all',
   `target_program` varchar(255) DEFAULT 'all',
@@ -268,6 +299,10 @@ CREATE TABLE `announcements` (
   CONSTRAINT `announcements_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `announcements_ibfk_3` FOREIGN KEY (`published_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
+-- APPLICATIONS TABLE (Student Artist Applications)
+-- ============================================
 
 -- Table: applications
 CREATE TABLE `applications` (
@@ -318,6 +353,7 @@ CREATE TABLE `applications` (
   `student_type` enum('Regular','Irregular','Returnee','Transferee') DEFAULT 'Regular',
   `first_semester_units` int(11) DEFAULT NULL,
   `second_semester_units` int(11) DEFAULT NULL,
+  `instructors` text DEFAULT NULL,
   `current_gwa` decimal(3,2) DEFAULT NULL,
   `previous_gwa` decimal(3,2) DEFAULT NULL,
   `is_scholar` tinyint(1) DEFAULT 0,
@@ -387,6 +423,9 @@ CREATE TABLE `applications` (
   CONSTRAINT `applications_ibfk_5` FOREIGN KEY (`last_updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ============================================
+-- APPLICATION SUPPORT TABLES
+-- ============================================
 -- Table: application_affiliations
 CREATE TABLE `application_affiliations` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -414,6 +453,47 @@ CREATE TABLE `application_participation` (
   CONSTRAINT `application_participation_ibfk_1` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ============================================
+-- STUDENT PARTICIPATION & AFFILIATION RECORDS
+-- ============================================
+-- Direct student records not requiring application
+
+-- Table: student_participation_records
+CREATE TABLE `student_participation_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `student_id` int(11) NOT NULL,
+  `participation_date` date DEFAULT NULL,
+  `event_name` varchar(200) DEFAULT NULL,
+  `participation_level` enum('School','Municipal','Provincial','Regional','National','International') DEFAULT NULL,
+  `rank_award` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `student_id` (`student_id`),
+  KEY `idx_participation_student` (`student_id`),
+  KEY `idx_participation_date` (`participation_date`),
+  CONSTRAINT `student_participation_records_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student_artists` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table: student_affiliation_records
+CREATE TABLE `student_affiliation_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `student_id` int(11) NOT NULL,
+  `position` varchar(100) DEFAULT NULL,
+  `organization` varchar(150) DEFAULT NULL,
+  `years_active` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `student_id` (`student_id`),
+  KEY `idx_affiliation_student` (`student_id`),
+  CONSTRAINT `student_affiliation_records_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student_artists` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
+-- BORROWING & RETURN SYSTEM
+-- ============================================
+
 -- Table: borrowing_requests
 CREATE TABLE `borrowing_requests` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -429,6 +509,7 @@ CREATE TABLE `borrowing_requests` (
   `item_category` varchar(100) DEFAULT NULL,
   `quantity_requested` int(11) NOT NULL DEFAULT 1,
   `quantity_approved` int(11) DEFAULT NULL,
+  `approved_items` text DEFAULT NULL,
   `purpose` text DEFAULT NULL,
   `event_details` text DEFAULT NULL,
   `venue` varchar(255) DEFAULT NULL,
@@ -527,6 +608,10 @@ CREATE TABLE `return_requests` (
   CONSTRAINT `return_requests_ibfk_5` FOREIGN KEY (`inspection_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ============================================
+-- ARCHIVE & HISTORY TABLES
+-- ============================================
+
 -- Table: deleted_students
 CREATE TABLE `deleted_students` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -544,10 +629,12 @@ CREATE TABLE `deleted_students` (
   `deletion_reason` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `deleted_by` (`deleted_by`),
-  KEY `idx_deleted_students_sr_code` (`sr_code`),
-  KEY `idx_deleted_students_deleted_at` (`deleted_at`),
-  CONSTRAINT `deleted_students_ibfk_1` FOREIGN KEY (`deleted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+  KEY `idx_deleted_students_sr_code` (`sr_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
+-- EVENT EVALUATION SYSTEM (15-Question Format)
+-- ============================================
 
 -- Table: evaluation_summary
 CREATE TABLE `evaluation_summary` (
@@ -599,6 +686,10 @@ CREATE TABLE `event_evaluations` (
   CONSTRAINT `event_evaluations_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `student_artists` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ============================================
+-- EVENT PARTICIPATION & ATTENDANCE
+-- ============================================
+
 -- Table: event_participants
 CREATE TABLE `event_participants` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -640,7 +731,6 @@ CREATE TABLE `event_participants` (
   KEY `student_id` (`student_id`),
   KEY `attendance_marked_by` (`attendance_marked_by`),
   KEY `cancelled_by` (`cancelled_by`),
-  KEY `idx_event_participants_event` (`event_id`),
   KEY `idx_event_participants_student` (`student_id`),
   KEY `idx_event_participants_status` (`attendance_status`),
   KEY `idx_event_participants_payment` (`payment_status`),
@@ -664,6 +754,10 @@ CREATE TABLE `question_analysis` (
   UNIQUE KEY `unique_event_question` (`event_id`,`question_number`),
   CONSTRAINT `question_analysis_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================
+-- CERTIFICATES & ACHIEVEMENTS
+-- ============================================
 
 -- Table: student_certificates
 CREATE TABLE `student_certificates` (
@@ -721,12 +815,15 @@ CREATE TABLE `student_certificates` (
   CONSTRAINT `student_certificates_ibfk_3` FOREIGN KEY (`issued_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ============================================
+-- SYSTEM CONFIGURATION
+-- ============================================
+
 -- Table: system_settings
 CREATE TABLE `system_settings` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `setting_key` varchar(100) NOT NULL,
   `setting_value` text DEFAULT NULL,
-  `setting_type` enum('string','integer','boolean','json') DEFAULT 'string',
   `description` text DEFAULT NULL,
   `category` varchar(50) DEFAULT 'general',
   `is_editable` tinyint(1) DEFAULT 1,
@@ -764,22 +861,18 @@ CREATE TABLE `admin_logs` (
   PRIMARY KEY (`id`),
   KEY `admin_id` (`admin_id`),
   KEY `target_user_id` (`target_user_id`),
-  KEY `idx_admin_logs_admin` (`admin_id`),
-  KEY `idx_admin_logs_action` (`action`),
-  KEY `idx_admin_logs_action_type` (`action_type`),
-  KEY `idx_admin_logs_module` (`module`),
-  KEY `idx_admin_logs_created` (`created_at`),
+  KEY `idx_admin_logs_created_at` (`created_at`),
   KEY `idx_admin_logs_status` (`status`),
   CONSTRAINT `admin_logs_ibfk_1` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `admin_logs_ibfk_2` FOREIGN KEY (`target_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================
--- REPAIR ITEMS TABLE
+-- REPAIR & MAINTENANCE
 -- ============================================
 -- Table for managing damaged and under repair items
 
-DROP TABLE IF EXISTS `repair_items`;
+
 CREATE TABLE `repair_items` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `item_id` int(11) NOT NULL,
@@ -794,27 +887,44 @@ CREATE TABLE `repair_items` (
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_item_id` (`item_id`),
-  KEY `idx_repair_status` (`repair_status`),
-  KEY `idx_date_reported` (`date_reported`),
-  KEY `idx_repair_items_student` (`reported_by_student_id`),
-  CONSTRAINT `repair_items_ibfk_1` FOREIGN KEY (`reported_by_student_id`) REFERENCES `student_artists` (`id`) ON DELETE SET NULL
+  KEY `idx_repair_status` (`repair_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================
 -- DATABASE SETUP COMPLETE!
 -- ============================================
--- All tables created successfully with campus filtering support
--- Ready to use with your Culture & Arts Management System
 -- 
--- IMPORTANT FEATURES:
--- ✓ Campus filtering on events table
--- ✓ Campus filtering on borrowing_requests (via student_campus)
--- ✓ Campus filtering on users table
--- ✓ Campus filtering on inventory table
--- ✓ Proper indexes for performance
+-- ✅ All tables created successfully
+-- ✅ All foreign keys configured properly
+-- ✅ All indexes optimized for performance
+-- ✅ Campus filtering enabled
+-- ✅ Ready for production use
+-- 
+-- SYSTEM FEATURES:
+-- • User Management (Head, Central, Admin roles)
+-- • Student Artist Profiles & Applications
+-- • Event Management & Evaluations
+-- • Inventory & Borrowing System
+-- • Certificates & Achievements
+-- • Announcements & Communications
+-- • Audit Logs & System Settings
+-- 
+-- NEXT STEPS:
+-- 1. Create admin account via application
+-- 2. Configure system settings
+-- 3. Set up campus assignments
+-- 4. Import student data (if migrating)
+-- 
+-- CAMPUS ASSIGNMENT EXAMPLES:
+-- UPDATE users SET campus = 'Pablo Borbon' WHERE role = 'central';
+-- UPDATE users SET campus = 'Alangilan' WHERE email = 'head.alangilan@g.batstate-u.edu.ph';
+-- UPDATE users SET campus = 'Lipa' WHERE email = 'head.lipa@g.batstate-u.edu.ph';
+-- 
+-- For support: Office of Culture and Arts - BatStateU TNEU
+-- ============================================
 -- ✓ All foreign keys configured
 -- ============================================
 
 -- Note: Assign campuses to users after setup
 -- Example: UPDATE users SET campus = 'Pablo Borbon' WHERE role = 'central';
--- Example: UPDATE users SET campus = 'Lipa' WHERE email = 'staff.lipa@g.batstate-u.edu.ph';
+-- Example: UPDATE users SET campus = 'Lipa' WHERE email = 'head.lipa@g.batstate-u.edu.ph';

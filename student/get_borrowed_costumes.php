@@ -56,11 +56,15 @@ try {
                 if (is_array($approved_items) && count($approved_items) > 0) {
                     // Create an entry for each approved item
                     foreach ($approved_items as $approved_item) {
+                        // Clean item name - remove category prefixes
+                        $cleanItemName = $approved_item['name'];
+                        $cleanItemName = preg_replace('/^(Costumes?|Equipment|Instruments?|Props?|Others?):\s*/i', '', $cleanItemName);
+                        
                         $all_requests[] = [
                             'id' => $request['id'],
                             'request_id' => $request['id'],
                             'item_id' => $approved_item['id'],
-                            'item_name' => $approved_item['name'],
+                            'item_name' => $cleanItemName,
                             'quantity' => $approved_item['quantity'],
                             'item_type' => $request['item_category'],
                             'category' => $request['item_category'],
@@ -73,17 +77,18 @@ try {
                             'due_date' => $request['due_date'] ?? $request['estimated_return_date'],
                             'status' => $request['status'],
                             'review_notes' => $request['review_notes'],
-                            'requested_item' => $request['item_name'],
+                            'requested_item' => preg_replace('/^(Costumes?|Equipment|Instruments?|Props?|Others?):\s*/i', '', $request['item_name']),
                             'display_type' => 'approved_item'
                         ];
                     }
                 } else {
                     // Fallback to old behavior if approved_items is empty
+                    $cleanItemName = preg_replace('/^(Costumes?|Equipment|Instruments?|Props?|Others?):\s*/i', '', $request['item_name']);
                     $all_requests[] = [
                         'id' => $request['id'],
                         'request_id' => $request['id'],
                         'item_id' => $request['item_id'],
-                        'item_name' => $request['item_name'],
+                        'item_name' => $cleanItemName,
                         'item_type' => $request['item_category'],
                         'category' => $request['item_category'],
                         'condition' => null,
@@ -100,11 +105,12 @@ try {
                 }
             } else {
                 // Fallback to old behavior if approved_items is null
+                $cleanItemName = preg_replace('/^(Costumes?|Equipment|Instruments?|Props?|Others?):\s*/i', '', $request['item_name']);
                 $all_requests[] = [
                     'id' => $request['id'],
                     'request_id' => $request['id'],
                     'item_id' => $request['item_id'],
-                    'item_name' => $request['item_name'],
+                    'item_name' => $cleanItemName,
                     'item_type' => $request['item_category'],
                     'category' => $request['item_category'],
                     'condition' => null,
@@ -121,11 +127,12 @@ try {
             }
         } else {
             // For pending/rejected requests - show what they requested
+            $cleanItemName = preg_replace('/^(Costumes?|Equipment|Instruments?|Props?|Others?):\s*/i', '', $request['item_name'] ?? 'Requested item');
             $all_requests[] = [
                 'id' => $request['id'],
                 'request_id' => $request['id'],
                 'item_id' => $request['item_id'],
-                'item_name' => $request['item_name'] ?? 'Requested item',
+                'item_name' => $cleanItemName,
                 'item_type' => $request['item_category'] ?? 'request',
                 'category' => $request['item_category'] ?? 'mixed',
                 'condition' => null,

@@ -11,7 +11,22 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['centra
 // RBAC: Get user's campus and determine access level
 $user_role = $_SESSION['user_role'] ?? '';
 $user_email = $_SESSION['user_email'] ?? '';
-$user_campus = $_SESSION['user_campus'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
+
+// Display campus name
+$display_campus = $user_campus;
 
 // Central Head emails (view-only access)
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
@@ -139,6 +154,66 @@ $pdo = getDBConnection();
             z-index: 50;
             overflow-y: auto;
             overflow-x: hidden;
+        }
+
+        .sidebar-greeting {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-greeting::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting h3 {
+            margin: 0 0 0.5rem 0;
+            color: white;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            line-height: 1.2;
+        }
+
+        .greeting-hi {
+            font-size: 1.8rem;
+            font-weight: 400;
+        }
+
+        .greeting-name {
+            font-size: 1.8rem;
+        }
+
+        .sidebar-greeting p {
+            margin: 0 0 0 0.5rem;
+            font-style: bold;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.95);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
         }
 
         .nav-menu {
@@ -493,23 +568,10 @@ $pdo = getDBConnection();
             <h1 class="header-title">Culture and Arts - Central Dashboard</h1>
         </div>
         <div class="header-right">
-            <div class="user-info">
-                <span>👤</span>
-                <?php 
-                $first_name = explode(' ', $_SESSION['user_name'])[0];
-                $role_display = strtoupper($user_role);
-                ?>
-                <span><?= htmlspecialchars($first_name) ?></span>
-                <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
-                <?php if ($isCentralHead): ?>
-                    <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
-                <?php endif; ?>
-                <?php if ($canViewAll && !$isCentralHead): ?>
-                    <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">ALL CAMPUSES</span>
-                <?php elseif (!$canViewAll && $user_campus): ?>
-                    <span style="background: #2196f3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($user_campus) ?></span>
-                <?php endif; ?>
-            </div>
+            <?php 
+            $first_name = explode(' ', $_SESSION['user_name'])[0];
+            $role_display = strtoupper($user_role);
+            ?>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
@@ -518,6 +580,13 @@ $pdo = getDBConnection();
     <div class="main-container">
         <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-greeting">
+                <h3>
+                    <span class="greeting-hi">Hi,</span>
+                    <span class="greeting-name"><?= htmlspecialchars($first_name) ?></span>
+                </h3>
+                <p><?= htmlspecialchars($role_display) ?> - <?= htmlspecialchars($display_campus) ?></p>
+            </div>
             <nav>
                 <ul class="nav-menu">
                     <li class="nav-item">

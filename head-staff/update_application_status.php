@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
@@ -12,11 +12,26 @@ if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head',
 // RBAC: Determine access level
 $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
-$user_campus = $_SESSION['user_campus'] ?? null;
+$user_campus_raw = $_SESSION['user_campus'] ?? null;
+
+// Normalize campus names to full format
+$campus_name_map = [
+    'Malvar' => 'JPLPC Malvar',
+    'Nasugbu' => 'ARASOF Nasugbu',
+    'Pablo Borbon' => 'Pablo Borbon',
+    'Alangilan' => 'Alangilan',
+    'Lipa' => 'Lipa',
+    'JPLPC Malvar' => 'JPLPC Malvar',
+    'ARASOF Nasugbu' => 'ARASOF Nasugbu'
+];
+$user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
 $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
 $isCentralHead = in_array($user_email, $centralHeadEmails);
 $canManage = !$isCentralHead;
+
+// Pablo Borbon Head users have full management access across all campuses
+$isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 
 // Check write permission
 if (!$canManage) {
@@ -66,9 +81,24 @@ try {
         }
         
         // Verify campus access for campus-specific users
-        if ($user_role !== 'admin' && $user_role !== 'central') {
+        // Pablo Borbon heads can approve applications for any campus
+        if ($user_role !== 'admin' && !$isPabloBorbonHead) {
             if ($user_campus && $application['campus'] !== $user_campus) {
-                throw new Exception('You do not have permission to update this application');
+                // Check for campus name variations (short vs full names)
+                $allowAccess = false;
+                if ($user_campus === 'JPLPC Malvar' && $application['campus'] === 'Malvar') {
+                    $allowAccess = true;
+                } elseif ($user_campus === 'Malvar' && $application['campus'] === 'JPLPC Malvar') {
+                    $allowAccess = true;
+                } elseif ($user_campus === 'ARASOF Nasugbu' && $application['campus'] === 'Nasugbu') {
+                    $allowAccess = true;
+                } elseif ($user_campus === 'Nasugbu' && $application['campus'] === 'ARASOF Nasugbu') {
+                    $allowAccess = true;
+                }
+                
+                if (!$allowAccess) {
+                    throw new Exception('You do not have permission to update this application');
+                }
             }
         }
         
@@ -132,10 +162,11 @@ try {
                             performance_type,
                             first_semester_units,
                             second_semester_units,
+                            instructors,
                             status,
                             is_archived,
                             created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ");
                     
                     // Generate default password using SR code (student can change later)
@@ -184,6 +215,7 @@ try {
                         $application['performance_type'],
                         $application['first_semester_units'],
                         $application['second_semester_units'],
+                        $application['instructors'],
                         $studentStatus,
                         $isArchived
                     ]);
@@ -216,9 +248,10 @@ try {
                             performance_type,
                             first_semester_units,
                             second_semester_units,
+                            instructors,
                             status,
                             created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ");
                     
                     $stmt->execute([
@@ -246,11 +279,65 @@ try {
                         $application['performance_type'],
                         $application['first_semester_units'],
                         $application['second_semester_units'],
+                        $application['instructors'],
                         $studentStatus
                     ]);
                 }
                 
                 $studentId = $pdo->lastInsertId();
+                
+                // Copy profile photo to student_artists if exists
+                if (!empty($application['profile_photo'])) {
+                    $stmt = $pdo->prepare("UPDATE student_artists SET profile_photo = ? WHERE id = ?");
+                    $stmt->execute([$application['profile_photo'], $studentId]);
+                }
+                
+                // Copy participation records from application_participation to student_participation_records
+                $stmt = $pdo->prepare("
+                    SELECT participation_date, event_name, participation_level, rank_award 
+                    FROM application_participation 
+                    WHERE application_id = ?
+                ");
+                $stmt->execute([$applicationId]);
+                $participationRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($participationRecords as $record) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO student_participation_records 
+                        (student_id, participation_date, event_name, participation_level, rank_award)
+                        VALUES (?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $studentId,
+                        $record['participation_date'],
+                        $record['event_name'],
+                        $record['participation_level'],
+                        $record['rank_award']
+                    ]);
+                }
+                
+                // Copy affiliation records from application_affiliations to student_affiliation_records
+                $stmt = $pdo->prepare("
+                    SELECT position, organization, years_active 
+                    FROM application_affiliations 
+                    WHERE application_id = ?
+                ");
+                $stmt->execute([$applicationId]);
+                $affiliationRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($affiliationRecords as $record) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO student_affiliation_records 
+                        (student_id, position, organization, years_active)
+                        VALUES (?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $studentId,
+                        $record['position'],
+                        $record['organization'],
+                        $record['years_active']
+                    ]);
+                }
             }
         }
         
