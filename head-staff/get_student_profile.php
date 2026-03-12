@@ -45,6 +45,17 @@ try {
     $stmt->execute([$student_id]);
     $participation = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Get competition records (NEW - Section IV)
+    $stmt = $pdo->prepare("
+        SELECT competition_date as date, event_name as title, 
+               competition_level as level, rank_award as rank
+        FROM student_competition_records
+        WHERE student_id = ?
+        ORDER BY competition_date DESC
+    ");
+    $stmt->execute([$student_id]);
+    $competition = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
     // Get affiliation records
     $stmt = $pdo->prepare("
         SELECT position, organization, years_active as year
@@ -55,8 +66,9 @@ try {
     $stmt->execute([$student_id]);
     $affiliation = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Add participation and affiliation to student data
+    // Add participation, competition, and affiliation to student data
     $student['participation'] = $participation;
+    $student['competition'] = $competition;
     $student['affiliation'] = $affiliation;
     
     // Store the student_id for reference

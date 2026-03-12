@@ -1504,6 +1504,7 @@ try {
         }
 
         .performer-profile-card .participation-table,
+        .performer-profile-card .competition-table,
         .performer-profile-card .affiliation-table {
             width: 100%;
             border-collapse: collapse;
@@ -1512,8 +1513,10 @@ try {
         }
 
         .performer-profile-card .participation-table th,
+        .performer-profile-card .competition-table th,
         .performer-profile-card .affiliation-table th,
         .performer-profile-card .participation-table td,
+        .performer-profile-card .competition-table td,
         .performer-profile-card .affiliation-table td {
             border: 1px solid #333;
             padding: 0.75rem 0.5rem;
@@ -1521,6 +1524,7 @@ try {
         }
 
         .performer-profile-card .participation-table th,
+        .performer-profile-card .competition-table th,
         .performer-profile-card .affiliation-table th {
             background: #f8f9fa;
             font-weight: 600;
@@ -3945,6 +3949,20 @@ try {
                 participationRows = '<tr><td colspan="4" style="text-align: center; color: #666;">No participation records</td></tr>';
             }
 
+            let competitionRows = '';
+            if (student.competition && student.competition.length > 0) {
+                competitionRows = student.competition.map(c => `
+                    <tr>
+                        <td>${c.date || ''}</td>
+                        <td>${c.title || ''}</td>
+                        <td>${c.level || ''}</td>
+                        <td>${c.rank || ''}</td>
+                    </tr>
+                `).join('');
+            } else {
+                competitionRows = '<tr><td colspan="4" style="text-align: center; color: #666;">No competition records</td></tr>';
+            }
+
             let affiliationRows = '';
             if (student.affiliation && student.affiliation.length > 0) {
                 affiliationRows = student.affiliation.map(a => `
@@ -4119,14 +4137,14 @@ try {
 
                         <!-- Participation Section -->
                         <div class="form-section">
-                            <h3 class="section-title">PARTICIPATION IN ARTS-RELATED ACTIVITIES <span class="instruction">(Last Five Years)</span></h3>
+                            <h3 class="section-title">III. PARTICIPATION IN THE FIELD OF INTEREST / ACHIEVEMENTS <span class="instruction">(Last Five Years)</span></h3>
                             <table class="participation-table">
                                 <thead>
                                     <tr>
                                         <th>DATE</th>
-                                        <th>TITLE/NATURE OF ACTIVITY</th>
-                                        <th>LEVEL <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
-                                        <th>RANK/AWARD</th>
+                                        <th>EVENT</th>
+                                        <th>LEVEL <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>RANK (PLACE)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -4135,9 +4153,27 @@ try {
                             </table>
                         </div>
 
+                        <!-- Competition Section (NEW) -->
+                        <div class="form-section">
+                            <h3 class="section-title">IV. COMPETITION PARTICIPATED</h3>
+                            <table class="competition-table">
+                                <thead>
+                                    <tr>
+                                        <th>DATE</th>
+                                        <th>EVENT</th>
+                                        <th>LEVEL <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>RANK (PLACE)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${competitionRows}
+                                </tbody>
+                            </table>
+                        </div>
+
                         <!-- Affiliation Section -->
                         <div class="form-section">
-                            <h3 class="section-title">AFFILIATION/MEMBERSHIP IN ARTS ORGANIZATIONS</h3>
+                            <h3 class="section-title">V. AFFILIATION TO ORGANIZATIONS</h3>
                             <table class="affiliation-table">
                                 <thead>
                                     <tr>

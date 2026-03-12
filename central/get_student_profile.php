@@ -60,6 +60,43 @@ try {
     // Add desired cultural group to student data
     $student['desired_cultural_group'] = $desired_group;
     
+    // Get participation records
+    $stmt = $pdo->prepare("
+        SELECT participation_date as date, event_name as title, 
+               participation_level as level, rank_award as rank
+        FROM student_participation_records
+        WHERE student_id = ?
+        ORDER BY participation_date DESC
+    ");
+    $stmt->execute([$student_id]);
+    $participation = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get competition records (NEW - Section IV)
+    $stmt = $pdo->prepare("
+        SELECT competition_date as date, event_name as title, 
+               competition_level as level, rank_award as rank
+        FROM student_competition_records
+        WHERE student_id = ?
+        ORDER BY competition_date DESC
+    ");
+    $stmt->execute([$student_id]);
+    $competition = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get affiliation records
+    $stmt = $pdo->prepare("
+        SELECT position, organization, years_active as year
+        FROM student_affiliation_records
+        WHERE student_id = ?
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute([$student_id]);
+    $affiliation = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Add participation, competition, and affiliation to student data
+    $student['participation'] = $participation;
+    $student['competition'] = $competition;
+    $student['affiliation'] = $affiliation;
+    
     echo json_encode([
         'success' => true, 
         'student' => $student

@@ -36,8 +36,10 @@ DROP TABLE IF EXISTS `deleted_students`;
 DROP TABLE IF EXISTS `return_requests`;
 DROP TABLE IF EXISTS `borrowing_requests`;
 DROP TABLE IF EXISTS `student_participation_records`;
+DROP TABLE IF EXISTS `student_competition_records`;
 DROP TABLE IF EXISTS `student_affiliation_records`;
 DROP TABLE IF EXISTS `application_participation`;
+DROP TABLE IF EXISTS `application_competition`;
 DROP TABLE IF EXISTS `application_affiliations`;
 DROP TABLE IF EXISTS `applications`;
 DROP TABLE IF EXISTS `announcements`;
@@ -453,6 +455,20 @@ CREATE TABLE `application_participation` (
   CONSTRAINT `application_participation_ibfk_1` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Table: application_competition
+CREATE TABLE `application_competition` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `application_id` int(11) NOT NULL,
+  `competition_date` date DEFAULT NULL,
+  `event_name` varchar(200) DEFAULT NULL,
+  `competition_level` enum('School','Municipal','Provincial','Regional','National','International') DEFAULT NULL,
+  `rank_award` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `application_id` (`application_id`),
+  CONSTRAINT `application_competition_ibfk_1` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- ============================================
 -- STUDENT PARTICIPATION & AFFILIATION RECORDS
 -- ============================================
@@ -473,6 +489,23 @@ CREATE TABLE `student_participation_records` (
   KEY `idx_participation_student` (`student_id`),
   KEY `idx_participation_date` (`participation_date`),
   CONSTRAINT `student_participation_records_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student_artists` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table: student_competition_records
+CREATE TABLE `student_competition_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `student_id` int(11) NOT NULL,
+  `competition_date` date DEFAULT NULL,
+  `event_name` varchar(200) DEFAULT NULL,
+  `competition_level` enum('School','Municipal','Provincial','Regional','National','International') DEFAULT NULL,
+  `rank_award` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `student_id` (`student_id`),
+  KEY `idx_competition_student` (`student_id`),
+  KEY `idx_competition_date` (`competition_date`),
+  CONSTRAINT `student_competition_records_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student_artists` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table: student_affiliation_records

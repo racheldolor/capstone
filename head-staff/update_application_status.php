@@ -316,6 +316,30 @@ try {
                     ]);
                 }
                 
+                // Copy competition records from application_competition to student_competition_records (NEW - Section IV)
+                $stmt = $pdo->prepare("
+                    SELECT competition_date, event_name, competition_level, rank_award 
+                    FROM application_competition 
+                    WHERE application_id = ?
+                ");
+                $stmt->execute([$applicationId]);
+                $competitionRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($competitionRecords as $record) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO student_competition_records 
+                        (student_id, competition_date, event_name, competition_level, rank_award)
+                        VALUES (?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $studentId,
+                        $record['competition_date'],
+                        $record['event_name'],
+                        $record['competition_level'],
+                        $record['rank_award']
+                    ]);
+                }
+                
                 // Copy affiliation records from application_affiliations to student_affiliation_records
                 $stmt = $pdo->prepare("
                     SELECT position, organization, years_active 
