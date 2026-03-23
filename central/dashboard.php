@@ -3624,35 +3624,23 @@ try {
                 <div style="border-top: 1px solid #e0e0e0; padding-top: 1.5rem;">
                     <h3 style="color: #dc2626; margin-bottom: 1rem;">Cultural Group Assignment</h3>
                     
-                    ${!currentCulturalGroup && student.desired_cultural_group ? `
-                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 4px solid #17a2b8; border-radius: 4px;">
-                        <p style="margin: 0; color: #333;"><strong>Applied for:</strong> <span style="color: #17a2b8; font-weight: 600;">${student.desired_cultural_group}</span></p>
-                        <small style="color: #666; font-style: italic;">This is the cultural group the student originally wanted to join</small>
+                    ${!currentCulturalGroup && student.performance_type ? `
+                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
+                        <p style="margin: 0; color: #1565c0;"><strong>Applied For:</strong> <span style="color: #0d47a1; font-weight: 600;">${student.performance_type}</span></p>
+                        <small style="color: #1976d2; font-style: italic; display: block; margin-top: 0.25rem;">From application records</small>
                     </div>
                     ` : ''}
                     
                     <div style="display: flex; align-items: center; gap: 1rem;">
-                        <label for="culturalGroup" style="font-weight: 600;">Current Assignment:</label>
-                        <select id="culturalGroup" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
+                        <label for="culturalGroupSelect" style="font-weight: 600;">Current Assignment:</label>
+                        <select id="culturalGroupSelect" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
                             <option value="">Not Assigned</option>
-                            <option value="Dulaang Batangan" ${currentCulturalGroup === 'Dulaang Batangan' ? 'selected' : ''}>Dulaang Batangan</option>
-                            <option value="BatStateU Dance Company" ${currentCulturalGroup === 'BatStateU Dance Company' ? 'selected' : ''}>BatStateU Dance Company</option>
-                            <option value="Diwayanis Dance Theatre" ${currentCulturalGroup === 'Diwayanis Dance Theatre' ? 'selected' : ''}>Diwayanis Dance Theatre</option>
-                            <option value="BatStateU Band" ${currentCulturalGroup === 'BatStateU Band' ? 'selected' : ''}>BatStateU Band</option>
-                            <option value="Indak Yaman Dance Varsity" ${currentCulturalGroup === 'Indak Yaman Dance Varsity' ? 'selected' : ''}>Indak Yaman Dance Varsity</option>
-                            <option value="Ritmo Voice" ${currentCulturalGroup === 'Ritmo Voice' ? 'selected' : ''}>Ritmo Voice</option>
-                            <option value="Sandugo Dance Group" ${currentCulturalGroup === 'Sandugo Dance Group' ? 'selected' : ''}>Sandugo Dance Group</option>
-                            <option value="Areglo Band" ${currentCulturalGroup === 'Areglo Band' ? 'selected' : ''}>Areglo Band</option>
-                            <option value="Teatro Aliwana" ${currentCulturalGroup === 'Teatro Aliwana' ? 'selected' : ''}>Teatro Aliwana</option>
-                            <option value="The Levites" ${currentCulturalGroup === 'The Levites' ? 'selected' : ''}>The Levites</option>
-                            <option value="Melophiles" ${currentCulturalGroup === 'Melophiles' ? 'selected' : ''}>Melophiles</option>
-                            <option value="Sindayog" ${currentCulturalGroup === 'Sindayog' ? 'selected' : ''}>Sindayog</option>
                         </select>
                         ${student.status === 'suspended' ? 
                             `<button disabled style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: not-allowed; opacity: 0.6;" title="Cannot update assignment - student account is suspended">
                                 Update Assignment (Suspended)
                             </button>` :
-                            `<button onclick="updateCulturalGroup(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                            `<button onclick="updateCulturalGroupCentral(${student.id})" style="background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
                                 Update Assignment
                             </button>`
                         }
@@ -3661,6 +3649,88 @@ try {
             `;
             
             contentDiv.innerHTML = html;
+            
+            // Populate cultural groups dropdown
+            populateCulturalGroupsForCentral(currentCulturalGroup);
+        }
+
+        function populateCulturalGroupsForCentral(selectedGroup) {
+            const select = document.getElementById('culturalGroupSelect');
+            if (!select) return;
+
+            // Fetch cultural groups from server
+            fetch('get_cultural_groups.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.cultural_groups) {
+                        select.innerHTML = '<option value="">Not Assigned</option>';
+                        data.cultural_groups.forEach(group => {
+                            const option = document.createElement('option');
+                            option.value = group;
+                            option.textContent = group;
+                            if (group === selectedGroup) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    } else {
+                        // Fallback to hardcoded list if fetch fails
+                        const culturalGroups = [
+                            'Dulaang Batangan',
+                            'BatStateU Dance Company',
+                            'Diwayanis Dance Theatre',
+                            'BatStateU Band',
+                            'Indak Yaman Dance Varsity',
+                            'Ritmo Voice',
+                            'Sandugo Dance Group',
+                            'Areglo Band',
+                            'Teatro Aliwana',
+                            'The Levites',
+                            'Melophiles',
+                            'Sindayog'
+                        ];
+                        
+                        select.innerHTML = '<option value="">Not Assigned</option>';
+                        culturalGroups.forEach(group => {
+                            const option = document.createElement('option');
+                            option.value = group;
+                            option.textContent = group;
+                            if (group === selectedGroup) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching cultural groups:', error);
+                    // Fallback to hardcoded list
+                    const culturalGroups = [
+                        'Dulaang Batangan',
+                        'BatStateU Dance Company',
+                        'Diwayanis Dance Theatre',
+                        'BatStateU Band',
+                        'Indak Yaman Dance Varsity',
+                        'Ritmo Voice',
+                        'Sandugo Dance Group',
+                        'Areglo Band',
+                        'Teatro Aliwana',
+                        'The Levites',
+                        'Melophiles',
+                        'Sindayog'
+                    ];
+                    
+                    select.innerHTML = '<option value="">Not Assigned</option>';
+                    culturalGroups.forEach(group => {
+                        const option = document.createElement('option');
+                        option.value = group;
+                        option.textContent = group;
+                        if (group === selectedGroup) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                });
         }
 
         function getCurrentCampusFilter() {
@@ -3671,6 +3741,43 @@ try {
 
         function updateCulturalGroup(studentId) {
             const select = document.getElementById('culturalGroup');
+            const culturalGroup = select.value;
+            
+            fetch('update_cultural_group.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    student_id: studentId, 
+                    cultural_group: culturalGroup 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Cultural group assignment updated successfully!');
+                    // Force refresh cultural groups data with cache-busting
+                    setTimeout(() => {
+                        loadCulturalGroupDistribution('', getCurrentCampusFilter());
+                    }, 500);
+                    closeStudentModal();
+                    // Refresh the student list to show updated assignments
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    alert('Error updating cultural group: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error updating cultural group: ' + error.message);
+            });
+        }
+
+        // New function for modal profile view with different select ID
+        function updateCulturalGroupCentral(studentId) {
+            const select = document.getElementById('culturalGroupSelect');
             const culturalGroup = select.value;
             
             fetch('update_cultural_group.php', {

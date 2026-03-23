@@ -49,8 +49,70 @@ try {
     $stmt->execute([$app['id']]);
     $affiliations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get performance type / cultural group
-    $performance_type = $app['performance_type'] ?? $app['cultural_group'] ?? '';
+    // Get assigned cultural group first (authoritative for export)
+    $assigned_cultural_group = trim((string)($app['cultural_group'] ?? ''));
+
+    // Get original performance type from latest application (fallback only)
+    $application_performance_type = '';
+    if (!empty($app['sr_code'])) {
+      $stmt = $pdo->prepare("SELECT performance_type FROM applications WHERE sr_code = ? ORDER BY id DESC LIMIT 1");
+      $stmt->execute([$app['sr_code']]);
+      $latestApplication = $stmt->fetch(PDO::FETCH_ASSOC);
+      $application_performance_type = trim((string)($latestApplication['performance_type'] ?? ''));
+    }
+
+    $performance_type = '';
+    $performance_line_value = '';
+
+    $groupToTypeMap = [
+      'dulaang batangan' => 'Theater',
+      'batstateu dance company' => 'Dance',
+      'diwayanis dance theatre' => 'Dance',
+      'batstateu band' => 'Music',
+      'indak yaman dance varsity' => 'Dance',
+      'ritmo voice' => 'Music',
+      'sandugo dance group' => 'Dance',
+      'areglo band' => 'Music',
+      'teatro aliwana' => 'Theater',
+      'the levites' => 'Music',
+      'melophiles' => 'Music',
+      'sindayog' => 'Dance'
+    ];
+
+    if ($assigned_cultural_group !== '') {
+      $performance_line_value = $assigned_cultural_group;
+      $groupKey = strtolower($assigned_cultural_group);
+      $performance_type = $groupToTypeMap[$groupKey] ?? '';
+
+      if ($performance_type === '') {
+        if (stripos($assigned_cultural_group, 'dance') !== false || stripos($assigned_cultural_group, 'indak') !== false) {
+          $performance_type = 'Dance';
+        } elseif (stripos($assigned_cultural_group, 'band') !== false || stripos($assigned_cultural_group, 'voice') !== false || stripos($assigned_cultural_group, 'melo') !== false || stripos($assigned_cultural_group, 'levites') !== false) {
+          $performance_type = 'Music';
+        } elseif (stripos($assigned_cultural_group, 'teatro') !== false || stripos($assigned_cultural_group, 'theater') !== false || stripos($assigned_cultural_group, 'dulaang') !== false) {
+          $performance_type = 'Theater';
+        } else {
+          $performance_type = 'Performing Arts';
+        }
+      }
+    } elseif ($application_performance_type !== '') {
+      $performance_line_value = $application_performance_type;
+      if (preg_match('/^\s*([^:]+)\s*:\s*(.+)\s*$/', $application_performance_type, $matches)) {
+        $typeToken = strtolower(trim(str_replace(['-', ' '], '_', $matches[1])));
+        $typeMap = [
+          'performing_arts' => 'Performing Arts',
+          'music' => 'Music',
+          'dance' => 'Dance',
+          'theater' => 'Theater',
+          'visual_arts' => 'Visual Arts',
+          'literary_arts' => 'Literary Arts'
+        ];
+        if (isset($typeMap[$typeToken])) {
+          $performance_type = $typeMap[$typeToken];
+          $performance_line_value = trim($matches[2]);
+        }
+      }
+    }
 
 } catch (Exception $e) {
     die('Error fetching profile data: ' . $e->getMessage());
@@ -611,37 +673,37 @@ $signatureDate = date('F d, Y');
               <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Performing Arts') ? 'checked' : '' ?>"></span></td>
               <td class="perf-label-col">Performing Arts</td>
               <td class="colon-col">:</td>
-              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Performing Arts') ? escapeHtml($performance_type) : '' ?></div></td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Performing Arts') ? escapeHtml($performance_line_value) : '' ?></div></td>
             </tr>
             <tr>
               <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Music') ? 'checked' : '' ?>"></span></td>
               <td class="perf-label-col">Music</td>
               <td class="colon-col">:</td>
-              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Music') ? escapeHtml($performance_type) : '' ?></div></td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Music') ? escapeHtml($performance_line_value) : '' ?></div></td>
             </tr>
             <tr>
               <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Dance') ? 'checked' : '' ?>"></span></td>
               <td class="perf-label-col">Dance</td>
               <td class="colon-col">:</td>
-              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Dance') ? escapeHtml($performance_type) : '' ?></div></td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Dance') ? escapeHtml($performance_line_value) : '' ?></div></td>
             </tr>
             <tr>
               <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Theater') ? 'checked' : '' ?>"></span></td>
               <td class="perf-label-col">Theater</td>
               <td class="colon-col">:</td>
-              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Theater') ? escapeHtml($performance_type) : '' ?></div></td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Theater') ? escapeHtml($performance_line_value) : '' ?></div></td>
             </tr>
             <tr>
               <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Visual Arts') ? 'checked' : '' ?>"></span></td>
               <td class="perf-label-col">Visual Arts</td>
               <td class="colon-col">:</td>
-              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Visual Arts') ? escapeHtml($performance_type) : '' ?></div></td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Visual Arts') ? escapeHtml($performance_line_value) : '' ?></div></td>
             </tr>
             <tr>
               <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Literary Arts') ? 'checked' : '' ?>"></span></td>
               <td class="perf-label-col">Literary Arts</td>
               <td class="colon-col">:</td>
-              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Literary Arts') ? escapeHtml($performance_type) : '' ?></div></td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Literary Arts') ? escapeHtml($performance_line_value) : '' ?></div></td>
             </tr>
           </table>
         </td>

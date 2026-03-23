@@ -89,8 +89,19 @@ try {
     $stmt->execute([$app['id']]);
     $affiliations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get performance type / cultural group
-    $performance_type = $app['performance_type'] ?? $app['cultural_group'] ?? '';
+    // Get assigned cultural group first (authoritative for export)
+    $assigned_cultural_group = trim((string)($app['cultural_group'] ?? ''));
+
+    // Get original performance type from latest application (fallback only)
+    $application_performance_type = '';
+    if (!empty($app['sr_code'])) {
+        $stmt = $pdo->prepare("SELECT performance_type FROM applications WHERE sr_code = ? ORDER BY id DESC LIMIT 1");
+        $stmt->execute([$app['sr_code']]);
+        $latestApplication = $stmt->fetch(PDO::FETCH_ASSOC);
+        $application_performance_type = trim((string)($latestApplication['performance_type'] ?? ''));
+    }
+
+    $performance_type = $application_performance_type;
 
 } catch (Exception $e) {
     die('Error fetching profile data: ' . $e->getMessage());
@@ -202,11 +213,44 @@ $performanceTypeMap = [
     'literary_arts' => 'Literary Arts'
 ];
 
+$groupToTypeMap = [
+    'dulaang batangan' => 'Theater',
+    'batstateu dance company' => 'Dance',
+    'diwayanis dance theatre' => 'Dance',
+    'batstateu band' => 'Music',
+    'indak yaman dance varsity' => 'Dance',
+    'ritmo voice' => 'Music',
+    'sandugo dance group' => 'Dance',
+    'areglo band' => 'Music',
+    'teatro aliwana' => 'Theater',
+    'the levites' => 'Music',
+    'melophiles' => 'Music',
+    'sindayog' => 'Dance'
+];
+
 $selectedPerformanceType = '';
 $groupNameOnly = '';
 $rawPerformanceType = trim((string)($performance_type ?? ''));
 
-if ($rawPerformanceType !== '') {
+if ($assigned_cultural_group !== '') {
+    $groupNameOnly = $assigned_cultural_group;
+    $groupKey = strtolower($assigned_cultural_group);
+    $selectedPerformanceType = $groupToTypeMap[$groupKey] ?? '';
+
+    if ($selectedPerformanceType === '') {
+        if (stripos($assigned_cultural_group, 'dance') !== false || stripos($assigned_cultural_group, 'indak') !== false) {
+            $selectedPerformanceType = 'Dance';
+        } elseif (stripos($assigned_cultural_group, 'band') !== false || stripos($assigned_cultural_group, 'voice') !== false || stripos($assigned_cultural_group, 'melo') !== false || stripos($assigned_cultural_group, 'levites') !== false) {
+            $selectedPerformanceType = 'Music';
+        } elseif (stripos($assigned_cultural_group, 'teatro') !== false || stripos($assigned_cultural_group, 'theater') !== false || stripos($assigned_cultural_group, 'dulaang') !== false) {
+            $selectedPerformanceType = 'Theater';
+        } else {
+            $selectedPerformanceType = 'Performing Arts';
+        }
+    }
+}
+
+if ($groupNameOnly === '' && $rawPerformanceType !== '') {
     $groupNameOnly = $rawPerformanceType;
 
     if (preg_match('/^\s*([^:]+)\s*:\s*(.+)\s*$/', $rawPerformanceType, $matches)) {
