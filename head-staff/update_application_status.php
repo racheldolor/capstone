@@ -294,7 +294,7 @@ try {
                 
                 // Copy participation records from application_participation to student_participation_records
                 $stmt = $pdo->prepare("
-                    SELECT participation_date, event_name, participation_level, rank_award 
+                    SELECT DISTINCT participation_date, event_name, participation_level, rank_award 
                     FROM application_participation 
                     WHERE application_id = ?
                 ");
@@ -342,7 +342,7 @@ try {
                 
                 // Copy affiliation records from application_affiliations to student_affiliation_records
                 $stmt = $pdo->prepare("
-                    SELECT position, organization, years_active 
+                    SELECT DISTINCT position, organization, years_active 
                     FROM application_affiliations 
                     WHERE application_id = ?
                 ");
