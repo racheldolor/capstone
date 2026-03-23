@@ -105,6 +105,21 @@ try {
     } catch (Exception $e) {
         error_log("Participation records error: " . $e->getMessage());
     }
+
+    // Get competition records from student_competition_records table
+    $competitions = [];
+    try {
+        $stmt = $pdo->prepare("
+            SELECT id, competition_date, event_name, competition_level as level, rank_award
+            FROM student_competition_records
+            WHERE student_id = ?
+            ORDER BY competition_date DESC, id DESC
+        ");
+        $stmt->execute([$application['id']]);
+        $competitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Competition records error: " . $e->getMessage());
+    }
     
     // Get affiliation records from student_affiliation_records table
     $affiliations = [];
@@ -125,6 +140,7 @@ try {
         'success' => true,
         'application' => $application,
         'participations' => $participations,
+        'competitions' => $competitions,
         'affiliations' => $affiliations
     ]);
     

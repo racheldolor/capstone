@@ -148,12 +148,54 @@ $pdf->Cell(162.8, 5.5, '(Include the name of Cultural Group you are interested i
 
 $pdf->SetFont('helvetica', '', 8);
 $performance_types = ['Performing Arts', 'Music', 'Dance', 'Theater', 'Visual Arts', 'Literary Arts'];
+$normalizeTypeToken = function($value) {
+    $normalized = strtolower(trim((string)$value));
+    $normalized = str_replace(['-', ' '], '_', $normalized);
+    return $normalized;
+};
+
+$performanceTypeMap = [
+    'performing_arts' => 'Performing Arts',
+    'music' => 'Music',
+    'dance' => 'Dance',
+    'theater' => 'Theater',
+    'visual_arts' => 'Visual Arts',
+    'literary_arts' => 'Literary Arts'
+];
+
+$selectedPerformanceType = '';
+$groupNameOnly = '';
+$rawPerformanceType = trim((string)($performance_type ?? ''));
+
+if ($rawPerformanceType !== '') {
+    $groupNameOnly = $rawPerformanceType;
+
+    if (preg_match('/^\s*([^:]+)\s*:\s*(.+)\s*$/', $rawPerformanceType, $matches)) {
+        $typeKey = $normalizeTypeToken($matches[1]);
+        if (isset($performanceTypeMap[$typeKey])) {
+            $selectedPerformanceType = $performanceTypeMap[$typeKey];
+            $groupNameOnly = trim($matches[2]);
+        }
+    }
+
+    if ($selectedPerformanceType === '') {
+        foreach ($performance_types as $type) {
+            if (stripos($rawPerformanceType, $type) !== false) {
+                $selectedPerformanceType = $type;
+                $trimmedGroupName = trim(preg_replace('/^.*' . preg_quote($type, '/') . '\s*[:\-]?\s*/i', '', $rawPerformanceType));
+                if ($trimmedGroupName !== '' && strcasecmp($trimmedGroupName, $type) !== 0) {
+                    $groupNameOnly = $trimmedGroupName;
+                } else {
+                    $groupNameOnly = '';
+                }
+                break;
+            }
+        }
+    }
+}
 
 foreach ($performance_types as $index => $type) {
-    $checked = false;
-    if (!empty($performance_type)) {
-        $checked = stripos($performance_type, $type) !== false;
-    }
+    $checked = ($selectedPerformanceType === $type);
     
     $y = $pdf->GetY();
     $pdf->Rect(6.6, $y + 1, 3, 3);
@@ -164,7 +206,11 @@ foreach ($performance_types as $index => $type) {
     
     $pdf->Cell(5, 5, '', 'L', 0, 'L');
     $pdf->Cell(30, 5, ' ' . $type, 0, 0, 'L');
-    $fillText = $checked ? ': ' . $performance_type : ': ____________________________________________________________';
+    if (!empty($groupNameOnly) && ($checked || ($selectedPerformanceType === '' && $index === 0))) {
+        $fillText = ': ' . $groupNameOnly;
+    } else {
+        $fillText = ': ____________________________________________________________';
+    }
     $borderType = ($index == count($performance_types) - 1) ? 'LBR' : 'LR';
     $pdf->Cell(169.4, 5, $fillText, $borderType, 1, 'L');
 }
@@ -320,15 +366,59 @@ $pdf->Cell(84.4, 6, $app['program'] ?? '', 1, 1, 'L');
 
 // Number of Units
 $y = $pdf->GetY();
+$firstSemesterUnits = $app['first_semester_units'] ?? null;
+$secondSemesterUnits = $app['second_semester_units'] ?? null;
+
+$hasFirstSemesterUnits = false;
+if (is_numeric($firstSemesterUnits)) {
+    $hasFirstSemesterUnits = (float)$firstSemesterUnits > 0;
+} elseif ($firstSemesterUnits !== null) {
+    $hasFirstSemesterUnits = trim((string)$firstSemesterUnits) !== '';
+}
+
+$hasSecondSemesterUnits = false;
+if (is_numeric($secondSemesterUnits)) {
+    $hasSecondSemesterUnits = (float)$secondSemesterUnits > 0;
+} elseif ($secondSemesterUnits !== null) {
+    $hasSecondSemesterUnits = trim((string)$secondSemesterUnits) !== '';
+}
+
+$firstSemesterLabel = '      First Semester ';
+$secondSemesterLabel = '      Second Semester ';
+$firstSemesterLabelWidth = 35;
+$secondSemesterLabelWidth = 35;
+$firstSemesterValueWidth = 52;
+$secondSemesterValueWidth = 52.4;
+
 $pdf->Cell(30, 6, 'Number of Units:', 1, 0, 'L');
 
 // Draw first checkbox and semester text together
 $pdf->Rect(37.5, $y + 1.5, 3, 3);
-$pdf->Cell(87, 6, '      First Semester ___________________', 1, 0, 'L');
+if ($hasFirstSemesterUnits) {
+    $pdf->Line(37.9, $y + 2.7, 38.9, $y + 3.7);
+    $pdf->Line(38.9, $y + 3.7, 40.5, $y + 1.7);
+}
+$pdf->Cell($firstSemesterLabelWidth, 6, $firstSemesterLabel, 'LTB', 0, 'L');
+$pdf->SetFont('helvetica', 'U', 8);
+$firstSemesterValueText = $hasFirstSemesterUnits
+    ? str_pad((string)$firstSemesterUnits, 10, ' ', STR_PAD_BOTH)
+    : str_repeat(' ', 10);
+$pdf->Cell($firstSemesterValueWidth, 6, $firstSemesterValueText, 'RTB', 0, 'L');
+$pdf->SetFont('helvetica', '', 8);
 
 // Draw second checkbox and semester text together
 $pdf->Rect(124.5, $y + 1.5, 3, 3);
-$pdf->Cell(87.4, 6, '      Second Semester ___________________', 1, 1, 'L');
+if ($hasSecondSemesterUnits) {
+    $pdf->Line(124.9, $y + 2.7, 125.9, $y + 3.7);
+    $pdf->Line(125.9, $y + 3.7, 127.5, $y + 1.7);
+}
+$pdf->Cell($secondSemesterLabelWidth, 6, $secondSemesterLabel, 'LTB', 0, 'L');
+$pdf->SetFont('helvetica', 'U', 8);
+$secondSemesterValueText = $hasSecondSemesterUnits
+    ? str_pad((string)$secondSemesterUnits, 10, ' ', STR_PAD_BOTH)
+    : str_repeat(' ', 10);
+$pdf->Cell($secondSemesterValueWidth, 6, $secondSemesterValueText, 'RTB', 1, 'L');
+$pdf->SetFont('helvetica', '', 8);
 
 $pdf->Ln(2);
 

@@ -144,6 +144,38 @@ try {
                 }
             }
         }
+
+        // Process pending competition changes
+        if (isset($data['pendingChanges']) && isset($data['pendingChanges']['competition'])) {
+            $competition = $data['pendingChanges']['competition'];
+
+            // Add new competition records
+            if (!empty($competition['toAdd'])) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO student_competition_records
+                    (student_id, competition_date, event_name, competition_level, rank_award)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+
+                foreach ($competition['toAdd'] as $record) {
+                    $stmt->execute([
+                        $student_id,
+                        $record['date'],
+                        $record['event_name'],
+                        $record['level'],
+                        $record['rank_award']
+                    ]);
+                }
+            }
+
+            // Delete competition records
+            if (!empty($competition['toDelete'])) {
+                $stmt = $pdo->prepare("DELETE FROM student_competition_records WHERE id = ? AND student_id = ?");
+                foreach ($competition['toDelete'] as $id) {
+                    $stmt->execute([$id, $student_id]);
+                }
+            }
+        }
         
         echo json_encode([
             'success' => true,
