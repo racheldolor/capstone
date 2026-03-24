@@ -510,7 +510,7 @@ $pdf->Ln(2);
 // ========================================
 $pdf->SetFont('helvetica', 'B', 9);
 $pdf->SetFillColor(230, 230, 230);
-$pdf->Cell(0, 5.5, 'III. PARTICIPATION IN THE FIELD OF INTEREST / ACHIEVEMENTS', 1, 1, 'L', true);
+$pdf->Cell(0, 5.5, 'III. PARTICIPATION IN THE FIELD OF INTEREST / ACHIEVEMENTS (Last Five Years)', 1, 1, 'L', true);
 
 // Table headers
 $pdf->SetFont('helvetica', 'B', 8);
@@ -528,16 +528,18 @@ $pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
 $pdf->SetFont('helvetica', '', 7);
 $pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
 
-// Participation data rows (minimum 9 rows for the form)
-$rowCount = max(9, count($allParticipations));
-for ($i = 0; $i < $rowCount; $i++) {
-    if (isset($allParticipations[$i])) {
-        $p = $allParticipations[$i];
+// Participation data rows (4 rows)
+$participationRowCount = 4;
+for ($i = 0; $i < $participationRowCount; $i++) {
+    if (isset($participations[$i])) {
+        $p = $participations[$i];
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->Cell(30, 5.5, $p['date'] ?? '', 1, 0, 'L');
         $pdf->Cell(75, 5.5, substr($p['event_name'] ?? '', 0, 50), 1, 0, 'L');
         $pdf->Cell(65, 5.5, $p['level'] ?? '', 1, 0, 'L');
         $pdf->Cell(34.4, 5.5, $p['rank_award'] ?? '', 1, 1, 'L');
     } else {
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->Cell(30, 5.5, '', 1, 0, 'L');
         $pdf->Cell(75, 5.5, '', 1, 0, 'L');
         $pdf->Cell(65, 5.5, '', 1, 0, 'L');
@@ -545,17 +547,58 @@ for ($i = 0; $i < $rowCount; $i++) {
     }
 }
 
-$pdf->SetFont('helvetica', 'I', 7);
-$pdf->Cell(0, 3, 'Add row as needed', 0, 1, 'L');
+$pdf->Ln(2);
+
+// ========================================
+// IV. COMPETITION PARTICIPATED
+// ========================================
+$pdf->SetFont('helvetica', 'B', 9);
+$pdf->SetFillColor(230, 230, 230);
+$pdf->Cell(0, 5.5, 'IV. COMPETITION PARTICIPATED', 1, 1, 'L', true);
+
+// Table headers
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(220, 220, 220);
+$pdf->Cell(30, 5.5, 'Date', 1, 0, 'C', true);
+$pdf->Cell(75, 5.5, 'Event', 1, 0, 'C', true);
+$pdf->Cell(65, 5.5, 'Level', 1, 0, 'C', true);
+$pdf->Cell(34.4, 5.5, 'Rank (Place)', 1, 1, 'C', true);
+
+$pdf->SetFont('helvetica', '', 7);
+$pdf->Cell(30, 3.5, '', 1, 0, 'C');
+$pdf->Cell(75, 3.5, '', 1, 0, 'C');
+$pdf->SetFont('helvetica', 'I', 6.5);
+$pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
+$pdf->SetFont('helvetica', '', 7);
+$pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
+
+// Competition data rows (4 rows)
+$competitionRowCount = 4;
+for ($i = 0; $i < $competitionRowCount; $i++) {
+    if (isset($competitions[$i])) {
+        $c = $competitions[$i];
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(30, 5.5, $c['date'] ?? '', 1, 0, 'L');
+        $pdf->Cell(75, 5.5, substr($c['event_name'] ?? '', 0, 50), 1, 0, 'L');
+        $pdf->Cell(65, 5.5, $c['level'] ?? '', 1, 0, 'L');
+        $pdf->Cell(34.4, 5.5, $c['rank_award'] ?? '', 1, 1, 'L');
+    } else {
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(30, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(75, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(65, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(34.4, 5.5, '', 1, 1, 'L');
+    }
+}
 
 $pdf->Ln(2);
 
 // ========================================
-// IV. AFFILIATION TO ORGANIZATIONS
+// V. AFFILIATION TO ORGANIZATIONS
 // ========================================
 $pdf->SetFont('helvetica', 'B', 9);
 $pdf->SetFillColor(230, 230, 230);
-$pdf->Cell(0, 5.5, 'IV. AFFILIATION TO ORGANIZATIONS', 1, 1, 'L', true);
+$pdf->Cell(0, 5.5, 'V. AFFILIATION TO ORGANIZATIONS', 1, 1, 'L', true);
 
 // Table headers
 $pdf->SetFont('helvetica', 'B', 8);
@@ -564,16 +607,17 @@ $pdf->Cell(50, 5.5, 'Position', 1, 0, 'C', true);
 $pdf->Cell(110, 5.5, 'Name of Organization', 1, 0, 'C', true);
 $pdf->Cell(44.4, 5.5, 'Inclusive Years', 1, 1, 'C', true);
 
-// Affiliation data rows (minimum 5 rows)
-$pdf->SetFont('helvetica', '', 8);
-$affiliationRows = max(5, count($affiliations));
-for ($i = 0; $i < $affiliationRows; $i++) {
+// Affiliation data rows (4 rows)
+$affiliationRowCount = 4;
+for ($i = 0; $i < $affiliationRowCount; $i++) {
     if (isset($affiliations[$i])) {
         $a = $affiliations[$i];
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->Cell(50, 5.5, $a['position'] ?? '', 1, 0, 'L');
         $pdf->Cell(110, 5.5, substr($a['organization'] ?? '', 0, 60), 1, 0, 'L');
         $pdf->Cell(44.4, 5.5, $a['years_active'] ?? '', 1, 1, 'L');
     } else {
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->Cell(50, 5.5, '', 1, 0, 'L');
         $pdf->Cell(110, 5.5, '', 1, 0, 'L');
         $pdf->Cell(44.4, 5.5, '', 1, 1, 'L');
