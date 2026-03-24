@@ -68,15 +68,32 @@ try {
         die('No approved student profile found');
     }
 
-    // Fetch participation records from student_participation_records
-    $stmt = $pdo->prepare("SELECT participation_date as date, event_name, participation_level as level, rank_award FROM student_participation_records WHERE student_id = ? ORDER BY participation_date DESC");
-    $stmt->execute([$app['id']]);
-    $participations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Get all student_ids for this email/sr_code to consolidate records from re-registrations
+    $studentIds = [$app['id']];
+    if ($user_email) {
+        $stmt = $pdo->prepare("SELECT id FROM student_artists WHERE TRIM(LOWER(email)) = TRIM(LOWER(?)) AND id != ?");
+        $stmt->execute([$user_email, $app['id']]);
+        $otherIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $studentIds = array_merge($studentIds, $otherIds);
+    }
 
-    // Fetch competition records from student_competition_records
-    $stmt = $pdo->prepare("SELECT competition_date as date, event_name, competition_level as level, rank_award FROM student_competition_records WHERE student_id = ? ORDER BY competition_date DESC");
-    $stmt->execute([$app['id']]);
-    $competitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Fetch participation records from all student entries
+    $participations = [];
+    if (!empty($studentIds)) {
+        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+        $stmt = $pdo->prepare("SELECT participation_date as date, event_name, participation_level as level, rank_award FROM student_participation_records WHERE student_id IN ($placeholders) ORDER BY participation_date DESC");
+        $stmt->execute($studentIds);
+        $participations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Fetch competition records from all student entries
+    $competitions = [];
+    if (!empty($studentIds)) {
+        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+        $stmt = $pdo->prepare("SELECT competition_date as date, event_name, competition_level as level, rank_award FROM student_competition_records WHERE student_id IN ($placeholders) ORDER BY competition_date DESC");
+        $stmt->execute($studentIds);
+        $competitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     // Merge and sort by date descending for a single achievements table
     $allParticipations = array_merge($participations, $competitions);
@@ -84,10 +101,14 @@ try {
         return strtotime($b['date']) - strtotime($a['date']);
     });
 
-    // Fetch affiliation records from student_affiliation_records
-    $stmt = $pdo->prepare("SELECT position, organization, years_active FROM student_affiliation_records WHERE student_id = ? ORDER BY created_at DESC");
-    $stmt->execute([$app['id']]);
-    $affiliations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Fetch affiliation records from all student entries
+    $affiliations = [];
+    if (!empty($studentIds)) {
+        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+        $stmt = $pdo->prepare("SELECT position, organization, years_active FROM student_affiliation_records WHERE student_id IN ($placeholders) ORDER BY created_at DESC");
+        $stmt->execute($studentIds);
+        $affiliations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     // Get assigned cultural group first (authoritative for export)
     $assigned_cultural_group = trim((string)($app['cultural_group'] ?? ''));
