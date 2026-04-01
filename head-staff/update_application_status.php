@@ -294,7 +294,7 @@ try {
                 
                 // Copy participation records from application_participation to student_participation_records
                 $stmt = $pdo->prepare("
-                    SELECT participation_date, event_name, participation_level, rank_award 
+                    SELECT DISTINCT participation_date, event_name, participation_level, rank_award 
                     FROM application_participation 
                     WHERE application_id = ?
                 ");
@@ -302,23 +302,77 @@ try {
                 $participationRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 foreach ($participationRecords as $record) {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO student_participation_records 
-                        (student_id, participation_date, event_name, participation_level, rank_award)
-                        VALUES (?, ?, ?, ?, ?)
+                    // Check if record already exists to prevent duplicates on re-registration
+                    $checkStmt = $pdo->prepare("
+                        SELECT COUNT(*) FROM student_participation_records 
+                        WHERE student_id = ? AND participation_date = ? AND event_name = ? AND participation_level = ? AND rank_award = ?
                     ");
-                    $stmt->execute([
+                    $checkStmt->execute([
                         $studentId,
                         $record['participation_date'],
                         $record['event_name'],
                         $record['participation_level'],
                         $record['rank_award']
                     ]);
+                    
+                    if ($checkStmt->fetchColumn() == 0) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO student_participation_records 
+                            (student_id, participation_date, event_name, participation_level, rank_award)
+                            VALUES (?, ?, ?, ?, ?)
+                        ");
+                        $stmt->execute([
+                            $studentId,
+                            $record['participation_date'],
+                            $record['event_name'],
+                            $record['participation_level'],
+                            $record['rank_award']
+                        ]);
+                    }
+                }
+                
+                // Copy competition records from application_competition to student_competition_records (NEW - Section IV)
+                $stmt = $pdo->prepare("
+                    SELECT competition_date, event_name, competition_level, rank_award 
+                    FROM application_competition 
+                    WHERE application_id = ?
+                ");
+                $stmt->execute([$applicationId]);
+                $competitionRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($competitionRecords as $record) {
+                    // Check if record already exists to prevent duplicates on re-registration
+                    $checkStmt = $pdo->prepare("
+                        SELECT COUNT(*) FROM student_competition_records 
+                        WHERE student_id = ? AND competition_date = ? AND event_name = ? AND competition_level = ? AND rank_award = ?
+                    ");
+                    $checkStmt->execute([
+                        $studentId,
+                        $record['competition_date'],
+                        $record['event_name'],
+                        $record['competition_level'],
+                        $record['rank_award']
+                    ]);
+                    
+                    if ($checkStmt->fetchColumn() == 0) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO student_competition_records 
+                            (student_id, competition_date, event_name, competition_level, rank_award)
+                            VALUES (?, ?, ?, ?, ?)
+                        ");
+                        $stmt->execute([
+                            $studentId,
+                            $record['competition_date'],
+                            $record['event_name'],
+                            $record['competition_level'],
+                            $record['rank_award']
+                        ]);
+                    }
                 }
                 
                 // Copy affiliation records from application_affiliations to student_affiliation_records
                 $stmt = $pdo->prepare("
-                    SELECT position, organization, years_active 
+                    SELECT DISTINCT position, organization, years_active 
                     FROM application_affiliations 
                     WHERE application_id = ?
                 ");
@@ -326,17 +380,31 @@ try {
                 $affiliationRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 foreach ($affiliationRecords as $record) {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO student_affiliation_records 
-                        (student_id, position, organization, years_active)
-                        VALUES (?, ?, ?, ?)
+                    // Check if record already exists to prevent duplicates on re-registration
+                    $checkStmt = $pdo->prepare("
+                        SELECT COUNT(*) FROM student_affiliation_records 
+                        WHERE student_id = ? AND position = ? AND organization = ? AND years_active = ?
                     ");
-                    $stmt->execute([
+                    $checkStmt->execute([
                         $studentId,
                         $record['position'],
                         $record['organization'],
                         $record['years_active']
                     ]);
+                    
+                    if ($checkStmt->fetchColumn() == 0) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO student_affiliation_records 
+                            (student_id, position, organization, years_active)
+                            VALUES (?, ?, ?, ?)
+                        ");
+                        $stmt->execute([
+                            $studentId,
+                            $record['position'],
+                            $record['organization'],
+                            $record['years_active']
+                        ]);
+                    }
                 }
             }
         }

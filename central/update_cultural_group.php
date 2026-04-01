@@ -52,6 +52,27 @@ try {
         $pdo->exec("ALTER TABLE student_artists ADD COLUMN cultural_group VARCHAR(100) DEFAULT NULL");
     }
     
+    // Check if student exists and is active
+    $checkStmt = $pdo->prepare("SELECT id, status FROM student_artists WHERE id = ?");
+    $checkStmt->execute([$student_id]);
+    $student = $checkStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$student) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Student not found'
+        ]);
+        exit();
+    }
+    
+    if ($student['status'] !== 'active') {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Cannot update cultural group assignment - student account is not active'
+        ]);
+        exit();
+    }
+    
     // Update the cultural group assignment
     $stmt = $pdo->prepare("
         UPDATE student_artists 
@@ -60,17 +81,11 @@ try {
     ");
     $stmt->execute([$cultural_group ?: null, $student_id]);
     
-    if ($stmt->rowCount() > 0) {
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Cultural group assignment updated successfully'
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Student not found or no changes made'
-        ]);
-    }
+    // If student exists and is active, return success regardless of whether rows were affected
+    echo json_encode([
+        'success' => true, 
+        'message' => 'Cultural group assignment updated successfully'
+    ]);
     
 } catch (Exception $e) {
     echo json_encode([

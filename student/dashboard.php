@@ -3834,7 +3834,7 @@ try {
                     profileLoading.style.display = 'none';
                     
                     if (data.success) {
-                        displayPerformerProfile(data.application, data.participations, data.affiliations);
+                        displayPerformerProfile(data.application, data.participations, data.competitions, data.affiliations);
                         performerProfileView.style.display = 'block';
                         // Show export button when profile is available
                         document.getElementById('exportProfileBtn').style.display = 'inline-block';
@@ -3855,7 +3855,7 @@ try {
         }
 
         // Display performer profile form
-        function displayPerformerProfile(app, participations, affiliations) {
+        function displayPerformerProfile(app, participations, competitions, affiliations) {
             const performerProfileView = document.getElementById('performerProfileView');
             
             console.log('Displaying profile, photo path:', app.profile_photo);
@@ -3881,6 +3881,26 @@ try {
                 });
             } else {
                 participationRows = '<tr><td colspan="5" style="text-align: center; color: #666;">No participation records</td></tr>';
+            }
+
+            // Create competition table rows
+            let competitionRows = '';
+            if (competitions && competitions.length > 0) {
+                competitions.forEach(c => {
+                    competitionRows += `
+                        <tr data-competition-id="${c.id || ''}">
+                            <td class="editable-competition-date">${c.competition_date || ''}</td>
+                            <td class="editable-competition-event">${c.event_name || ''}</td>
+                            <td class="editable-competition-level">${c.level || ''}</td>
+                            <td class="editable-competition-rank">${c.rank_award || ''}</td>
+                            <td class="edit-column" style="display: none;">
+                                <button class="delete-row-btn" onclick="deleteCompetitionRow(${c.id || 0})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                competitionRows = '<tr><td colspan="5" style="text-align: center; color: #666;">No competition records</td></tr>';
             }
 
             // Create affiliation table rows
@@ -4068,15 +4088,15 @@ try {
 
                         <!-- Participation Section -->
                         <div class="form-section">
-                            <h3 class="section-title">PARTICIPATION IN ARTS-RELATED ACTIVITIES <span class="instruction">(Last Five Years)</span></h3>
+                            <h3 class="section-title">III. PARTICIPATION IN THE FIELD OF INTEREST / ACHIEVEMENTS</h3>
                             <table class="participation-table" id="participationTable">
                                 <thead>
                                     <tr>
-                                        <th>DATE</th>
-                                        <th>TITLE/NATURE OF ACTIVITY</th>
-                                        <th>LEVEL <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
-                                        <th>RANK/AWARD</th>
-                                        <th class="edit-column" style="display: none;">ACTION</th>
+                                        <th>Date</th>
+                                        <th>Event</th>
+                                        <th>Level <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>Rank (Place)</th>
+                                        <th class="edit-column" style="display: none;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="participationTableBody">
@@ -4084,20 +4104,42 @@ try {
                                 </tbody>
                             </table>
                             <div class="table-edit-controls" id="participationControls">
-                                <button class="action-btn" onclick="addParticipationRow()">➕ Add Participation</button>
+                                <button class="action-btn" onclick="addParticipationRow()">➕ Add Row</button>
+                            </div>
+                        </div>
+
+                        <!-- Competition Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">IV. COMPETITION PARTICIPATED</h3>
+                            <table class="participation-table" id="competitionTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Event</th>
+                                        <th>Level <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>Rank (Place)</th>
+                                        <th class="edit-column" style="display: none;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="competitionTableBody">
+                                    ${competitionRows}
+                                </tbody>
+                            </table>
+                            <div class="table-edit-controls" id="competitionControls">
+                                <button class="action-btn" onclick="addCompetitionRow()">➕ Add Row</button>
                             </div>
                         </div>
 
                         <!-- Affiliation Section -->
                         <div class="form-section">
-                            <h3 class="section-title">AFFILIATION/MEMBERSHIP IN ARTS ORGANIZATIONS</h3>
+                            <h3 class="section-title">V. AFFILIATION TO ORGANIZATIONS</h3>
                             <table class="affiliation-table" id="affiliationTable">
                                 <thead>
                                     <tr>
-                                        <th>POSITION</th>
-                                        <th>NAME OF ORGANIZATION</th>
-                                        <th>YEAR</th>
-                                        <th class="edit-column" style="display: none;">ACTION</th>
+                                        <th>Position</th>
+                                        <th>Name of Organization</th>
+                                        <th>Inclusive Years <span class="sub-text">(e.g., 2020-2023)</span></th>
+                                        <th class="edit-column" style="display: none;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="affiliationTableBody">
@@ -4105,7 +4147,7 @@ try {
                                 </tbody>
                             </table>
                             <div class="table-edit-controls" id="affiliationControls">
-                                <button class="action-btn" onclick="addAffiliationRow()">➕ Add Affiliation</button>
+                                <button class="action-btn" onclick="addAffiliationRow()">➕ Add Row</button>
                             </div>
                         </div>
                     </div>
@@ -4156,6 +4198,10 @@ try {
         // Pending changes tracking
         let pendingChanges = {
             participation: {
+                toAdd: [],
+                toDelete: []
+            },
+            competition: {
                 toAdd: [],
                 toDelete: []
             },
@@ -4272,6 +4318,7 @@ try {
 
             // Show table edit controls
             document.getElementById('participationControls').classList.add('active');
+            document.getElementById('competitionControls').classList.add('active');
             document.getElementById('affiliationControls').classList.add('active');
 
             // Show delete column in tables
@@ -4293,6 +4340,7 @@ try {
             // Clear pending changes including photo
             pendingChanges = {
                 participation: { toAdd: [], toDelete: [] },
+                competition: { toAdd: [], toDelete: [] },
                 affiliation: { toAdd: [], toDelete: [] },
                 photo: { action: null, file: null, preview: null }
             };
@@ -4330,6 +4378,7 @@ try {
 
             // Hide table edit controls
             document.getElementById('participationControls').classList.remove('active');
+            document.getElementById('competitionControls').classList.remove('active');
             document.getElementById('affiliationControls').classList.remove('active');
 
             // Hide instructors note
@@ -4551,6 +4600,7 @@ try {
                     // Clear pending changes first
                     pendingChanges = {
                         participation: { toAdd: [], toDelete: [] },
+                        competition: { toAdd: [], toDelete: [] },
                         affiliation: { toAdd: [], toDelete: [] },
                         photo: { action: null, file: null, preview: null }
                     };
@@ -4719,6 +4769,105 @@ try {
         function removePendingParticipation(row, index) {
             // Remove from pending adds
             pendingChanges.participation.toAdd.splice(index, 1);
+            row.remove();
+        }
+
+        // Competition Functions
+        function addCompetitionRow() {
+            const tbody = document.getElementById('competitionTableBody');
+            const newRow = document.createElement('tr');
+            newRow.classList.add('edit-table-row');
+            newRow.setAttribute('data-new', 'true');
+
+            newRow.innerHTML = `
+                <td><input type="date" class="competition-date" placeholder="Date"></td>
+                <td><input type="text" class="competition-event" placeholder="Event Name"></td>
+                <td>
+                    <select class="competition-level">
+                        <option value="">Select Level</option>
+                        <option value="Local">Local</option>
+                        <option value="Regional">Regional</option>
+                        <option value="National">National</option>
+                        <option value="International">International</option>
+                    </select>
+                </td>
+                <td><input type="text" class="competition-rank" placeholder="Rank/Award"></td>
+                <td class="edit-column">
+                    <button class="action-btn secondary" onclick="saveCompetitionRow(this)">Add</button>
+                    <button class="delete-row-btn" onclick="removeNewRow(this)">Cancel</button>
+                </td>
+            `;
+
+            tbody.appendChild(newRow);
+        }
+
+        function saveCompetitionRow(btn) {
+            const row = btn.closest('tr');
+            const data = {
+                date: row.querySelector('.competition-date').value,
+                event_name: row.querySelector('.competition-event').value,
+                level: row.querySelector('.competition-level').value,
+                rank_award: row.querySelector('.competition-rank').value || ''
+            };
+
+            if (!data.date || !data.event_name) {
+                alert('Please fill in Date and Event Name');
+                return;
+            }
+
+            pendingChanges.competition.toAdd.push(data);
+
+            row.classList.add('pending-row');
+            row.querySelectorAll('input, select').forEach(input => input.disabled = true);
+
+            btn.textContent = 'Added (Pending)';
+            btn.disabled = true;
+            btn.style.background = '#ffc107';
+            const cancelBtn = row.querySelector('.delete-row-btn');
+            cancelBtn.textContent = 'Remove';
+            cancelBtn.onclick = function() { removePendingCompetition(row, pendingChanges.competition.toAdd.length - 1); };
+
+            alert('✅ Competition record will be added when you click Save Profile');
+        }
+
+        function deleteCompetitionRow(id) {
+            const row = document.querySelector(`tr[data-competition-id="${id}"]`);
+            if (!row) return;
+
+            pendingChanges.competition.toDelete.push(id);
+
+            row.classList.add('pending-delete');
+            row.style.background = '#ffebee';
+            row.style.textDecoration = 'line-through';
+            row.style.opacity = '0.6';
+
+            const deleteBtn = row.querySelector('.delete-row-btn');
+            deleteBtn.textContent = 'Undo';
+            deleteBtn.onclick = function() { undoDeleteCompetition(id, row); };
+            deleteBtn.style.background = '#2196F3';
+
+            alert('⚠️ Record marked for deletion. Click Save Profile to confirm.');
+        }
+
+        function undoDeleteCompetition(id, row) {
+            const index = pendingChanges.competition.toDelete.indexOf(id);
+            if (index > -1) {
+                pendingChanges.competition.toDelete.splice(index, 1);
+            }
+
+            row.classList.remove('pending-delete');
+            row.style.background = '';
+            row.style.textDecoration = '';
+            row.style.opacity = '';
+
+            const deleteBtn = row.querySelector('.delete-row-btn');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.onclick = function() { deleteCompetitionRow(id); };
+            deleteBtn.style.background = '';
+        }
+
+        function removePendingCompetition(row, index) {
+            pendingChanges.competition.toAdd.splice(index, 1);
             row.remove();
         }
 

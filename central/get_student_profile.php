@@ -34,6 +34,35 @@ try {
         exit();
     }
     
+    // Get the performance_type from applications table using sr_code (what they applied for)
+    $appStmt = $pdo->prepare("
+        SELECT performance_type FROM applications 
+        WHERE sr_code = ? 
+        LIMIT 1
+    ");
+    $appStmt->execute([$student['sr_code']]);
+    $application = $appStmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Extract the performance type value from JSON if needed
+    $performanceType = null;
+    if ($application && $application['performance_type']) {
+        $perfData = json_decode($application['performance_type'], true);
+        if (is_array($perfData)) {
+            // Get all values from the array and join them
+            $values = array_values(array_filter($perfData));
+            $performanceType = end($values); // Get the last value which is usually the actual performance type
+        } else {
+            // If not JSON, try to extract value after colon
+            if (strpos($application['performance_type'], ':') !== false) {
+                $parts = explode(':', $application['performance_type']);
+                $performanceType = trim(end($parts));
+            } else {
+                $performanceType = $application['performance_type'];
+            }
+        }
+    }
+    $student['performance_type'] = $performanceType;
+    
     // Get the student's original application to fetch performance_type (desired cultural group)
     $stmt = $pdo->prepare("
         SELECT performance_type 
@@ -59,6 +88,43 @@ try {
     
     // Add desired cultural group to student data
     $student['desired_cultural_group'] = $desired_group;
+    
+    // Get participation records
+    $stmt = $pdo->prepare("
+        SELECT participation_date as date, event_name as title, 
+               participation_level as level, rank_award as rank
+        FROM student_participation_records
+        WHERE student_id = ?
+        ORDER BY participation_date DESC
+    ");
+    $stmt->execute([$student_id]);
+    $participation = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get competition records (NEW - Section IV)
+    $stmt = $pdo->prepare("
+        SELECT competition_date as date, event_name as title, 
+               competition_level as level, rank_award as rank
+        FROM student_competition_records
+        WHERE student_id = ?
+        ORDER BY competition_date DESC
+    ");
+    $stmt->execute([$student_id]);
+    $competition = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get affiliation records
+    $stmt = $pdo->prepare("
+        SELECT position, organization, years_active as year
+        FROM student_affiliation_records
+        WHERE student_id = ?
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute([$student_id]);
+    $affiliation = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Add participation, competition, and affiliation to student data
+    $student['participation'] = $participation;
+    $student['competition'] = $competition;
+    $student['affiliation'] = $affiliation;
     
     echo json_encode([
         'success' => true, 

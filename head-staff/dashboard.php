@@ -1505,6 +1505,7 @@ try {
         }
 
         .performer-profile-card .participation-table,
+        .performer-profile-card .competition-table,
         .performer-profile-card .affiliation-table {
             width: 100%;
             border-collapse: collapse;
@@ -1513,8 +1514,10 @@ try {
         }
 
         .performer-profile-card .participation-table th,
+        .performer-profile-card .competition-table th,
         .performer-profile-card .affiliation-table th,
         .performer-profile-card .participation-table td,
+        .performer-profile-card .competition-table td,
         .performer-profile-card .affiliation-table td {
             border: 1px solid #333;
             padding: 0.75rem 0.5rem;
@@ -1522,6 +1525,7 @@ try {
         }
 
         .performer-profile-card .participation-table th,
+        .performer-profile-card .competition-table th,
         .performer-profile-card .affiliation-table th {
             background: #f8f9fa;
             font-weight: 600;
@@ -1608,7 +1612,7 @@ try {
 
         .table-header-row {
             display: grid;
-            grid-template-columns: 120px 1fr 200px 250px 120px;
+            grid-template-columns: 120px 1fr 200px 250px 200px;
             padding: 1rem;
             font-weight: 600;
             font-size: 0.875rem;
@@ -1616,6 +1620,11 @@ try {
 
         .header-col {
             padding: 0 0.5rem;
+            text-align: center;
+        }
+
+        .table-row > div:nth-child(3) {
+            text-align: center;
         }
 
         .table-body {
@@ -3936,6 +3945,7 @@ try {
             
             // Get cultural group value from the cultural_group field (text)
             let culturalGroupValue = student.cultural_group || 'Not assigned';
+            const hasAssignedGroup = !!(student.cultural_group && String(student.cultural_group).trim());
 
             // Parse participation and affiliation data
             let participationRows = '';
@@ -3950,6 +3960,20 @@ try {
                 `).join('');
             } else {
                 participationRows = '<tr><td colspan="4" style="text-align: center; color: #666;">No participation records</td></tr>';
+            }
+
+            let competitionRows = '';
+            if (student.competition && student.competition.length > 0) {
+                competitionRows = student.competition.map(c => `
+                    <tr>
+                        <td>${c.date || ''}</td>
+                        <td>${c.title || ''}</td>
+                        <td>${c.level || ''}</td>
+                        <td>${c.rank || ''}</td>
+                    </tr>
+                `).join('');
+            } else {
+                competitionRows = '<tr><td colspan="4" style="text-align: center; color: #666;">No competition records</td></tr>';
             }
 
             let affiliationRows = '';
@@ -3975,8 +3999,29 @@ try {
                         <!-- Cultural Group / Type of Performance Section -->
                         <div class="form-section">
                             <h3 class="section-title">CULTURAL GROUP / TYPE OF PERFORMANCE</h3>
-                            <div class="form-value" style="font-size: 1.1rem; font-weight: 600; color: #333;">
-                                ${culturalGroupValue}
+                            
+                            ${!hasAssignedGroup && student.performance_type ? `
+                            <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e7f3ff; border-radius: 4px; border-left: 4px solid #2196F3;">
+                                <span style="font-size: 0.85rem; color: #1565c0; font-weight: 500;">Applied For: </span>
+                                <span style="font-weight: 600; color: #0d47a1;">${student.performance_type}</span>
+                                <span style="font-size: 0.75rem; color: #1976d2; display: block; margin-top: 0.25rem; font-style: italic;">From application records</span>
+                            </div>
+                            ` : ''}
+                            
+                            <div style="display: flex; gap: 1rem; align-items: flex-end;">
+                                <div style="flex: 1;">
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333;">Assign Group:</label>
+                                    <select id="culturalGroupAssignSelect" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                        <option value="">-- Select Cultural Group --</option>
+                                    </select>
+                                </div>
+                                <button onclick="updateCulturalGroup()" style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-weight: 500; white-space: nowrap; height: fit-content;">
+                                    Assign Group
+                                </button>
+                            </div>
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #17a2b8;">
+                                <span style="font-size: 0.85rem; color: #666;">Current Assignment: </span>
+                                <span style="font-weight: 600; color: #333;">${culturalGroupValue}</span>
                             </div>
                         </div>
 
@@ -4126,14 +4171,14 @@ try {
 
                         <!-- Participation Section -->
                         <div class="form-section">
-                            <h3 class="section-title">PARTICIPATION IN ARTS-RELATED ACTIVITIES <span class="instruction">(Last Five Years)</span></h3>
+                            <h3 class="section-title">III. PARTICIPATION IN THE FIELD OF INTEREST / ACHIEVEMENTS <span class="instruction">(Last Five Years)</span></h3>
                             <table class="participation-table">
                                 <thead>
                                     <tr>
                                         <th>DATE</th>
-                                        <th>TITLE/NATURE OF ACTIVITY</th>
-                                        <th>LEVEL <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
-                                        <th>RANK/AWARD</th>
+                                        <th>EVENT</th>
+                                        <th>LEVEL <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>RANK (PLACE)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -4142,9 +4187,27 @@ try {
                             </table>
                         </div>
 
+                        <!-- Competition Section (NEW) -->
+                        <div class="form-section">
+                            <h3 class="section-title">IV. COMPETITION PARTICIPATED</h3>
+                            <table class="competition-table">
+                                <thead>
+                                    <tr>
+                                        <th>DATE</th>
+                                        <th>EVENT</th>
+                                        <th>LEVEL <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>RANK (PLACE)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${competitionRows}
+                                </tbody>
+                            </table>
+                        </div>
+
                         <!-- Affiliation Section -->
                         <div class="form-section">
-                            <h3 class="section-title">AFFILIATION/MEMBERSHIP IN ARTS ORGANIZATIONS</h3>
+                            <h3 class="section-title">V. AFFILIATION TO ORGANIZATIONS</h3>
                             <table class="affiliation-table">
                                 <thead>
                                     <tr>
@@ -4178,32 +4241,79 @@ try {
             const select = document.getElementById('culturalGroupAssignSelect');
             if (!select) return;
 
-            // Hardcoded cultural groups based on the system
-            const culturalGroups = [
-                'Dulaang Batangan',
-                'BatStateU Dance Company',
-                'Diwayanis Dance Theatre',
-                'BatStateU Band',
-                'Indak Yaman Dance Varsity',
-                'Ritmo Voice',
-                'Sandugo Dance Group',
-                'Areglo Band',
-                'Teatro Aliwana',
-                'The Levites',
-                'Melophiles',
-                'Sindayog'
-            ];
-
-            select.innerHTML = '<option value="">-- Select Cultural Group --</option>';
-            culturalGroups.forEach(group => {
-                const option = document.createElement('option');
-                option.value = group;
-                option.textContent = group;
-                if (group === selectedGroup) {
-                    option.selected = true;
-                }
-                select.appendChild(option);
-            });
+            // Fetch cultural groups from server
+            fetch('get_cultural_groups.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.cultural_groups) {
+                        select.innerHTML = '<option value="">-- Select Cultural Group --</option>';
+                        data.cultural_groups.forEach(group => {
+                            const option = document.createElement('option');
+                            option.value = group;
+                            option.textContent = group;
+                            if (group === selectedGroup) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    } else {
+                        // Fallback to hardcoded list if fetch fails
+                        const culturalGroups = [
+                            'Dulaang Batangan',
+                            'BatStateU Dance Company',
+                            'Diwayanis Dance Theatre',
+                            'BatStateU Band',
+                            'Indak Yaman Dance Varsity',
+                            'Ritmo Voice',
+                            'Sandugo Dance Group',
+                            'Areglo Band',
+                            'Teatro Aliwana',
+                            'The Levites',
+                            'Melophiles',
+                            'Sindayog'
+                        ];
+                        
+                        select.innerHTML = '<option value="">-- Select Cultural Group --</option>';
+                        culturalGroups.forEach(group => {
+                            const option = document.createElement('option');
+                            option.value = group;
+                            option.textContent = group;
+                            if (group === selectedGroup) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching cultural groups:', error);
+                    // Fallback to hardcoded list
+                    const culturalGroups = [
+                        'Dulaang Batangan',
+                        'BatStateU Dance Company',
+                        'Diwayanis Dance Theatre',
+                        'BatStateU Band',
+                        'Indak Yaman Dance Varsity',
+                        'Ritmo Voice',
+                        'Sandugo Dance Group',
+                        'Areglo Band',
+                        'Teatro Aliwana',
+                        'The Levites',
+                        'Melophiles',
+                        'Sindayog'
+                    ];
+                    
+                    select.innerHTML = '<option value="">-- Select Cultural Group --</option>';
+                    culturalGroups.forEach(group => {
+                        const option = document.createElement('option');
+                        option.value = group;
+                        option.textContent = group;
+                        if (group === selectedGroup) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                });
         }
 
         function updateCulturalGroup() {

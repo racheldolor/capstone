@@ -1,0 +1,1029 @@
+<?php
+session_start();
+require_once '../config/database.php';
+
+// Authentication check - allow head, central, admin, and director
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin', 'director'])) {
+    header('Location: ../index.php');
+    exit();
+}
+
+// Get student ID from query parameter
+$student_id = $_GET['student_id'] ?? null;
+
+if (!$student_id) {
+    die('Student ID is required');
+}
+
+$pdo = getDBConnection();
+
+try {
+    // Get student data from student_artists table
+    $stmt = $pdo->prepare("SELECT * FROM student_artists WHERE id = ?");
+    $stmt->execute([$student_id]);
+    $app = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$app) {
+        die('Student profile not found');
+    }
+
+    // Fetch participation records from student_participation_records
+    $stmt = $pdo->prepare("SELECT participation_date as date, event_name, participation_level as level, rank_award FROM student_participation_records WHERE student_id = ? ORDER BY participation_date DESC");
+    $stmt->execute([$app['id']]);
+    $participations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch competition records from student_competition_records
+    $stmt = $pdo->prepare("SELECT competition_date as date, event_name, competition_level as level, rank_award FROM student_competition_records WHERE student_id = ? ORDER BY competition_date DESC");
+    $stmt->execute([$app['id']]);
+    $competitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Merge participation and competition records (same structure)
+    $allParticipations = array_merge($participations, $competitions);
+    // Sort by date descending
+    usort($allParticipations, function($a, $b) {
+        return strtotime($b['date']) - strtotime($a['date']);
+    });
+
+    // Fetch affiliation records from student_affiliation_records
+    $stmt = $pdo->prepare("SELECT position, organization, years_active FROM student_affiliation_records WHERE student_id = ? ORDER BY created_at DESC");
+    $stmt->execute([$app['id']]);
+    $affiliations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get assigned cultural group first (authoritative for export)
+    $assigned_cultural_group = trim((string)($app['cultural_group'] ?? ''));
+
+    // Get original performance type from latest application (fallback only)
+    $application_performance_type = '';
+    if (!empty($app['sr_code'])) {
+      $stmt = $pdo->prepare("SELECT performance_type FROM applications WHERE sr_code = ? ORDER BY id DESC LIMIT 1");
+      $stmt->execute([$app['sr_code']]);
+      $latestApplication = $stmt->fetch(PDO::FETCH_ASSOC);
+      $application_performance_type = trim((string)($latestApplication['performance_type'] ?? ''));
+    }
+
+    $performance_type = '';
+    $performance_line_value = '';
+
+    $groupToTypeMap = [
+      'dulaang batangan' => 'Theater',
+      'batstateu dance company' => 'Dance',
+      'diwayanis dance theatre' => 'Dance',
+      'batstateu band' => 'Music',
+      'indak yaman dance varsity' => 'Dance',
+      'ritmo voice' => 'Music',
+      'sandugo dance group' => 'Dance',
+      'areglo band' => 'Music',
+      'teatro aliwana' => 'Theater',
+      'the levites' => 'Music',
+      'melophiles' => 'Music',
+      'sindayog' => 'Dance'
+    ];
+
+    if ($assigned_cultural_group !== '') {
+      $performance_line_value = $assigned_cultural_group;
+      $groupKey = strtolower($assigned_cultural_group);
+      $performance_type = $groupToTypeMap[$groupKey] ?? '';
+
+      if ($performance_type === '') {
+        if (stripos($assigned_cultural_group, 'dance') !== false || stripos($assigned_cultural_group, 'indak') !== false) {
+          $performance_type = 'Dance';
+        } elseif (stripos($assigned_cultural_group, 'band') !== false || stripos($assigned_cultural_group, 'voice') !== false || stripos($assigned_cultural_group, 'melo') !== false || stripos($assigned_cultural_group, 'levites') !== false) {
+          $performance_type = 'Music';
+        } elseif (stripos($assigned_cultural_group, 'teatro') !== false || stripos($assigned_cultural_group, 'theater') !== false || stripos($assigned_cultural_group, 'dulaang') !== false) {
+          $performance_type = 'Theater';
+        } else {
+          $performance_type = 'Performing Arts';
+        }
+      }
+    } elseif ($application_performance_type !== '') {
+      $performance_line_value = $application_performance_type;
+      if (preg_match('/^\s*([^:]+)\s*:\s*(.+)\s*$/', $application_performance_type, $matches)) {
+        $typeToken = strtolower(trim(str_replace(['-', ' '], '_', $matches[1])));
+        $typeMap = [
+          'performing_arts' => 'Performing Arts',
+          'music' => 'Music',
+          'dance' => 'Dance',
+          'theater' => 'Theater',
+          'visual_arts' => 'Visual Arts',
+          'literary_arts' => 'Literary Arts'
+        ];
+        if (isset($typeMap[$typeToken])) {
+          $performance_type = $typeMap[$typeToken];
+          $performance_line_value = trim($matches[2]);
+        }
+      }
+    }
+
+} catch (Exception $e) {
+    die('Error fetching profile data: ' . $e->getMessage());
+}
+
+// Helper function to safely escape HTML
+function escapeHtml($value) {
+    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+// Helper function to check if performance type matches
+function isPerformanceType($current, $type) {
+    if (empty($current)) return false;
+    return stripos($current, $type) !== false;
+}
+
+// Prepare data variables
+$fullName = trim(($app['first_name'] ?? '') . ' ' . ($app['middle_name'] ?? '') . ' ' . ($app['last_name'] ?? ''));
+$address = $app['address'] ?? $app['permanent_address'] ?? '';
+$presentAddress = $app['present_address'] ?? '';
+$dateOfBirth = $app['date_of_birth'] ?? '';
+$age = $app['age'] ?? '';
+$gender = $app['gender'] ?? '';
+$placeOfBirth = $app['place_of_birth'] ?? '';
+$email = $app['email'] ?? '';
+$contactNumber = $app['contact_number'] ?? '';
+$fatherName = $app['father_name'] ?? '';
+$motherName = $app['mother_name'] ?? '';
+$guardian = ($app['guardian'] && $app['guardian'] != 'N/A') ? $app['guardian'] : '';
+$parentGuardianContact = $app['guardian_contact'] ?? $app['emergency_contact_number'] ?? '';
+
+$campus = $app['campus'] ?? '';
+$srCode = $app['sr_code'] ?? '';
+$yearLevel = $app['year_level'] ?? '';
+$college = $app['college'] ?? '';
+$program = $app['program'] ?? '';
+
+// Prepare photo URL
+$photoUrl = '';
+$photoPlaceholder = true;
+if ($app['profile_photo'] && file_exists('../' . $app['profile_photo'])) {
+    $photoUrl = '../' . $app['profile_photo'];
+    $photoPlaceholder = false;
+}
+
+// Determine logo URL
+$logoUrl = '';
+$logoPaths = [
+    '../assets/logo.jpg',
+    '../assets/OCA Logo.png',
+    '../assets/bsu.png',
+    '../assets/bsu.jpg'
+];
+foreach ($logoPaths as $path) {
+    if (file_exists($path)) {
+        $logoUrl = $path;
+        break;
+    }
+}
+
+// Prepare achievements array (ensure minimum 9 rows)
+$achievements = [];
+for ($i = 0; $i < 9; $i++) {
+    if (isset($allParticipations[$i])) {
+        $achievements[] = [
+            'date' => $allParticipations[$i]['date'] ?? '',
+            'event' => $allParticipations[$i]['event_name'] ?? '',
+            'level' => $allParticipations[$i]['level'] ?? '',
+            'rank' => $allParticipations[$i]['rank_award'] ?? ''
+        ];
+    } else {
+        $achievements[] = [
+            'date' => '',
+            'event' => '',
+            'level' => '',
+            'rank' => ''
+        ];
+    }
+}
+
+// Prepare affiliations array (ensure minimum 5 rows)
+$affiliationsList = [];
+for ($i = 0; $i < 5; $i++) {
+    if (isset($affiliations[$i])) {
+        $affiliationsList[] = [
+            'position' => $affiliations[$i]['position'] ?? '',
+            'organization' => $affiliations[$i]['organization'] ?? '',
+            'years' => $affiliations[$i]['years_active'] ?? ''
+        ];
+    } else {
+        $affiliationsList[] = [
+            'position' => '',
+            'organization' => '',
+            'years' => ''
+        ];
+    }
+}
+
+// Current date for signature
+$signatureDate = date('F d, Y');
+
+// Output HTML with print styles
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Performer's Profile Form - <?= escapeHtml($srCode) ?></title>
+  <style>
+    @page {
+      size: 8.5in 13in;
+      margin: 0.18in 0.22in 0.18in 0.22in;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      font-family: "Times New Roman", serif;
+      color: #000;
+    }
+
+    body {
+      width: 7.96in;
+      min-height: 12.64in;
+      margin: 0 auto;
+      font-size: 9px;
+      line-height: 1.05;
+    }
+
+    .page {
+      width: 7.96in;
+      min-height: 12.64in;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .form-table,
+    .form-table td,
+    .form-table th {
+      border: 1px solid #000;
+    }
+
+    .form-table td,
+    .form-table th {
+      padding: 1px 4px 1px 4px;
+      vertical-align: middle;
+      word-wrap: break-word;
+    }
+
+    .center { text-align: center; }
+    .left { text-align: left; }
+    .right { text-align: right; }
+    .bold { font-weight: bold; }
+    .italic { font-style: italic; }
+    .upper { text-transform: uppercase; }
+    .justify { text-align: justify; }
+    .v-top { vertical-align: top !important; }
+    .v-mid { vertical-align: middle !important; }
+
+    .header-row td {
+      height: 32px;
+      font-size: 9px;
+    }
+
+    .logo-cell {
+      width: 70px;
+      text-align: center;
+      padding: 0;
+    }
+
+    .logo-cell img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .title-row td {
+      height: 28px;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 0.2px;
+    }
+
+    .section-label td {
+      height: 20px;
+      font-size: 9px;
+      font-weight: bold;
+    }
+
+    .performance-table td {
+      height: 20px;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .checkbox-col {
+      width: 18px;
+      text-align: center;
+      padding: 0 !important;
+    }
+
+    .checkbox {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border: 1px solid #000;
+      vertical-align: middle;
+      line-height: 10px;
+      text-align: center;
+      font-size: 9px;
+      font-weight: bold;
+    }
+
+    .checkbox.checked::after {
+      content: "✓";
+      position: relative;
+      top: -1px;
+      left: 0;
+      font-size: 10px;
+    }
+
+    .perf-label-col {
+      width: 120px;
+      padding-left: 2px !important;
+      white-space: nowrap;
+    }
+
+    .colon-col {
+      width: 10px;
+      text-align: center;
+      padding: 0 !important;
+    }
+
+    .line-col {
+      padding: 0 4px !important;
+    }
+
+    .fill-line {
+      width: 100%;
+      height: 14px;
+      line-height: 14px;
+      border-bottom: 1px solid #000;
+    }
+
+    .privacy-text td {
+      font-size: 8.5px;
+      line-height: 1.1;
+      padding: 3px 4px;
+      text-align: justify;
+    }
+
+    .consent-title td {
+      height: 20px;
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .consent-body td {
+      font-size: 8.5px;
+      line-height: 1.05;
+      vertical-align: top;
+    }
+
+    .consent-left {
+      width: 90px;
+      padding: 4px 4px 2px 4px !important;
+    }
+
+    .consent-option {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      height: 14px;
+      margin-bottom: 2px;
+      font-size: 8.5px;
+    }
+
+    .instruction-row td {
+      height: 20px;
+      font-size: 9px;
+      font-style: italic;
+    }
+
+    .section-title td {
+      height: 20px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .personal-wrap {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .personal-wrap td {
+      border: 1px solid #000;
+      padding: 0;
+    }
+
+    .personal-left {
+      width: 74%;
+      vertical-align: top;
+      padding: 0 !important;
+    }
+
+    .personal-right {
+      width: 26%;
+      padding: 0 !important;
+      vertical-align: top;
+    }
+
+    .inner-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .inner-table td {
+      border: 1px solid #000;
+      padding: 1px 4px;
+      height: 18px;
+      font-size: 9px;
+      vertical-align: middle;
+    }
+
+    .label-cell {
+      width: 120px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .photo-box {
+      width: 100%;
+      height: 180px;
+      position: relative;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .photo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .photo-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px;
+      font-size: 10px;
+      font-style: italic;
+    }
+
+    .edu-table td {
+      height: 18px;
+      font-size: 9px;
+    }
+
+    .semester-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .semester-line {
+      display: inline-block;
+      width: 120px;
+      border-bottom: 1px solid #000;
+      height: 12px;
+      vertical-align: middle;
+    }
+
+    .ach-title td,
+    .aff-title td {
+      height: 20px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .ach-table th,
+    .ach-table td,
+    .aff-table th,
+    .aff-table td {
+      border: 1px solid #000;
+      font-size: 9px;
+      padding: 1px 4px;
+      vertical-align: middle;
+    }
+
+    .ach-table th {
+      height: 30px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .ach-table td {
+      height: 18px;
+    }
+
+    .ach-level-sub {
+      display: block;
+      font-size: 8px;
+      font-style: italic;
+      line-height: 1.05;
+      margin-top: 1px;
+    }
+
+    .note-row td {
+      height: 16px;
+      font-size: 9px;
+      font-style: italic;
+      padding-left: 4px;
+    }
+
+    .aff-table th {
+      height: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .aff-table td {
+      height: 18px;
+    }
+
+    .cert-row td {
+      font-size: 9px;
+      line-height: 1.1;
+      padding-top: 4px;
+      padding-bottom: 4px;
+      vertical-align: top;
+    }
+
+    .cert-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .signature-block td {
+      border-top: 0;
+      height: 62px;
+      padding-top: 8px;
+      padding-bottom: 4px;
+      text-align: center;
+      vertical-align: top;
+    }
+
+    .signature-line {
+      width: 260px;
+      border-bottom: 1px solid #000;
+      margin: 10px auto 5px auto;
+      height: 12px;
+    }
+
+    .signature-text {
+      font-size: 9px;
+      font-weight: bold;
+      line-height: 1.05;
+    }
+
+    .date-text {
+      margin-top: 4px;
+      font-size: 9px;
+      font-weight: bold;
+    }
+
+    .attachment-note td {
+      border-top: 0;
+      font-size: 8.5px;
+      font-style: italic;
+      padding-top: 2px;
+      padding-bottom: 2px;
+    }
+
+    .nowrap {
+      white-space: nowrap;
+    }
+
+    @media print {
+      html, body {
+        width: 8.5in;
+        height: 13in;
+      }
+
+      .page {
+        margin: 0;
+      }
+      
+      @page {
+        size: 8.5in 13in;
+        margin: 0.18in 0.22in;
+      }
+    }
+  </style>
+  <script>
+    // Auto-print when page loads
+    window.onload = function() {
+      window.print();
+    };
+  </script>
+</head>
+<body>
+  <div class="page">
+    <table class="form-table">
+      <!-- HEADER -->
+      <tr class="header-row">
+        <td class="logo-cell">
+          <?php if ($logoUrl): ?>
+            <img src="<?= escapeHtml($logoUrl) ?>" alt="Logo">
+          <?php endif; ?>
+        </td>
+        <td class="left"><span class="bold">Reference No.:</span> BatStateU-FO-OCA-03</td>
+        <td class="left"><span class="bold">Effectivity Date:</span> August 01, 2023</td>
+        <td class="left"><span class="bold">Revision No.:</span> 01</td>
+      </tr>
+
+      <!-- TITLE -->
+      <tr class="title-row">
+        <td colspan="4">PERFORMER'S PROFILE FORM</td>
+      </tr>
+
+      <!-- TYPE OF PERFORMANCE LABEL -->
+      <tr class="section-label">
+        <td colspan="4">
+          Type of Performance:
+          <span class="italic">(Include the name of Cultural Group you are interested in joining:)</span>
+        </td>
+      </tr>
+
+      <!-- TYPE OF PERFORMANCE OPTIONS -->
+      <tr>
+        <td colspan="4" style="padding:0;">
+          <table class="performance-table" style="width:100%; border-collapse:collapse; table-layout:fixed;">
+            <tr>
+              <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Performing Arts') ? 'checked' : '' ?>"></span></td>
+              <td class="perf-label-col">Performing Arts</td>
+              <td class="colon-col">:</td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Performing Arts') ? escapeHtml($performance_line_value) : '' ?></div></td>
+            </tr>
+            <tr>
+              <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Music') ? 'checked' : '' ?>"></span></td>
+              <td class="perf-label-col">Music</td>
+              <td class="colon-col">:</td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Music') ? escapeHtml($performance_line_value) : '' ?></div></td>
+            </tr>
+            <tr>
+              <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Dance') ? 'checked' : '' ?>"></span></td>
+              <td class="perf-label-col">Dance</td>
+              <td class="colon-col">:</td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Dance') ? escapeHtml($performance_line_value) : '' ?></div></td>
+            </tr>
+            <tr>
+              <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Theater') ? 'checked' : '' ?>"></span></td>
+              <td class="perf-label-col">Theater</td>
+              <td class="colon-col">:</td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Theater') ? escapeHtml($performance_line_value) : '' ?></div></td>
+            </tr>
+            <tr>
+              <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Visual Arts') ? 'checked' : '' ?>"></span></td>
+              <td class="perf-label-col">Visual Arts</td>
+              <td class="colon-col">:</td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Visual Arts') ? escapeHtml($performance_line_value) : '' ?></div></td>
+            </tr>
+            <tr>
+              <td class="checkbox-col"><span class="checkbox <?= isPerformanceType($performance_type, 'Literary Arts') ? 'checked' : '' ?>"></span></td>
+              <td class="perf-label-col">Literary Arts</td>
+              <td class="colon-col">:</td>
+              <td class="line-col"><div class="fill-line"><?= isPerformanceType($performance_type, 'Literary Arts') ? escapeHtml($performance_line_value) : '' ?></div></td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- PRIVACY TEXT -->
+      <tr class="privacy-text">
+        <td colspan="4">
+          Pursuant to Republic Act No. 10173, also known as the Data Privacy Act of 2012, the Batangas State University, the National Engineering University, recognizes its commitment to protect and respect the privacy of its customers and/or stakeholders and ensure that all information collected from them are all processed in accordance with the principles of transparency, legitimate purpose and proportionality mandated under the Data Privacy Act of 2012.
+        </td>
+      </tr>
+
+      <!-- CONSENT TITLE -->
+      <tr class="consent-title">
+        <td colspan="4">Consent of Data Subject</td>
+      </tr>
+
+      <!-- CONSENT BODY -->
+      <tr class="consent-body">
+        <td colspan="4" style="padding:0;">
+          <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+            <tr>
+              <td class="consent-left" style="border:1px solid #000;">
+                <div class="consent-option">
+                  <span class="checkbox checked"></span>
+                  <span>Yes</span>
+                </div>
+                <div class="consent-option" style="margin-bottom:0;">
+                  <span class="checkbox"></span>
+                  <span>No</span>
+                </div>
+              </td>
+              <td style="border:1px solid #000; padding:3px 4px;">
+                I hereby give my consent and hereby authorize Batangas State University, the National Engineering University to share, disclose, or transfer my personal data with a third party in the pursuit of journalistic, artistic, literary, research or any legal purposes in compliance with the Data Privacy Act of 2012.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- INSTRUCTION -->
+      <tr class="instruction-row">
+        <td colspan="4">(Please fill out the form and submit to the respective trainer. Put N/A if not applicable.)</td>
+      </tr>
+
+      <!-- PERSONAL INFO TITLE -->
+      <tr class="section-title">
+        <td colspan="4">I. PERSONAL INFORMATION</td>
+      </tr>
+
+      <!-- PERSONAL INFO BODY -->
+$pdf->SetFillColor(230, 230, 230);
+$pdf->Cell(0, 5, 'I. PERSONAL INFORMATION', 1, 1, 'L', true);
+
+$pdf->SetFont('helvetica', '', 8);
+$photoY = $pdf->GetY();
+
+// Row 1: Name with photo cell (28mm height spanning 5 rows)
+$nameData = trim(($app['first_name'] ?? '') . ' ' . ($app['middle_name'] ?? '') . ' ' . ($app['last_name'] ?? ''));
+$pdf->Cell(22, 5.6, 'Name:', 1, 0, 'L');
+$pdf->Cell(114, 5.6, $nameData, 1, 0, 'L');
+$pdf->Cell(59, 28, '', 1, 1, 'C');
+
+// Row 2: Address
+$pdf->SetXY(10, $photoY + 5.6);
+$pdf->Cell(22, 5.6, 'Address:', 1, 0, 'L');
+$pdf->Cell(114, 5.6, $app['address'] ?? $app['permanent_address'] ?? '', 1, 0, 'L');
+
+// Row 3: Present Address
+$pdf->SetXY(10, $photoY + 11.2);
+$pdf->Cell(22, 5.6, 'Present Address:', 1, 0, 'L');
+$pdf->Cell(114, 5.6, $app['present_address'] ?? '', 1, 0, 'L');
+
+// Row 4: Date of Birth, Age, Gender
+$pdf->SetXY(10, $photoY + 16.8);
+$pdf->Cell(22, 5.6, 'Date of Birth:', 1, 0, 'L');
+$pdf->Cell(58, 5.6, $app['date_of_birth'] ?? '', 1, 0, 'L');
+$pdf->Cell(10, 5.6, 'Age:', 1, 0, 'L');
+$pdf->Cell(24, 5.6, $app['age'] ?? '', 1, 0, 'C');
+
+// Row 5: Place of Birth
+$pdf->SetXY(10, $photoY + 22.4);
+$pdf->Cell(22, 5.6, 'Place of Birth:', 1, 0, 'L');
+$pdf->Cell(114, 5.6, $app['place_of_birth'] ?? '', 1, 0, 'L');
+
+// Gender overlay in photo area
+$pdf->SetXY(170, $photoY + 16.8);
+$pdf->Cell(25, 5.6, $app['gender'] ?? '', 0, 0, 'C');
+
+// Photo image in photo cell
+$photoX = 136;
+if ($app['profile_photo'] && file_exists('../' . $app['profile_photo'])) {
+    try {
+        $photoExt = strtolower(pathinfo($app['profile_photo'], PATHINFO_EXTENSION));
+        $imageType = '';
+        if (in_array($photoExt, ['jpg', 'jpeg'])) {
+            $imageType = 'JPEG';
+        } elseif ($photoExt === 'png') {
+            $imageType = 'PNG';
+        } elseif ($photoExt === 'gif') {
+            $imageType = 'GIF';
+        }
+        $pdf->Image('../' . $app['profile_photo'], $photoX + 12, $photoY + 2, 35, 35, $imageType);
+    } catch (Exception $e) {
+        $pdf->SetFont('helvetica', 'I', 6);
+        $pdf->SetXY($photoX + 14, $photoY + 12);
+        $pdf->Cell(31, 3, '(Attach 2x2 picture here)', 0, 0, 'C');
+    }
+} else {
+    $pdf->SetFont('helvetica', 'I', 6);
+    $pdf->SetXY($photoX + 14, $photoY + 12);
+    $pdf->Cell(31, 3, '(Attach 2x2 picture here)', 0, 0, 'C');
+}
+
+// Continue below photo section
+$pdf->SetFont('helvetica', '', 8);
+$pdf->SetXY(10, $photoY + 28);
+// Email and Contact
+$pdf->Cell(22, 5.6, 'Email Address:', 1, 0, 'L');
+$pdf->Cell(75, 5.6, $app['email'] ?? '', 1, 0, 'L');
+$pdf->Cell(39, 5.6, 'Contact Number:', 1, 0, 'L');
+$pdf->Cell(59, 5.6, $app['contact_number'] ?? '', 1, 1, 'L');
+
+// Father's Name
+$pdf->Cell(22, 5.6, "Father's Name:", 1, 0, 'L');
+$pdf->Cell(173, 5.6, $app['father_name'] ?? '', 1, 1, 'L');
+
+// Mother's Name
+$pdf->Cell(22, 5.6, "Mother's Name:", 1, 0, 'L');
+$pdf->Cell(173, 5.6, $app['mother_name'] ?? '', 1, 1, 'L');
+
+// Guardian
+$pdf->Cell(54, 5.6, 'Guardian (if not living with Parents):', 1, 0, 'L');
+$pdf->Cell(141, 5.6, ($app['guardian'] && $app['guardian'] != 'N/A') ? $app['guardian'] : '', 1, 1, 'L');
+
+// Contact Number (Parent/Guardian)
+$pdf->Cell(54, 5.6, 'Contact Number (Parent/Guardian):', 1, 0, 'L');
+$pdf->Cell(141, 5.6, $app['guardian_contact'] ?? $app['emergency_contact_number'] ?? '', 1, 1, 'L');
+
+// ========================================
+// II. EDUCATIONAL INFORMATION
+// ========================================
+$pdf->SetFont('helvetica', 'B', 9);
+$pdf->SetFillColor(230, 230, 230);
+$pdf->Cell(0, 5, 'II. EDUCATIONAL INFORMATION', 1, 1, 'L', true);
+
+$pdf->SetFont('helvetica', '', 8);
+
+// Campus, SR Code, Year Level
+$pdf->Cell(22, 5.6, 'Campus:', 1, 0, 'L');
+$pdf->Cell(80, 5.6, $app['campus'] ?? '', 1, 0, 'L');
+$pdf->Cell(23, 5.6, 'SR Code:', 1, 0, 'L');
+$pdf->Cell(32, 5.6, $app['sr_code'] ?? '', 1, 0, 'L');
+$pdf->Cell(38, 5.6, $app['year_level'] ?? '', 1, 1, 'C');
+
+// College and Program  
+$pdf->Cell(22, 5.6, 'College:', 1, 0, 'L');
+$pdf->Cell(80, 5.6, $app['college'] ?? '', 1, 0, 'L');
+$pdf->Cell(23, 5.6, 'Program:', 1, 0, 'L');
+$pdf->Cell(70, 5.6, $app['program'] ?? '', 1, 1, 'L');
+
+// Number of Units
+$y = $pdf->GetY();
+$pdf->Cell(30, 5.6, 'Number of Units:', 1, 0, 'L');
+
+// Draw first checkbox
+$pdf->Rect(40.5, $y + 1.3, 3, 3);
+$pdf->Cell(3, 5.6, '', 'L', 0, 'L');
+$pdf->Cell(79, 5.6, ' First Semester ___________________', 1, 0, 'L');
+
+// Draw second checkbox  
+$pdf->Rect(123, $y + 1.3, 3, 3);
+$pdf->Cell(3, 5.6, '', 'L', 0, 'L');
+$pdf->Cell(80, 5.6, ' Second Semester ___________________', 1, 1, 'L');
+
+// ========================================
+// III. PARTICIPATION IN THE FIELD OF INTEREST / ACHIEVEMENTS
+// ========================================
+$pdf->SetFont('helvetica', 'B', 9);
+$pdf->SetFillColor(230, 230, 230);
+$pdf->Cell(0, 5.5, 'III. PARTICIPATION IN THE FIELD OF INTEREST / ACHIEVEMENTS (Last Five Years)', 1, 1, 'L', true);
+
+// Table headers
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(220, 220, 220);
+$pdf->Cell(30, 5.5, 'Date', 1, 0, 'C', true);
+$pdf->Cell(75, 5.5, 'Event', 1, 0, 'C', true);
+$pdf->Cell(65, 5.5, 'Level', 1, 0, 'C', true);
+$pdf->Cell(34.4, 5.5, 'Rank (Place)', 1, 1, 'C', true);
+
+$pdf->SetFont('helvetica', '', 7);
+$pdf->Cell(30, 3.5, '', 1, 0, 'C');
+$pdf->Cell(75, 3.5, '', 1, 0, 'C');
+$pdf->SetFont('helvetica', 'I', 6.5);
+$pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
+$pdf->SetFont('helvetica', '', 7);
+$pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
+
+// Participation data rows (4 rows)
+$participationRowCount = 4;
+for ($i = 0; $i < $participationRowCount; $i++) {
+    if (isset($participations[$i])) {
+        $p = $participations[$i];
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(30, 5.5, $p['date'] ?? '', 1, 0, 'L');
+        $pdf->Cell(75, 5.5, substr($p['event_name'] ?? '', 0, 50), 1, 0, 'L');
+        $pdf->Cell(65, 5.5, $p['level'] ?? '', 1, 0, 'L');
+        $pdf->Cell(34.4, 5.5, $p['rank_award'] ?? '', 1, 1, 'L');
+    } else {
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(30, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(75, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(65, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(34.4, 5.5, '', 1, 1, 'L');
+    }
+}
+
+$pdf->Ln(2);
+
+// ========================================
+// IV. COMPETITION PARTICIPATED
+// ========================================
+$pdf->SetFont('helvetica', 'B', 9);
+$pdf->SetFillColor(230, 230, 230);
+$pdf->Cell(0, 5.5, 'IV. COMPETITION PARTICIPATED', 1, 1, 'L', true);
+
+// Table headers
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(220, 220, 220);
+$pdf->Cell(30, 5.5, 'Date', 1, 0, 'C', true);
+$pdf->Cell(75, 5.5, 'Event', 1, 0, 'C', true);
+$pdf->Cell(65, 5.5, 'Level', 1, 0, 'C', true);
+$pdf->Cell(34.4, 5.5, 'Rank (Place)', 1, 1, 'C', true);
+
+$pdf->SetFont('helvetica', '', 7);
+$pdf->Cell(30, 3.5, '', 1, 0, 'C');
+$pdf->Cell(75, 3.5, '', 1, 0, 'C');
+$pdf->SetFont('helvetica', 'I', 6.5);
+$pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
+$pdf->SetFont('helvetica', '', 7);
+$pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
+
+// Competition data rows (4 rows)
+$competitionRowCount = 4;
+for ($i = 0; $i < $competitionRowCount; $i++) {
+    if (isset($competitions[$i])) {
+        $c = $competitions[$i];
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(30, 5.5, $c['date'] ?? '', 1, 0, 'L');
+        $pdf->Cell(75, 5.5, substr($c['event_name'] ?? '', 0, 50), 1, 0, 'L');
+        $pdf->Cell(65, 5.5, $c['level'] ?? '', 1, 0, 'L');
+        $pdf->Cell(34.4, 5.5, $c['rank_award'] ?? '', 1, 1, 'L');
+    } else {
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(30, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(75, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(65, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(34.4, 5.5, '', 1, 1, 'L');
+    }
+}
+
+$pdf->Ln(2);
+
+// ========================================
+// V. AFFILIATION TO ORGANIZATIONS
+// ========================================
+$pdf->SetFont('helvetica', 'B', 9);
+$pdf->SetFillColor(230, 230, 230);
+$pdf->Cell(0, 5.5, 'V. AFFILIATION TO ORGANIZATIONS', 1, 1, 'L', true);
+
+// Table headers
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(220, 220, 220);
+$pdf->Cell(50, 5.5, 'Position', 1, 0, 'C', true);
+$pdf->Cell(110, 5.5, 'Name of Organization', 1, 0, 'C', true);
+$pdf->Cell(44.4, 5.5, 'Inclusive Years', 1, 1, 'C', true);
+
+// Affiliation data rows (4 rows)
+$affiliationRowCount = 4;
+for ($i = 0; $i < $affiliationRowCount; $i++) {
+    if (isset($affiliations[$i])) {
+        $a = $affiliations[$i];
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(50, 5.5, $a['position'] ?? '', 1, 0, 'L');
+        $pdf->Cell(110, 5.5, substr($a['organization'] ?? '', 0, 60), 1, 0, 'L');
+        $pdf->Cell(44.4, 5.5, $a['years_active'] ?? '', 1, 1, 'L');
+    } else {
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(50, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(110, 5.5, '', 1, 0, 'L');
+        $pdf->Cell(44.4, 5.5, '', 1, 1, 'L');
+    }
+}
+
+// ========================================
+// CERTIFICATION AND SIGNATURE
+// ========================================
+$pdf->Ln(2);
+$pdf->SetFont('helvetica', '', 8);
+
+// Draw certification checkbox and text
+$y = $pdf->GetY();
+$pdf->Rect(11, $y + 0.5, 3, 3);
+$pdf->Cell(0, 4.5, '  I hereby certify that all information in this form is true and correct. Any misrepresentation of facts will render this', 0, 1, 'L');
+$pdf->Cell(0, 4.5, '  invalid and immediately disqualifies my membership to the cultural group.', 0, 1, 'L');
+
+$pdf->Ln(3);
+$pdf->Ln(6);
+$pdf->Cell(0, 4, '_______________________________________________', 0, 1, 'C');
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->Cell(0, 4, 'Signature over Printed Name of Performer/Member', 0, 1, 'C');
+$pdf->SetFont('helvetica', '', 8);
+$pdf->Cell(0, 4, 'Date:__________', 0, 1, 'C');
+
+$pdf->Ln(1);
+$pdf->SetFont('helvetica', 'I', 7);
+$pdf->Cell(0, 3.5, '*Required Attachments: Certified True Copy of Certificates and Recognitions', 0, 1, 'L');
+
+// Output PDF
+$filename = 'Performers_Profile_Form_' . ($app['sr_code'] ?? 'Student') . '.pdf';
+$pdf->Output($filename, 'D');
+exit();
+?>
