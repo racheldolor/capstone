@@ -3034,6 +3034,7 @@ try {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    sessionStorage.setItem('lastProfileSaveResponse', JSON.stringify(data));
                     // Show success message
                     alert('Successfully joined the event!');
                     // Reload events to update the display
@@ -4094,7 +4095,7 @@ try {
                                     <tr>
                                         <th>Date</th>
                                         <th>Event</th>
-                                        <th>Level <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>Level <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
                                         <th>Rank (Place)</th>
                                         <th class="edit-column" style="display: none;">Action</th>
                                     </tr>
@@ -4116,7 +4117,7 @@ try {
                                     <tr>
                                         <th>Date</th>
                                         <th>Event</th>
-                                        <th>Level <span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>Level <span class="sub-text">(School, Municipal, Provincial, Regional, National, International)</span></th>
                                         <th>Rank (Place)</th>
                                         <th class="edit-column" style="display: none;">Action</th>
                                     </tr>
@@ -4278,7 +4279,10 @@ try {
 
             // Show save and cancel buttons, hide edit button
             document.getElementById('editProfileBtn').style.display = 'none';
-            document.getElementById('saveProfileBtn').style.display = 'inline-block';
+            const saveBtn = document.getElementById('saveProfileBtn');
+            saveBtn.style.display = 'inline-block';
+            saveBtn.textContent = 'Save Profile';
+            saveBtn.disabled = false;
             document.getElementById('cancelEditBtn').style.display = 'inline-block';
 
             // Make fields editable
@@ -4411,6 +4415,51 @@ try {
         }
 
         function confirmSave() {
+            // Capture any new rows that were typed but not added to pending changes
+            const collectNewRows = () => {
+                document.querySelectorAll('#participationTableBody tr[data-new="true"]:not(.pending-row)').forEach(row => {
+                    const data = {
+                        date: row.querySelector('.participation-date')?.value || '',
+                        event_name: row.querySelector('.participation-event')?.value || '',
+                        level: row.querySelector('.participation-level')?.value || '',
+                        rank_award: row.querySelector('.participation-rank')?.value || ''
+                    };
+                    if (data.date && data.event_name) {
+                        pendingChanges.participation.toAdd.push(data);
+                        row.classList.add('pending-row');
+                        row.querySelectorAll('input, select').forEach(input => input.disabled = true);
+                    }
+                });
+
+                document.querySelectorAll('#competitionTableBody tr[data-new="true"]:not(.pending-row)').forEach(row => {
+                    const data = {
+                        date: row.querySelector('.competition-date')?.value || '',
+                        event_name: row.querySelector('.competition-event')?.value || '',
+                        level: row.querySelector('.competition-level')?.value || '',
+                        rank_award: row.querySelector('.competition-rank')?.value || ''
+                    };
+                    if (data.date && data.event_name) {
+                        pendingChanges.competition.toAdd.push(data);
+                        row.classList.add('pending-row');
+                        row.querySelectorAll('input, select').forEach(input => input.disabled = true);
+                    }
+                });
+
+                document.querySelectorAll('#affiliationTableBody tr[data-new="true"]:not(.pending-row)').forEach(row => {
+                    const data = {
+                        position: row.querySelector('.affiliation-position')?.value || '',
+                        organization: row.querySelector('.affiliation-org')?.value || '',
+                        years_active: row.querySelector('.affiliation-year')?.value || ''
+                    };
+                    if (data.position && data.organization) {
+                        pendingChanges.affiliation.toAdd.push(data);
+                        row.classList.add('pending-row');
+                        row.querySelectorAll('input').forEach(input => input.disabled = true);
+                    }
+                });
+            };
+
+            collectNewRows();
             // Log pending changes for debugging
             console.log('=== SAVING PROFILE ===');
             console.log('Pending Changes:', JSON.stringify(pendingChanges, null, 2));
@@ -4606,10 +4655,23 @@ try {
                     };
                     
                     isEditMode = false;
-                    
-                    // Force reload to show updated photo from database
-                    alert('✅ Profile updated successfully! All changes saved to database.');
-                    location.reload(true); // Hard reload to clear cache
+                    // Reset buttons/controls and re-fetch profile data
+                    const editBtn = document.getElementById('editProfileBtn');
+                    const saveBtn = document.getElementById('saveProfileBtn');
+                    const cancelBtn = document.getElementById('cancelEditBtn');
+                    if (editBtn) editBtn.style.display = 'inline-block';
+                    if (saveBtn) saveBtn.style.display = 'none';
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                    document.querySelectorAll('.edit-column').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    document.getElementById('participationControls').classList.remove('active');
+                    document.getElementById('competitionControls').classList.remove('active');
+                    document.getElementById('affiliationControls').classList.remove('active');
+                    const instructorsNote = document.getElementById('instructors_note');
+                    if (instructorsNote) instructorsNote.style.display = 'none';
+
+                    loadPerformerProfile();
                 } else {
                     console.error('Save failed:', data);
                     alert('❌ Error updating profile: ' + (data.message || 'Unknown error'));
@@ -4643,6 +4705,12 @@ try {
 
         // Handle Enter key in password field
         document.addEventListener('DOMContentLoaded', function() {
+            const lastSaveResponse = sessionStorage.getItem('lastProfileSaveResponse');
+            if (lastSaveResponse) {
+                console.log('Last profile save response:', JSON.parse(lastSaveResponse));
+                sessionStorage.removeItem('lastProfileSaveResponse');
+            }
+
             const passwordInput = document.getElementById('verifyPassword');
             if (passwordInput) {
                 passwordInput.addEventListener('keypress', function(event) {
@@ -4785,7 +4853,9 @@ try {
                 <td>
                     <select class="competition-level">
                         <option value="">Select Level</option>
-                        <option value="Local">Local</option>
+                        <option value="School">School</option>
+                        <option value="Municipal">Municipal</option>
+                        <option value="Provincial">Provincial</option>
                         <option value="Regional">Regional</option>
                         <option value="National">National</option>
                         <option value="International">International</option>
