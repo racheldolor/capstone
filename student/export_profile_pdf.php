@@ -154,9 +154,9 @@ $pdf->SetSubject("Performer's Profile Form");
 $pdf->setPrintHeader(false);
 $pdf->setPrintFooter(false);
 
-// Set margins (5mm on all sides for equal margins)
+// Set margins (slightly smaller bottom margin to fit the attachments line)
 $pdf->SetMargins(5.6, 5.6, 5.6);
-$pdf->SetAutoPageBreak(false);
+$pdf->SetAutoPageBreak(true, 3.0);
 
 // Add page
 $pdf->AddPage();
@@ -549,8 +549,8 @@ $pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
 $pdf->SetFont('helvetica', '', 7);
 $pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
 
-// Participation data rows (4 rows)
-$participationRowCount = 4;
+// Participation data rows (show all, keep minimum of 4 rows)
+$participationRowCount = max(4, count($participations));
 for ($i = 0; $i < $participationRowCount; $i++) {
     if (isset($participations[$i])) {
         $p = $participations[$i];
@@ -593,8 +593,8 @@ $pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
 $pdf->SetFont('helvetica', '', 7);
 $pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
 
-// Competition data rows (4 rows)
-$competitionRowCount = 4;
+// Competition data rows (show all, keep minimum of 4 rows)
+$competitionRowCount = max(4, count($competitions));
 for ($i = 0; $i < $competitionRowCount; $i++) {
     if (isset($competitions[$i])) {
         $c = $competitions[$i];
@@ -628,8 +628,8 @@ $pdf->Cell(50, 5.5, 'Position', 1, 0, 'C', true);
 $pdf->Cell(110, 5.5, 'Name of Organization', 1, 0, 'C', true);
 $pdf->Cell(44.4, 5.5, 'Inclusive Years', 1, 1, 'C', true);
 
-// Affiliation data rows (4 rows)
-$affiliationRowCount = 4;
+// Affiliation data rows (show all, keep minimum of 4 rows)
+$affiliationRowCount = max(4, count($affiliations));
 for ($i = 0; $i < $affiliationRowCount; $i++) {
     if (isset($affiliations[$i])) {
         $a = $affiliations[$i];
@@ -645,33 +645,50 @@ for ($i = 0; $i < $affiliationRowCount; $i++) {
     }
 }
 
-$pdf->Ln(3);
+$pdf->Ln(1);
 
 // ========================================
 // CERTIFICATION AND SIGNATURE
 // ========================================
-$pdf->Ln(3);
+$pdf->Ln(1);
 $pdf->SetFont('helvetica', '', 8);
 
-// Draw certification checkbox and text
-$y = $pdf->GetY();
-$pdf->Rect(6.6, $y + 0.8, 3, 3);
-$pdf->Line(7, $y + 2, 8, $y + 3);
-$pdf->Line(8, $y + 3, 9.6, $y + 1);
+// Keep the certification/signature block together when it fits
 $certText = '      I hereby certify that all information in this form is true and correct. Any misrepresentation of facts will render this invalid and immediately disqualifies my membership to the cultural group.';
-$pdf->MultiCell(0, 5, $certText, 0, 'L');
+$drawSignatureBlock = function($pdf, $certText) {
+    $y = $pdf->GetY();
+    $pdf->Rect(6.6, $y + 0.8, 3, 3);
+    $pdf->Line(7, $y + 2, 8, $y + 3);
+    $pdf->Line(8, $y + 3, 9.6, $y + 1);
+    $pdf->MultiCell(0, 5, $certText, 0, 'L');
 
-$pdf->Ln(4);
-$pdf->Ln(6);
-$pdf->Cell(0, 5, '_______________________________________________', 0, 1, 'C');
-$pdf->SetFont('helvetica', 'B', 8);
-$pdf->Cell(0, 5, 'Signature over Printed Name of Performer/Member', 0, 1, 'C');
-$pdf->SetFont('helvetica', '', 8);
-$pdf->Cell(0, 5, 'Date: ' . date('F d, Y'), 0, 1, 'C');
+    $pdf->Ln(2);
+    $pdf->Ln(3);
+    $pdf->Cell(0, 5, '_______________________________________________', 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell(0, 5, 'Signature over Printed Name of Performer/Member', 0, 1, 'C');
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell(0, 5, 'Date: ' . date('F d, Y'), 0, 1, 'C');
 
-$pdf->Ln(2);
-$pdf->SetFont('helvetica', 'I', 7);
-$pdf->Cell(0, 4, '*Required Attachments: Certified True Copy of Certificates and Recognitions', 0, 1, 'L');
+    $pdf->Ln(2);
+    $pdf->SetFont('helvetica', 'I', 7);
+    $pdf->Cell(0, 4, '*Required Attachments: Certified True Copy of Certificates and Recognitions', 0, 1, 'L');
+};
+
+$startPage = $pdf->getPage();
+$startY = $pdf->GetY();
+$pdf->startTransaction();
+$drawSignatureBlock($pdf, $certText);
+
+if ($pdf->getPage() > $startPage) {
+    $pdf->rollbackTransaction(true);
+    $pdf->setPage($startPage);
+    $pdf->SetY($startY);
+    $pdf->AddPage();
+    $drawSignatureBlock($pdf, $certText);
+} else {
+    $pdf->commitTransaction();
+}
 
 // Output PDF
 $filename = 'Performers_Profile_Form_' . ($app['sr_code'] ?? 'Student') . '.pdf';
