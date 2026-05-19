@@ -114,9 +114,9 @@ $pdf->SetSubject("Performer's Profile Form");
 $pdf->setPrintHeader(false);
 $pdf->setPrintFooter(false);
 
-// Set margins (5mm on all sides for equal margins)
+// Set margins (slightly smaller bottom margin to fit the attachments line)
 $pdf->SetMargins(5.6, 5.6, 5.6);
-$pdf->SetAutoPageBreak(false);
+$pdf->SetAutoPageBreak(true, 3.0);
 
 // Add page
 $pdf->AddPage();
@@ -606,33 +606,50 @@ for ($i = 0; $i < $affiliationRowCount; $i++) {
     }
 }
 
-$pdf->Ln(3);
+$pdf->Ln(1);
 
 // ========================================
 // CERTIFICATION AND SIGNATURE
 // ========================================
-$pdf->Ln(3);
+$pdf->Ln(1);
 $pdf->SetFont('helvetica', '', 8);
 
-// Draw certification checkbox and text
-$y = $pdf->GetY();
-$pdf->Rect(6.6, $y + 0.8, 3, 3);
-$pdf->Line(7, $y + 2, 8, $y + 3);
-$pdf->Line(8, $y + 3, 9.6, $y + 1);
+// Keep the certification/signature block together when it fits
 $certText = '      I hereby certify that all information in this form is true and correct. Any misrepresentation of facts will render this invalid and immediately disqualifies my membership to the cultural group.';
-$pdf->MultiCell(0, 5, $certText, 0, 'L');
+$drawSignatureBlock = function($pdf, $certText) {
+    $y = $pdf->GetY();
+    $pdf->Rect(6.6, $y + 0.8, 3, 3);
+    $pdf->Line(7, $y + 2, 8, $y + 3);
+    $pdf->Line(8, $y + 3, 9.6, $y + 1);
+    $pdf->MultiCell(0, 5, $certText, 0, 'L');
 
-$pdf->Ln(4);
-$pdf->Ln(6);
-$pdf->Cell(0, 5, '_______________________________________________', 0, 1, 'C');
-$pdf->SetFont('helvetica', 'B', 8);
-$pdf->Cell(0, 5, 'Signature over Printed Name of Performer/Member', 0, 1, 'C');
-$pdf->SetFont('helvetica', '', 8);
-$pdf->Cell(0, 5, 'Date: ' . date('F d, Y'), 0, 1, 'C');
+    $pdf->Ln(2);
+    $pdf->Ln(3);
+    $pdf->Cell(0, 5, '_______________________________________________', 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell(0, 5, 'Signature over Printed Name of Performer/Member', 0, 1, 'C');
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell(0, 5, 'Date: ' . date('F d, Y'), 0, 1, 'C');
 
-$pdf->Ln(2);
-$pdf->SetFont('helvetica', 'I', 7);
-$pdf->Cell(0, 4, '*Required Attachments: Certified True Copy of Certificates and Recognitions', 0, 1, 'L');
+    $pdf->Ln(2);
+    $pdf->SetFont('helvetica', 'I', 7);
+    $pdf->Cell(0, 4, '*Required Attachments: Certified True Copy of Certificates and Recognitions', 0, 1, 'L');
+};
+
+$startPage = $pdf->getPage();
+$startY = $pdf->GetY();
+$pdf->startTransaction();
+$drawSignatureBlock($pdf, $certText);
+
+if ($pdf->getPage() > $startPage) {
+    $pdf->rollbackTransaction(true);
+    $pdf->setPage($startPage);
+    $pdf->SetY($startY);
+    $pdf->AddPage();
+    $drawSignatureBlock($pdf, $certText);
+} else {
+    $pdf->commitTransaction();
+}
 
 // Output PDF - 'D' forces download
 $filename = 'Performers_Profile_Form_' . ($app['sr_code'] ?? 'Student') . '.pdf';
