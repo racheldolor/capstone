@@ -510,8 +510,8 @@ $pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
 $pdf->SetFont('helvetica', '', 7);
 $pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
 
-// Participation data rows (4 rows)
-$participationRowCount = 4;
+// Participation data rows (show all, keep minimum of 4 rows)
+$participationRowCount = max(4, count($participations));
 for ($i = 0; $i < $participationRowCount; $i++) {
     if (isset($participations[$i])) {
         $p = $participations[$i];
@@ -554,8 +554,8 @@ $pdf->Cell(65, 3.5, '(Local, Regional, National, International)', 1, 0, 'C');
 $pdf->SetFont('helvetica', '', 7);
 $pdf->Cell(34.4, 3.5, '', 1, 1, 'C');
 
-// Competition data rows (4 rows)
-$competitionRowCount = 4;
+// Competition data rows (show all, keep minimum of 4 rows)
+$competitionRowCount = max(4, count($competitions));
 for ($i = 0; $i < $competitionRowCount; $i++) {
     if (isset($competitions[$i])) {
         $c = $competitions[$i];
@@ -589,8 +589,8 @@ $pdf->Cell(50, 5.5, 'Position', 1, 0, 'C', true);
 $pdf->Cell(110, 5.5, 'Name of Organization', 1, 0, 'C', true);
 $pdf->Cell(44.4, 5.5, 'Inclusive Years', 1, 1, 'C', true);
 
-// Affiliation data rows (4 rows)
-$affiliationRowCount = 4;
+// Affiliation data rows (show all, keep minimum of 4 rows)
+$affiliationRowCount = max(4, count($affiliations));
 for ($i = 0; $i < $affiliationRowCount; $i++) {
     if (isset($affiliations[$i])) {
         $a = $affiliations[$i];

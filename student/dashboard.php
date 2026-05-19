@@ -4747,11 +4747,13 @@ try {
                 </td>
                 <td><input type="text" class="participation-rank" placeholder="Rank/Award"></td>
                 <td class="edit-column">
-                    <button class="action-btn secondary" onclick="saveParticipationRow(this)">Add</button>
-                    <button class="delete-row-btn" onclick="removeNewRow(this)">Cancel</button>
+                    <button class="delete-row-btn" onclick="removeNewRow(this)">Delete</button>
                 </td>
             `;
-            
+            const actionCell = newRow.querySelector('.edit-column');
+            if (actionCell) {
+                actionCell.style.display = 'table-cell';
+            }
             tbody.appendChild(newRow);
         }
 
@@ -4863,11 +4865,13 @@ try {
                 </td>
                 <td><input type="text" class="competition-rank" placeholder="Rank/Award"></td>
                 <td class="edit-column">
-                    <button class="action-btn secondary" onclick="saveCompetitionRow(this)">Add</button>
-                    <button class="delete-row-btn" onclick="removeNewRow(this)">Cancel</button>
+                    <button class="delete-row-btn" onclick="removeNewRow(this)">Delete</button>
                 </td>
             `;
-
+            const actionCell = newRow.querySelector('.edit-column');
+            if (actionCell) {
+                actionCell.style.display = 'table-cell';
+            }
             tbody.appendChild(newRow);
         }
 
@@ -4953,11 +4957,13 @@ try {
                 <td><input type="text" class="affiliation-org" placeholder="Organization Name"></td>
                 <td><input type="text" class="affiliation-year" placeholder="Year"></td>
                 <td class="edit-column">
-                    <button class="action-btn secondary" onclick="saveAffiliationRow(this)">Add</button>
-                    <button class="delete-row-btn" onclick="removeNewRow(this)">Cancel</button>
+                    <button class="delete-row-btn" onclick="removeNewRow(this)">Delete</button>
                 </td>
             `;
-            
+            const actionCell = newRow.querySelector('.edit-column');
+            if (actionCell) {
+                actionCell.style.display = 'table-cell';
+            }
             tbody.appendChild(newRow);
         }
 
