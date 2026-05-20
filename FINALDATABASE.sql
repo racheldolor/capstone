@@ -1294,6 +1294,12 @@ ALTER TABLE `student_competition_records`
 ALTER TABLE `student_participation_records`
   ADD CONSTRAINT `student_participation_records_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student_artists` (`id`) ON DELETE CASCADE;
 
+--
+-- Seed admin account
+--
+INSERT INTO `users` (`first_name`, `middle_name`, `last_name`, `email`, `password`, `role`, `campus`, `status`)
+VALUES ('Admin', NULL, 'Role', 'admin@g.batstate-u.edu.ph', '$2y$10$KD4A.8Y7TyvKXQI52vqgAe/BX4m3T8mqcIp86JCECKCZQNyl2ubSu', 'admin', NULL, 'active');
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
