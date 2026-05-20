@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
@@ -26,9 +26,7 @@ $campus_name_map = [
 ];
 $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
-$canManage = !$isCentralHead;
+$canManage = true;
 
 // Pablo Borbon Head users have full management access across all campuses
 $isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
@@ -133,6 +131,27 @@ try {
                 $studentStatus = 'suspended'; // Both approved and rejected students start as suspended
                 $isArchived = ($status === 'rejected') ? 1 : 0; // Only rejected students are archived
                 
+                // Generate default password using SR code (student can change later)
+                $defaultPassword = password_hash($application['sr_code'], PASSWORD_DEFAULT);
+
+                // Use existing name fields if available, otherwise split full_name
+                $firstName = $application['first_name'];
+                $middleName = $application['middle_name'];
+                $lastName = $application['last_name'];
+
+                // If name fields are empty, try to split full_name
+                if (empty($firstName) && !empty($application['full_name'])) {
+                    $nameParts = explode(' ', trim($application['full_name']));
+                    $firstName = $nameParts[0];
+                    $lastName = count($nameParts) > 1 ? end($nameParts) : '';
+
+                    if (count($nameParts) > 2) {
+                        // Extract middle name(s)
+                        $middleParts = array_slice($nameParts, 1, -1);
+                        $middleName = implode(' ', $middleParts);
+                    }
+                }
+
                 // First, try to insert with is_archived column
                 try {
                     // Add to student_artists table with all available data from application
@@ -168,28 +187,7 @@ try {
                             created_at
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ");
-                    
-                    // Generate default password using SR code (student can change later)
-                    $defaultPassword = password_hash($application['sr_code'], PASSWORD_DEFAULT);
-                    
-                    // Use existing name fields if available, otherwise split full_name
-                    $firstName = $application['first_name'];
-                    $middleName = $application['middle_name'];
-                    $lastName = $application['last_name'];
-                    
-                    // If name fields are empty, try to split full_name
-                    if (empty($firstName) && !empty($application['full_name'])) {
-                        $nameParts = explode(' ', trim($application['full_name']));
-                        $firstName = $nameParts[0];
-                        $lastName = count($nameParts) > 1 ? end($nameParts) : '';
-                        
-                        if (count($nameParts) > 2) {
-                            // Extract middle name(s)
-                            $middleParts = array_slice($nameParts, 1, -1);
-                            $middleName = implode(' ', $middleParts);
-                        }
-                    }
-                    
+
                     $stmt->execute([
                         $application['sr_code'],
                         $firstName,

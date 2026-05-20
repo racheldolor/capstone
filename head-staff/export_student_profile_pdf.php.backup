@@ -2,8 +2,8 @@
 session_start();
 require_once '../config/database.php';
 
-// Authentication check - allow head, central, admin, and director
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin', 'director'])) {
+// Authentication check - allow head, admin, and director
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin', 'director'])) {
     header('Location: ../index.php');
     exit();
 }

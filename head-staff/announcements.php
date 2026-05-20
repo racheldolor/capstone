@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'director'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'director'])) {
     header('Location: ../index.php');
     exit();
 }
@@ -39,7 +39,7 @@ if ($user_role === 'director') {
 // (different from other modules where director is view-only)
 $isDirector = ($user_role === 'director');
 $isHead = ($user_role === 'head');
-$canManage = true; // All roles (head, central, director) can manage announcements
+$canManage = true; // All roles (head, director) can manage announcements
 
 // Get user's full name
 $user_name = '';

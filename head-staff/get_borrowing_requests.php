@@ -8,7 +8,7 @@ require_once '../config/database.php';
 header('Content-Type: application/json');
 
 // Check authentication
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Unauthorized access. Please login.']);
     exit;
@@ -33,8 +33,6 @@ $campus_name_map = [
 ];
 $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
 $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 
 try {

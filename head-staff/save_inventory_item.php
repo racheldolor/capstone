@@ -11,7 +11,7 @@ error_reporting(0);
 session_start();
 
 // Check if user is logged in and is admin (head)
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head'])) {
     ob_clean();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
