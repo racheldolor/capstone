@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -14,9 +14,7 @@ $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
 $user_campus = $_SESSION['user_campus'] ?? null;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
-$canManage = !$isCentralHead;
+$canManage = true;
 
 // Check write permission
 if (!$canManage) {
@@ -44,9 +42,9 @@ try {
     $category = $_POST['category'] ?? '';
     $cultural_groups = isset($_POST['cultural_groups']) && is_array($_POST['cultural_groups']) ? $_POST['cultural_groups'] : [];
     
-    // Auto-set campus for non-Pablo Borbon users (head, central)
+    // Auto-set campus for non-Pablo Borbon users (head)
     // Only Pablo Borbon users and admin can choose campus
-    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'central'])));
+    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
     if (!$canChooseCampus && $user_campus) {
         $campus = $user_campus;
     }

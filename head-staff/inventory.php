@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'admin', 'director'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin', 'director'])) {
     header('Location: ../index.php');
     exit();
 }
@@ -36,16 +36,11 @@ if ($user_role === 'director') {
 // Director role has view-only access to all campuses
 $isDirector = ($user_role === 'director');
 
-// Central Head emails (view-only access)
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
-$isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
-$isCentralStaff = ($user_role === 'central' && !$isCentralHead);
-
 // Pablo Borbon Head users have full access to all campuses
 $isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 
-$canViewAll = in_array($user_role, ['central', 'admin', 'director']) || $isCentralHead || $isCentralStaff || $isPabloBorbonHead;
-$canManage = !$isCentralHead && !$isDirector; // Central Head and Director are view-only
+$canViewAll = ($user_role === 'admin' || $isDirector || $isPabloBorbonHead);
+$canManage = !$isDirector; // Director is view-only
 
 $pdo = getDBConnection();
 ?>

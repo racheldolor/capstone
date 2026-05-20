@@ -32,7 +32,7 @@ define('DB_USER', 'root');       // Change to your MySQL username
 define('DB_PASS', '');           // Change to your MySQL password
 
 // Create database connection
-function getDBConnection() {
+function getDBConnection(): \PDO {
     try {
         $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
         $pdo = new PDO($dsn, DB_USER, DB_PASS);
@@ -45,7 +45,7 @@ function getDBConnection() {
 }
 
 // Function to log admin actions
-function logAdminAction($pdo, $admin_id, $action, $target_user_id = null, $details = null) {
+function logAdminAction(\PDO $pdo, int $admin_id, string $action, ?int $target_user_id = null, ?string $details = null): void {
     try {
         // Check if we're in a transaction and save the state
         $inTransaction = $pdo->inTransaction();

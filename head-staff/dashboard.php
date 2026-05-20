@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'central', 'director'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'director'])) {
     header('Location: ../index.php');
     exit();
 }
@@ -75,7 +75,7 @@ $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Determine effective campus filter:
 // - If URL provides campus_filter, use it.
-// - Else: if user can view all, default to Pablo Borbon (admin/central staff case).
+// - Else: if user can view all, default to Pablo Borbon (admin case).
 // - Else default to the user's assigned campus so that non-Pablo users see only their campus.
 $campus_filter = isset($_GET['campus_filter']) ? trim($_GET['campus_filter']) : (
     !empty($canViewAll) ? 'Pablo Borbon' : ($user_campus ?? 'Pablo Borbon')

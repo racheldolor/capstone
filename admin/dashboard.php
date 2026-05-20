@@ -1051,11 +1051,6 @@ ob_end_clean();
             color: white;
         }
 
-        .role-central {
-            background: #6f42c1;
-            color: white;
-        }
-
         .role-director {
             background: #ff6b6b;
             color: white;
