@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin', 'director'])) {
     header('Location: ../index.php');
     exit();
 }
@@ -25,19 +25,22 @@ $campus_name_map = [
 ];
 $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
-// Display campus name (Pablo Borbon shows as "All Campuses")
-$display_campus = ($user_campus === 'Pablo Borbon') ? 'All Campuses' : $user_campus;
+// Display campus name
+// Director role should display Pablo Borbon
+if ($user_role === 'director') {
+    $display_campus = 'Pablo Borbon';
+} else {
+    $display_campus = $user_campus;
+}
 
-// Central Head emails (view-only access)
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph', 'centralhead@g.batstate-u.edu.ph'];
-$isCentralHead = ($user_role === 'central' && in_array($user_email, $centralHeadEmails));
-$isCentralStaff = ($user_role === 'central' && !$isCentralHead);
+// Director role has view-only access to all campuses
+$isDirector = ($user_role === 'director');
 
-// Pablo Borbon Head users have view-only access
+// Pablo Borbon Head users have full access to all campuses
 $isPabloBorbonHead = ($user_role === 'head' && $user_campus === 'Pablo Borbon');
 
-$canViewAll = in_array($user_role, ['central', 'admin']) || $isCentralHead || $isCentralStaff;
-$canManage = !$isCentralHead && !$isPabloBorbonHead; // Central Head and Pablo Borbon Head are view-only
+$canViewAll = ($user_role === 'admin' || $isDirector || $isPabloBorbonHead);
+$canManage = !$isDirector; // Director is view-only
 
 $pdo = getDBConnection();
 ?>
@@ -161,6 +164,66 @@ $pdo = getDBConnection();
             z-index: 50;
             overflow-y: auto;
             overflow-x: hidden;
+        }
+
+        .sidebar-greeting {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-greeting::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+        }
+
+        .sidebar-greeting h3 {
+            margin: 0 0 0.5rem 0;
+            color: white;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            line-height: 1.2;
+        }
+
+        .greeting-hi {
+            font-size: 1.8rem;
+            font-weight: 400;
+        }
+
+        .greeting-name {
+            font-size: 1.8rem;
+        }
+
+        .sidebar-greeting p {
+            margin: 0 0 0 0.5rem;
+            font-style: bold;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.95);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
         }
 
         .nav-menu {
@@ -802,19 +865,10 @@ $pdo = getDBConnection();
             <h1 class="header-title">Culture and Arts - Dashboard</h1>
         </div>
         <div class="header-right">
-            <div class="user-info">
-                <span>👤</span>
-                <?php 
-                $first_name = explode(' ', $_SESSION['user_name'])[0];
-                $role_display = strtoupper($user_role);
-                ?>
-                <span><?= htmlspecialchars($first_name) ?></span>
-                <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= $role_display ?></span>
-                <?php if ($isCentralHead): ?>
-                    <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;">VIEW ONLY</span>
-                <?php endif; ?>
-                <span style="background: <?= ($user_campus === 'Pablo Borbon') ? '#4caf50' : '#2196f3' ?>; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; font-weight: 600;"><?= htmlspecialchars($display_campus) ?></span>
-            </div>
+            <?php 
+            $first_name = explode(' ', $_SESSION['user_name'])[0];
+            $role_display = strtoupper($user_role);
+            ?>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
@@ -823,11 +877,23 @@ $pdo = getDBConnection();
     <div class="main-container">
         <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-greeting">
+                <h3>
+                    <span class="greeting-hi">Hi,</span>
+                    <span class="greeting-name"><?= htmlspecialchars($first_name) ?></span>
+                </h3>
+                <p><?= htmlspecialchars($role_display) ?><?php if (!$isDirector): ?> - <?= htmlspecialchars($display_campus) ?><?php endif; ?></p>
+            </div>
             <nav>
                 <ul class="nav-menu">
                     <li class="nav-item">
                         <a href="dashboard.php" class="nav-link">
                             Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="announcements.php" class="nav-link">
+                            Announcements
                         </a>
                     </li>
                     <li class="nav-item">
@@ -850,7 +916,7 @@ $pdo = getDBConnection();
                             Inventory
                         </a>
                     </li>
-                    <?php if (!$isPabloBorbonHead): ?>
+                    <?php if ($canManage): ?>
                     <li class="nav-item">
                         <a href="archives.php" class="nav-link">
                             Archives
@@ -865,7 +931,7 @@ $pdo = getDBConnection();
         <main class="main-content">
             <div class="page-header" id="pageHeader">
                 <h1 class="page-title">Inventory</h1>
-                <?php if (!$isPabloBorbonHead): ?>
+                <?php if ($canManage): ?>
                 <div style="display: flex; gap: 1rem;">
                     <button class="add-btn" onclick="openAddItemModal()">
                         <i class="fas fa-plus"></i>
@@ -888,7 +954,7 @@ $pdo = getDBConnection();
             </div>
 
             <!-- Floating Action Buttons (shown when header is scrolled out of view) -->
-            <?php if (!$isPabloBorbonHead): ?>
+            <?php if ($canManage): ?>
             <div class="floating-actions">
                 <button class="fab fab-add" onclick="openAddItemModal()" title="Add Item">
                     <span class="fab-tooltip">Add Item</span>
@@ -1026,6 +1092,7 @@ $pdo = getDBConnection();
         let allCostumes = [];
         let allEquipment = [];
         let searchTimeout;
+        const canManage = <?php echo $canManage ? 'true' : 'false'; ?>;
 
         // Modal scroll prevention functions
         function preventBackgroundScroll() {
@@ -1145,8 +1212,10 @@ $pdo = getDBConnection();
                 html += '<div>' + getInventoryStatusBadge(autoStatus, displayQty) + '</div>';
                 html += '<div class="item-actions">';
                 html += '<button class="icon-btn icon-btn-info" onclick="viewBorrowerInfo(' + costume.id + ', \'' + (costume.item_name || costume.name || 'this item') + '\')" title="View Info"><i class="fas fa-info-circle"></i></button>';
-                html += '<button class="icon-btn icon-btn-edit" onclick="editItem(' + costume.id + ', \'costume\')" title="Edit"><i class="fas fa-edit"></i></button>';
-                html += '<button class="icon-btn icon-btn-archive" onclick="archiveItem(' + costume.id + ', \'' + (costume.item_name || costume.name || 'this item') + '\')" title="Archive"><i class="fas fa-archive"></i></button>';
+                if (canManage) {
+                    html += '<button class="icon-btn icon-btn-edit" onclick="editItem(' + costume.id + ', \'costume\')" title="Edit"><i class="fas fa-edit"></i></button>';
+                    html += '<button class="icon-btn icon-btn-archive" onclick="archiveItem(' + costume.id + ', \'' + (costume.item_name || costume.name || 'this item') + '\')" title="Archive"><i class="fas fa-archive"></i></button>';
+                }
                 html += '</div>';
                 html += '</div>';
             });
@@ -1177,8 +1246,10 @@ $pdo = getDBConnection();
                 html += '<div>' + getInventoryStatusBadge(autoStatus, displayQty) + '</div>';
                 html += '<div class="item-actions">';
                 html += '<button class="icon-btn icon-btn-info" onclick="viewBorrowerInfo(' + item.id + ', \'' + (item.item_name || item.name || 'this item') + '\')" title="View Info"><i class="fas fa-info-circle"></i></button>';
-                html += '<button class="icon-btn icon-btn-edit" onclick="editItem(' + item.id + ', \'equipment\')" title="Edit"><i class="fas fa-edit"></i></button>';
-                html += '<button class="icon-btn icon-btn-archive" onclick="archiveItem(' + item.id + ', \'' + (item.item_name || item.name || 'this item') + '\')" title="Archive"><i class="fas fa-archive"></i></button>';
+                if (canManage) {
+                    html += '<button class="icon-btn icon-btn-edit" onclick="editItem(' + item.id + ', \'equipment\')" title="Edit"><i class="fas fa-edit"></i></button>';
+                    html += '<button class="icon-btn icon-btn-archive" onclick="archiveItem(' + item.id + ', \'' + (item.item_name || item.name || 'this item') + '\')" title="Archive"><i class="fas fa-archive"></i></button>';
+                }
                 html += '</div>';
                 html += '</div>';
             });
@@ -1209,22 +1280,22 @@ $pdo = getDBConnection();
         }
 
         function getInventoryStatusBadge(status, quantity) {
-            // Auto-set to unavailable if quantity is 0, otherwise available if qty > 0
+            // Display based on quantity and status
+            // If quantity is 0, show "Out of Stock" regardless of status
             if (quantity !== undefined && quantity <= 0) {
-                return '<span class="badge badge-unavailable">Unavailable</span>';
+                return '<span class="badge badge-unavailable">Out of Stock</span>';
             }
             
-            // If quantity > 0, always show as available (borrowed status is shown in borrower modal)
-            if (quantity > 0) {
-                return '<span class="badge badge-available">Available</span>';
-            }
-            
+            // For quantity > 0, show actual status
             const badges = {
                 'available': '<span class="badge badge-available">Available</span>',
+                'borrowed': '<span class="badge badge-maintenance">Borrowed</span>',
                 'maintenance': '<span class="badge badge-maintenance">Maintenance</span>',
-                'unavailable': '<span class="badge badge-unavailable">Unavailable</span>'
+                'reserved': '<span class="badge badge-worn">Reserved</span>',
+                'retired': '<span class="badge badge-unavailable">Retired</span>',
+                'archived': '<span class="badge badge-unavailable">Archived</span>'
             };
-            return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Unknown'}</span>`;
+            return badges[status] || `<span style="color: #666; font-size: 0.7rem;">${status || 'Available'}</span>`;
         }
 
         // Modal functions
@@ -1638,7 +1709,7 @@ $pdo = getDBConnection();
             let html = '';
             requests.forEach(request => {
                 const statusBadge = getReturnStatusBadge(request.status);
-                const actions = getReturnRequestActions(request.id, request.status);
+                const actions = getReturnRequestActions(request, request.status);
                 
                 html += `
                     <tr>
@@ -1663,14 +1734,24 @@ $pdo = getDBConnection();
             return badges[status] || status;
         }
         
-        function getReturnRequestActions(requestId, status) {
+        let returnRequestsData = [];
+        
+        function getReturnRequestActions(request, status) {
+            // Store request data for later retrieval
+            const index = returnRequestsData.findIndex(r => r.id === request.id);
+            if (index >= 0) {
+                returnRequestsData[index] = request;
+            } else {
+                returnRequestsData.push(request);
+            }
+            
             if (status === 'pending') {
                 return `
-                    <button class="action-btn small" onclick="confirmReturn(${requestId})" style="background: #10b981; color: white; margin-right: 0.5rem;">Confirm Return</button>
-                    <button class="action-btn small" onclick="viewReturnDetails(${requestId})">View</button>
+                    <button class="action-btn small" onclick="confirmReturn(${request.id})" style="background: #10b981; color: white; margin-right: 0.5rem;">Confirm Return</button>
+                    <button class="action-btn small" onclick="viewReturnDetails(${request.id})">View</button>
                 `;
             } else {
-                return `<button class="action-btn small" onclick="viewReturnDetails(${requestId})">View</button>`;
+                return `<button class="action-btn small" onclick="viewReturnDetails(${request.id})">View</button>`;
             }
         }
         
@@ -1725,7 +1806,54 @@ $pdo = getDBConnection();
         }
         
         function viewRequestDetails(id) { alert('View borrow request: ' + id); }
-        function viewReturnDetails(id) { alert('View return request: ' + id); }
+        function viewReturnDetails(id) {
+            const request = returnRequestsData.find(r => r.id === id);
+            if (!request) {
+                alert('Return request not found');
+                return;
+            }
+            
+            const modal = document.getElementById('returnDetailsModal');
+            const modalContent = document.getElementById('returnDetailsContent');
+            
+            modalContent.innerHTML = `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <h3 style="margin-bottom: 0.5rem; color: #333;">Student Information</h3>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Name:</strong> ${request.student_name}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>SR Code:</strong> ${request.sr_code || 'N/A'}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Email:</strong> ${request.email}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Campus:</strong> ${request.campus}</p>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <h3 style="margin-bottom: 0.5rem; color: #333;">Item Information</h3>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Item Name:</strong> ${request.item_name}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Quantity Returned:</strong> ${request.quantity_returned || 1}</p>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <h3 style="margin-bottom: 0.5rem; color: #333;">Return Information</h3>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Condition:</strong> ${request.condition_notes || 'N/A'}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Requested At:</strong> ${request.requested_at}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Status:</strong> ${request.status}</p>
+                    ${request.completed_at ? `<p style="margin: 0.25rem 0; color: #666;"><strong>Completed At:</strong> ${request.completed_at}</p>` : ''}
+                </div>
+                
+                ${request.borrow_date ? `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px;">
+                    <h3 style="margin-bottom: 0.5rem; color: #333;">Borrow Details</h3>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Borrow Date:</strong> ${request.borrow_date}</p>
+                    <p style="margin: 0.25rem 0; color: #666;"><strong>Due Date:</strong> ${request.due_date}</p>
+                </div>
+                ` : ''}
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function closeReturnDetailsModal() {
+            document.getElementById('returnDetailsModal').style.display = 'none';
+        }
 
         // Approval Modal Functions
         function showApprovalModal(request) {
@@ -1757,9 +1885,8 @@ $pdo = getDBConnection();
                     const quantity = match ? match[2] : '1';
                     
                     requestedHTML += `
-                        <div style="padding: 0.5rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="padding: 0.5rem; border-bottom: 1px solid #e0e0e0;">
                             <span style="color: #333; font-weight: 500;">${itemName}</span>
-                            <span style="color: #666; font-size: 0.9rem;">Qty: ${quantity}</span>
                         </div>
                     `;
                 });
@@ -1769,9 +1896,8 @@ $pdo = getDBConnection();
                 const quantity = match ? match[2] : '1';
                 
                 requestedHTML = `
-                    <div style="padding: 0.5rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="padding: 0.5rem; border-bottom: 1px solid #e0e0e0;">
                         <span style="color: #333; font-weight: 500;">${itemName}</span>
-                        <span style="color: #666; font-size: 0.9rem;">Qty: ${quantity}</span>
                     </div>
                 `;
             }
@@ -2482,6 +2608,21 @@ $pdo = getDBConnection();
                     <p>Loading borrower information...</p>
                 </div>
                 <div id="borrowerInfoContent" style="display: none;">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Return Details Modal -->
+    <div id="returnDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content scrollable" style="max-width: 700px; width: 95%; margin: 5% auto;">
+            <div class="modal-header">
+                <h2>Return Request Details</h2>
+                <span class="close" onclick="closeReturnDetailsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="returnDetailsContent">
                     <!-- Content will be populated by JavaScript -->
                 </div>
             </div>

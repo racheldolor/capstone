@@ -42,6 +42,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $program = $_POST["program"] ?? '';
         $first_semester_units = (int)($_POST["first_semester_units"] ?? 0);
         $second_semester_units = (int)($_POST["second_semester_units"] ?? 0);
+        
+        // Handle instructors array
+        $instructors = '';
+        if (isset($_POST['instructors']) && is_array($_POST['instructors'])) {
+            // Filter out empty values and join with comma
+            $instructors_array = array_filter($_POST['instructors'], function($value) {
+                return !empty(trim($value));
+            });
+            $instructors = implode(', ', $instructors_array);
+        }
+        
         $certification = isset($_POST["certification"]) ? 1 : 0;
         $signature_date = $_POST["signature_date"] ?? '';
 
@@ -107,20 +118,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             performance_type, consent, first_name, middle_name, last_name, full_name, address, present_address, 
             date_of_birth, age, gender, place_of_birth, email, contact_number, father_name, mother_name, 
             guardian, guardian_contact, campus, college, sr_code, year_level, program, first_semester_units, 
-            second_semester_units, profile_photo, signature_image, certification, signature_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            second_semester_units, instructors, profile_photo, signature_image, certification, signature_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
-    // Parameter types: 23 strings, 2 integers, 2 strings, 1 integer, 1 string = 29 total
-    // s(23) + i + i + s + s + i + s
-    $types = 'sssssssssssssssssssssss' . 'ii' . 'ss' . 'i' . 's';
+    // Parameter types: 23 strings, 2 integers, 1 string (instructors), 2 strings, 1 integer, 1 string = 30 total
+    // s(23) + i + i + s + s + s + i + s
+    $types = 'sssssssssssssssssssssss' . 'ii' . 's' . 'ss' . 'i' . 's';
 
     $stmt->bind_param(
         $types,
         $performance_type, $consent, $first_name, $middle_name, $last_name, $full_name, $address, $present_address, 
         $date_of_birth, $age, $gender, $place_of_birth, $email, $contact_number, $father_name, $mother_name, 
         $guardian, $guardian_contact, $campus, $college, $sr_code, $year_level, $program, 
-        $first_semester_units, $second_semester_units, $profile_photo_path, $signature_image_path,
+        $first_semester_units, $second_semester_units, $instructors, $profile_photo_path, $signature_image_path,
         $certification, $signature_date
     );
 
@@ -153,6 +164,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                 }
                 $participation_stmt->close();
+            }
+            
+            // Insert competition records if provided (NEW - Section IV)
+            if (isset($_POST['competition_date']) && is_array($_POST['competition_date'])) {
+                $competition_stmt = $conn->prepare("
+                    INSERT INTO application_competition (application_id, competition_date, event_name, competition_level, rank_award) 
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                
+                for ($i = 0; $i < count($_POST['competition_date']); $i++) {
+                    $comp_date = $_POST['competition_date'][$i] ?? '';
+                    $comp_event = $_POST['competition_event'][$i] ?? '';
+                    $comp_level = $_POST['competition_level'][$i] ?? '';
+                    $comp_rank = $_POST['competition_rank'][$i] ?? '';
+                    
+                    // Only insert if at least one field has data
+                    if (!empty($comp_date) || !empty($comp_event) || !empty($comp_level) || !empty($comp_rank)) {
+                        $competition_stmt->bind_param("issss", $application_id, $comp_date, $comp_event, $comp_level, $comp_rank);
+                        if (!$competition_stmt->execute()) {
+                            error_log("Error inserting competition record: " . $competition_stmt->error);
+                        }
+                    }
+                }
+                $competition_stmt->close();
             }
             
             // Insert affiliation records if provided
@@ -532,12 +567,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .form-group input,
         .form-group select {
+            width: 100%;
             padding: 0.5rem;
             border: 1px solid #333;
             border-radius: 4px;
             font-size: 0.9rem;
             font-family: inherit;
             color: #000;
+            box-sizing: border-box;
         }
 
         .form-group select:disabled {
@@ -586,13 +623,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .inline-units {
-            width: 80px;
+            width: 90px !important;
             padding: 0.25rem 0.5rem;
             border: 1px solid #333;
             border-radius: 4px;
             font-size: 0.85rem;
             margin-left: 0.5rem;
             margin-right: 1rem;
+            box-sizing: border-box;
         }
 
         /* Table Sections */
@@ -601,6 +639,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .participation-table,
+        .competition-table,
         .affiliation-table {
             width: 100%;
             border-collapse: collapse;
@@ -609,8 +648,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .participation-table th,
+        .competition-table th,
         .affiliation-table th,
         .participation-table td,
+        .competition-table td,
         .affiliation-table td {
             border: 1px solid #333;
             padding: 0.75rem 0.5rem;
@@ -618,6 +659,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .participation-table th,
+        .competition-table th,
         .affiliation-table th {
             background: #f8f9fa;
             font-weight: 600;
@@ -632,6 +674,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .participation-table input,
         .participation-table select,
+        .competition-table input,
+        .competition-table select,
         .affiliation-table input {
             width: 100%;
             border: none;
@@ -661,6 +705,59 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .add-row-btn:hover {
             background: #ff3333;
+        }
+
+        /* Instructors List */
+        #instructorsList {
+            margin-bottom: 0.5rem;
+        }
+
+        .instructor-item {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+
+        .instructor-input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .add-instructor-btn {
+            background: #ff5a5a;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+
+        .add-instructor-btn:hover {
+            background: #ff3333;
+        }
+
+        .remove-instructor-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: background 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .remove-instructor-btn:hover {
+            background: #c82333;
         }
 
         /* Certification */
@@ -894,13 +991,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             
             .participation-table,
+            .competition-table,
             .affiliation-table {
                 font-size: 0.8rem;
             }
             
             .participation-table th,
+            .competition-table th,
             .affiliation-table th,
             .participation-table td,
+            .competition-table td,
             .affiliation-table td {
                 padding: 0.5rem 0.25rem;
             }
@@ -1092,6 +1192,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             
             .participation-table,
+            .competition-table,
             .affiliation-table {
                 font-size: 0.75rem;
                 overflow-x: auto;
@@ -1101,14 +1202,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             
             .participation-table table,
+            .competition-table table,
             .affiliation-table table {
                 min-width: 600px;
                 width: 100%;
             }
             
             .participation-table th,
+            .competition-table th,
             .affiliation-table th,
             .participation-table td,
+            .competition-table td,
             .affiliation-table td {
                 padding: 0.4rem 0.3rem;
                 font-size: 0.75rem;
@@ -1116,6 +1220,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             
             .participation-table input,
+            .competition-table input,
+            .competition-table select,
             .affiliation-table input {
                 padding: 0.4rem;
                 font-size: 14px;
@@ -1571,6 +1677,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     </div>
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label>Instructors:</label>
+                                <div id="instructorsList">
+                                    <div class="instructor-item">
+                                        <input type="text" name="instructors[]" placeholder="Instructor Name" class="instructor-input">
+                                        <button type="button" class="remove-instructor-btn" onclick="removeInstructor(this)" style="display: none;">Remove</button>
+                                    </div>
+                                </div>
+                                <button type="button" class="add-instructor-btn" onclick="addInstructor()">+ Add Instructor</button>
+                            </div>
                         </div>
                     </div>
 
@@ -1606,13 +1722,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     </tr>
                                 </tbody>
                             </table>
-                            <button type="button" class="add-row-btn" onclick="addParticipationRow()">Add Row</button>
+                            <button type="button" class="add-row-btn" onclick="addParticipationRow()">+ Add Row</button>
+                        </div>
+                    </div>
+
+                    <!-- Competition Section (NEW) -->
+                    <div class="form-section">
+                        <h3 class="section-title">IV. COMPETITION PARTICIPATED</h3>
+                        <div class="table-section">
+                            <table class="competition-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Event</th>
+                                        <th>Level<br><span class="sub-text">(Local, Regional, National, International)</span></th>
+                                        <th>Rank (Place)</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="competitionTableBody">
+                                    <tr>
+                                        <td><input type="date" name="competition_date[]"></td>
+                                        <td><input type="text" name="competition_event[]"></td>
+                                        <td>
+                                            <select name="competition_level[]">
+                                                <option value="">Select</option>
+                                                <option value="local">Local</option>
+                                                <option value="regional">Regional</option>
+                                                <option value="national">National</option>
+                                                <option value="international">International</option>
+                                            </select>
+                                        </td>
+                                        <td><input type="text" name="competition_rank[]"></td>
+                                        <td>-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button type="button" class="add-row-btn" onclick="addCompetitionRow()">+ Add Row</button>
                         </div>
                     </div>
 
                     <!-- Affiliation Section -->
                     <div class="form-section">
-                        <h3 class="section-title">IV. AFFILIATION TO ORGANIZATIONS</h3>
+                        <h3 class="section-title">V. AFFILIATION TO ORGANIZATIONS</h3>
                         <div class="table-section">
                             <table class="affiliation-table">
                                 <thead>
@@ -1632,7 +1784,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     </tr>
                                 </tbody>
                             </table>
-                            <button type="button" class="add-row-btn" onclick="addAffiliationRow()">Add Row</button>
+                            <button type="button" class="add-row-btn" onclick="addAffiliationRow()">+ Add Row</button>
                         </div>
                     </div>
 
@@ -1688,6 +1840,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     console.log('Form element found:', this.form);
                     
                     this.participationTable = document.querySelector('.participation-table tbody');
+                    this.competitionTable = document.querySelector('.competition-table tbody');
                     this.affiliationTable = document.querySelector('.affiliation-table tbody');
                     this.submitBtn = document.querySelector('.submit-btn');
                     this.cancelBtn = document.querySelector('.cancel-btn');
@@ -1711,7 +1864,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             'College of Engineering',
                             'College of Architecture, Fine Arts and Design',
                             'College of Engineering Technology',
-                            'College of Informatics and Computing Sciences'
+                            'College of Informatics and Computing Sciences',
+                            'Lobo Campus',
+                            'Balayan Campus',
+                            'Mabini Campus'
                         ],
                         'JPLPC Malvar': [
                             'College of Industrial Technology',
@@ -2244,6 +2400,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 tbody.appendChild(row);
             }
 
+            addCompetitionRow() {
+                const tbody = this.competitionTable;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><input type="date" name="competition_date[]"></td>
+                    <td><input type="text" name="competition_event[]"></td>
+                    <td>
+                        <select name="competition_level[]">
+                            <option value="">Select</option>
+                            <option value="local">Local</option>
+                            <option value="regional">Regional</option>
+                            <option value="national">National</option>
+                            <option value="international">International</option>
+                        </select>
+                    </td>
+                    <td><input type="text" name="competition_rank[]"></td>
+                    <td><button type="button" class="remove-row-btn" onclick="removeCompetitionRow(this)" title="Remove row">−</button></td>
+                `;
+                
+                tbody.appendChild(row);
+            }
+
             addAffiliationRow() {
                 const tbody = this.affiliationTable;
                 
@@ -2321,7 +2500,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             validateNameField(field) {
                 const value = field.value.trim();
-                const nameRegex = /^[a-zA-Z\s.'\-]*$/; // Allow letters, spaces, periods, apostrophes, and hyphens
+                const nameRegex = /^[a-zA-ZÑñ\s.'\-]*$/; // Allow letters, spaces, periods, apostrophes, hyphens, and enye
                 
                 if (value && !nameRegex.test(value)) {
                     this.showFieldError(field, 'Name should only contain letters, spaces, and common punctuation (. \' -).');
@@ -2965,13 +3144,74 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
 
+        function addCompetitionRow() {
+            if (window.performerForm && window.performerForm.addCompetitionRow) {
+                window.performerForm.addCompetitionRow();
+            }
+        }
+
         function addAffiliationRow() {
             if (window.performerForm && window.performerForm.addAffiliationRow) {
                 window.performerForm.addAffiliationRow();
             }
         }
 
+        function addInstructor() {
+            const instructorsList = document.getElementById('instructorsList');
+            const instructorItem = document.createElement('div');
+            instructorItem.className = 'instructor-item';
+            instructorItem.innerHTML = `
+                <input type="text" name="instructors[]" placeholder="Instructor Name" class="instructor-input">
+                <button type="button" class="remove-instructor-btn" onclick="removeInstructor(this)">Remove</button>
+            `;
+            instructorsList.appendChild(instructorItem);
+            
+            // Show remove button on all items except the first one
+            updateInstructorRemoveButtons();
+        }
+
+        function removeInstructor(button) {
+            const instructorsList = document.getElementById('instructorsList');
+            const instructorItem = button.closest('.instructor-item');
+            
+            // Don't allow removal if this is the only item
+            if (instructorsList.children.length <= 1) {
+                return;
+            }
+            
+            instructorItem.remove();
+            
+            // Update remove button visibility
+            updateInstructorRemoveButtons();
+        }
+
+        function updateInstructorRemoveButtons() {
+            const instructorsList = document.getElementById('instructorsList');
+            const items = instructorsList.querySelectorAll('.instructor-item');
+            
+            items.forEach((item, index) => {
+                const removeBtn = item.querySelector('.remove-instructor-btn');
+                if (items.length > 1) {
+                    removeBtn.style.display = 'inline-block';
+                } else {
+                    removeBtn.style.display = 'none';
+                }
+            });
+        }
+
         function removeParticipationRow(button) {
+            const row = button.closest('tr');
+            const tbody = row.parentNode;
+            
+            // Don't allow removal if this is the only row or the first row
+            if (tbody.children.length <= 1 || row === tbody.firstElementChild) {
+                return;
+            }
+            
+            row.remove();
+        }
+
+        function removeCompetitionRow(button) {
             const row = button.closest('tr');
             const tbody = row.parentNode;
             

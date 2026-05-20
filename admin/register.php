@@ -422,9 +422,7 @@
                         <select id="role" name="role" class="form-select" required>
                             <option value="">Select your role</option>
                             <option value="student">Student</option>
-                            <option value="staff">Staff</option>
                             <option value="head">Head</option>
-                            <option value="central">Central</option>
                         </select>
                         <span class="error-message" id="roleError"></span>
                     </div>

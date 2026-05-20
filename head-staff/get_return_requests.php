@@ -9,7 +9,7 @@ header('Content-Type: application/json');
 
 try {
     // Check authentication
-    if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+    if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'Unauthorized access. Please login.']);
         exit;
@@ -20,9 +20,7 @@ try {
     $user_email = $_SESSION['user_email'] ?? '';
     $user_campus = $_SESSION['user_campus'] ?? null;
 
-    $centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-    $isCentralHead = in_array($user_email, $centralHeadEmails);
-    $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+    $canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 
     $pdo = getDBConnection();
 
@@ -81,6 +79,7 @@ try {
             rr.item_id,
             rr.item_name,
             rr.item_category,
+            rr.quantity_returned,
             rr.return_condition,
             rr.condition_notes,
             rr.status,

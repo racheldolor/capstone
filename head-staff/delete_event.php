@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -14,9 +14,7 @@ $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
 $user_campus = $_SESSION['user_campus'] ?? null;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
-$canManage = !$isCentralHead;
+$canManage = true;
 
 // Check write permission
 if (!$canManage) {
@@ -54,7 +52,7 @@ try {
     }
     
     // Verify campus access for campus-specific users
-    if ($user_role !== 'admin' && $user_role !== 'central') {
+    if ($user_role !== 'admin') {
         if ($user_campus && $event['venue'] !== $user_campus) {
             echo json_encode(['success' => false, 'message' => 'You do not have permission to delete this event']);
             exit;

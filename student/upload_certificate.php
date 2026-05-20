@@ -44,11 +44,13 @@ try {
     
     // Check file type
     $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    $allowed_extensions = ['jpg', 'jpeg', 'png', 'pdf'];
+    $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mime_type = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
     
-    if (!in_array($mime_type, $allowed_types)) {
+    if (!in_array($mime_type, $allowed_types) && !in_array($file_extension, $allowed_extensions)) {
         echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, and PDF files are allowed']);
         exit();
     }

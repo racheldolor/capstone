@@ -37,10 +37,10 @@ try {
     // Process condition notes
     $condition_notes = [];
     $has_damage = false;
-    if (in_array('good_condition', $condition)) {
+    if ($condition === 'good_condition') {
         $condition_notes[] = 'Properties returned in good condition';
     }
-    if (in_array('with_damage', $condition)) {
+    if ($condition === 'with_damage') {
         $condition_notes[] = 'Properties returned with damage';
         $has_damage = true;
     }

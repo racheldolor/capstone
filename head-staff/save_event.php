@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -14,9 +14,7 @@ $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
 $user_campus = $_SESSION['user_campus'] ?? null;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
-$canManage = !$isCentralHead;
+$canManage = true;
 
 // Check write permission
 if (!$canManage) {
@@ -44,9 +42,9 @@ try {
     $category = $_POST['category'] ?? '';
     $cultural_groups = isset($_POST['cultural_groups']) && is_array($_POST['cultural_groups']) ? $_POST['cultural_groups'] : [];
     
-    // Auto-set campus for non-Pablo Borbon users (staff, head, central)
+    // Auto-set campus for non-Pablo Borbon users (head)
     // Only Pablo Borbon users and admin can choose campus
-    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff', 'central'])));
+    $canChooseCampus = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
     if (!$canChooseCampus && $user_campus) {
         $campus = $user_campus;
     }
@@ -88,6 +86,37 @@ try {
     
     if ($result) {
         $event_id = $pdo->lastInsertId();
+        
+        // Auto-create announcement when director creates an event
+        if ($user_role === 'director') {
+            try {
+                $announcement_title = "New Event: " . $title;
+                $announcement_content = $description . "\n\nEvent Details:\n";
+                $announcement_content .= "Date: " . date('F j, Y', strtotime($start_date));
+                if ($start_date !== $end_date) {
+                    $announcement_content .= " - " . date('F j, Y', strtotime($end_date));
+                }
+                $announcement_content .= "\nLocation: " . $location;
+                $announcement_content .= "\nCategory: " . $category;
+                
+                $announcement_stmt = $pdo->prepare("
+                    INSERT INTO announcements 
+                    (title, content, target_audience, target_campus, target_cultural_group, publish_date, priority, is_pinned, is_published, is_active, created_by) 
+                    VALUES (?, ?, 'students', ?, ?, NOW(), 'medium', 0, 1, 1, ?)
+                ");
+                
+                $announcement_stmt->execute([
+                    $announcement_title,
+                    $announcement_content,
+                    $campus,
+                    $cultural_groups_json,
+                    $_SESSION['user_id'] ?? null
+                ]);
+            } catch (Exception $e) {
+                error_log("Error creating announcement for event: " . $e->getMessage());
+                // Don't fail the event creation if announcement fails
+            }
+        }
         
         echo json_encode([
             'success' => true, 

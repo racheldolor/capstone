@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Check if user is authenticated
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin', 'director'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -28,9 +28,7 @@ $campus_name_map = [
 ];
 $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head') || $user_role === 'director');
 
 try {
     $pdo = getDBConnection();
@@ -72,9 +70,11 @@ try {
     // Apply status filter
     if (!empty($status_filter)) {
         if ($status_filter === 'active') {
-            $where_conditions[] = "status IN ('published', 'ongoing')";
+            // Active events: published/ongoing AND not past their end date
+            $where_conditions[] = "status IN ('published', 'ongoing') AND end_date >= CURDATE()";
         } elseif ($status_filter === 'completed') {
-            $where_conditions[] = "status = 'completed'";
+            // Completed events: marked as completed OR past their end date
+            $where_conditions[] = "(status = 'completed' OR end_date < CURDATE())";
         } elseif ($status_filter === 'cancelled') {
             $where_conditions[] = "status = 'cancelled'";
         } else {
@@ -125,6 +125,7 @@ try {
             cultural_groups,
             event_poster,
             status,
+            campus,
             created_at
         FROM events 
         WHERE $where_clause

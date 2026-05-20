@@ -66,8 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     }
                 } else {
                     // For other roles, insert into users table (with campus)
+                    // Directors don't need a specific campus - they have access to all
+                    $campus_value = ($role === 'director') ? null : $campus;
                     $stmt = $pdo->prepare("INSERT INTO users (first_name, middle_name, last_name, email, password, role, campus) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    if (!$stmt->execute([$first_name, $middle_name, $last_name, $email, $password, $role, $campus])) {
+                    if (!$stmt->execute([$first_name, $middle_name, $last_name, $email, $password, $role, $campus_value])) {
                         throw new Exception("Failed to insert into users table: " . implode(", ", $stmt->errorInfo()));
                     }
                 }
@@ -245,6 +247,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $role = $_POST['role'] ?? null;
                 $campus = !empty($_POST['campus']) ? trim($_POST['campus']) : null;
                 
+                // Debug logging
+                error_log("UPDATE USER - ID: $user_id, Role: $role, Campus: $campus, Source: $source_table");
+                
                 if ($source_table === 'student_artists') {
                     // Update student_artists table (no role field)
                     if (!empty($_POST['password'])) {
@@ -257,14 +262,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     }
                 } else {
                     // Update users table (has role and campus fields)
+                    // Directors don't need a specific campus - they have access to all
+                    $campus_value = ($role === 'director') ? null : $campus;
+                    
+                    error_log("=== UPDATE USER DEBUG ===");
+                    error_log("User ID: $user_id (type: " . gettype($user_id) . ")");
+                    error_log("Role: '$role' (type: " . gettype($role) . ", length: " . strlen($role) . ")");
+                    error_log("Campus value: '" . ($campus_value === null ? 'NULL' : $campus_value) . "'");
+                    
                     if (!empty($_POST['password'])) {
                         $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                        $stmt = $pdo->prepare("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ?, campus = ?, password = ? WHERE id = ?");
-                        $stmt->execute([$first_name, $middle_name, $last_name, $email, $role, $campus, $password, $user_id]);
+                        $sql = "UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ?, campus = ?, password = ? WHERE id = ?";
+                        $params = [$first_name, $middle_name, $last_name, $email, $role, $campus_value, $password, $user_id];
+                        error_log("SQL: $sql");
+                        error_log("Params: " . json_encode($params));
+                        $stmt = $pdo->prepare($sql);
+                        $result = $stmt->execute($params);
+                        error_log("Result: " . ($result ? 'SUCCESS' : 'FAILED') . ", Rows affected: " . $stmt->rowCount());
                     } else {
-                        $stmt = $pdo->prepare("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ?, campus = ? WHERE id = ?");
-                        $stmt->execute([$first_name, $middle_name, $last_name, $email, $role, $campus, $user_id]);
+                        $sql = "UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, email = ?, role = ?, campus = ? WHERE id = ?";
+                        $params = [$first_name, $middle_name, $last_name, $email, $role, $campus_value, $user_id];
+                        error_log("SQL: $sql");
+                        error_log("Params: " . json_encode($params));
+                        $stmt = $pdo->prepare($sql);
+                        $result = $stmt->execute($params);
+                        error_log("Result: " . ($result ? 'SUCCESS' : 'FAILED') . ", Rows affected: " . $stmt->rowCount());
+                        if ($stmt->rowCount() === 0) {
+                            error_log("ERROR: No rows were updated!");
+                            $errorInfo = $stmt->errorInfo();
+                            error_log("PDO Error Info: " . json_encode($errorInfo));
+                        }
                     }
+                    
+                    // Verify the update
+                    $verify = $pdo->prepare("SELECT id, role, campus FROM users WHERE id = ?");
+                    $verify->execute([$user_id]);
+                    $updated = $verify->fetch(PDO::FETCH_ASSOC);
+                    error_log("After UPDATE - DB record: " . json_encode($updated));
+                    
+                    // Try a direct UPDATE as a test
+                    error_log("Attempting direct UPDATE query...");
+                    $directUpdate = $pdo->exec("UPDATE users SET role = 'director' WHERE id = 3");
+                    error_log("Direct UPDATE affected rows: " . $directUpdate);
+                    
+                    // Check again
+                    $verify2 = $pdo->prepare("SELECT id, role, campus FROM users WHERE id = ?");
+                    $verify2->execute([$user_id]);
+                    $updated2 = $verify2->fetch(PDO::FETCH_ASSOC);
+                    error_log("After direct UPDATE - DB record: " . json_encode($updated2));
+                    
+                    error_log("=== END DEBUG ===");
                 }
                 
                 logAdminAction($pdo, $_SESSION['admin_id'], 'USER_UPDATE', $user_id, "Updated user: $email from table: $source_table");
@@ -1004,19 +1051,14 @@ ob_end_clean();
             color: white;
         }
 
-        .role-central {
-            background: #6f42c1;
+        .role-director {
+            background: #ff6b6b;
             color: white;
         }
 
         .role-student {
             background: #28a745;
             color: white;
-        }
-
-        .role-staff {
-            background: #ffc107;
-            color: #333;
         }
 
         /* Status Badges */
@@ -1442,12 +1484,12 @@ ob_end_clean();
                         <div class="search-filters">
                             <form method="GET" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
                                 <input type="hidden" name="tab" value="staffs">
-                                <input type="text" name="search" placeholder="Search staff..." class="search-input" value="<?= htmlspecialchars($search) ?>">
+                                <input type="text" name="search" placeholder="Search users..." class="search-input" value="<?= htmlspecialchars($search) ?>">
                                 <button type="submit" class="search-btn">🔍</button>
                             </form>
                         </div>
 
-                        <!-- Staff Users Table -->
+                        <!-- System Users Table -->
                         <div class="table-container">
                             <table class="users-table">
                                 <thead>
@@ -1465,9 +1507,9 @@ ob_end_clean();
                                         <tr>
                                             <td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
                                                 <?php if (!empty($search)): ?>
-                                                    No staff found matching your criteria.
+                                                    No users found matching your criteria.
                                                 <?php else: ?>
-                                                    No staff found. Click "Add New User" to create the first user.
+                                                    No users found. Click "Add New User" to create the first user.
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -1478,9 +1520,15 @@ ob_end_clean();
                                                 <td><?= htmlspecialchars(trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'] . ' ' : '') . $user['last_name'])) ?></td>
                                                 <td><?= htmlspecialchars($user['email']) ?></td>
                                                 <td>
-                                                    <span class="role-badge role-<?= $user['role'] ?>">
-                                                        <?= strtoupper($user['role']) ?>
-                                                    </span>
+                                                    <?php if (!empty($user['role'])): ?>
+                                                        <span class="role-badge role-<?= $user['role'] ?>">
+                                                            <?= strtoupper($user['role']) ?>
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span class="role-badge" style="background: #dc3545; color: white;">
+                                                            NO ROLE
+                                                        </span>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td>
                                                     <span class="status-badge status-<?= $user['status'] ?>">
@@ -1806,12 +1854,12 @@ ob_end_clean();
                         <label for="role">Role *</label>
                         <select id="role" name="role" required onchange="toggleSrCodeField()">
                             <option value="">Select Role</option>
+                            <option value="director">Director</option>
                             <option value="head">Head</option>
                             <option value="student">Student</option>
-                            <option value="staff">Staff</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="campusGroup">
                         <label for="campus">Campus *</label>
                         <select id="campus" name="campus" required>
                             <option value="">Select Campus</option>
@@ -1874,13 +1922,13 @@ ob_end_clean();
                     </div>
                     <div class="form-group">
                         <label for="editRole">Role *</label>
-                        <select id="editRole" name="role" required>
+                        <select id="editRole" name="role" required onchange="toggleEditCampusField()">
                             <option value="">Select Role</option>
                             <option value="head">Head</option>
-                            <option value="staff">Staff</option>
+                            <option value="director">Director</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="editCampusGroup">
                         <label for="editCampus">Campus *</label>
                         <select id="editCampus" name="campus" required>
                             <option value="">Select Campus</option>
@@ -2066,6 +2114,10 @@ ob_end_clean();
                 if (data.success) {
                     const user = data.user;
                     
+                    // Debug: Log the user data
+                    console.log('Edit User Data:', user);
+                    console.log('Role value:', user.role);
+                    
                     // Populate edit form
                     document.getElementById('editUserId').value = user.id;
                     document.getElementById('editSourceTable').value = sourceTable;
@@ -2073,10 +2125,13 @@ ob_end_clean();
                     document.getElementById('editMiddleName').value = user.middle_name || '';
                     document.getElementById('editLastName').value = user.last_name;
                     document.getElementById('editEmail').value = user.email;
-                    document.getElementById('editRole').value = user.role;
+                    document.getElementById('editRole').value = user.role || '';
                     document.getElementById('editCampus').value = user.campus || '';
                     document.getElementById('editPassword').value = '';
                     document.getElementById('editConfirmPassword').value = '';
+                    
+                    // Toggle campus field visibility based on role
+                    toggleEditCampusField();
                     
                     openEditModal();
                 } else {
@@ -2094,6 +2149,13 @@ ob_end_clean();
             
             const formData = new FormData(event.target);
             formData.append('action', 'update_user');
+            
+            // Debug: Log form data
+            console.log('=== UPDATE USER FORM DATA ===');
+            for (let [key, value] of formData.entries()) {
+                console.log(key + ': ' + value);
+            }
+            console.log('=== END FORM DATA ===');
             
             // Validate password match if password is provided
             const password = formData.get('password');
@@ -2306,14 +2368,43 @@ ob_end_clean();
             const role = document.getElementById('role').value;
             const srCodeGroup = document.getElementById('srCodeGroup');
             const srCodeInput = document.getElementById('srCode');
+            const campusGroup = document.getElementById('campusGroup');
+            const campusInput = document.getElementById('campus');
             
             if (role === 'student') {
                 srCodeGroup.style.display = 'block';
                 srCodeInput.required = true;
+                campusGroup.style.display = 'none';
+                campusInput.required = false;
+                campusInput.value = '';
+            } else if (role === 'director') {
+                srCodeGroup.style.display = 'none';
+                srCodeInput.required = false;
+                srCodeInput.value = '';
+                campusGroup.style.display = 'none';
+                campusInput.required = false;
+                campusInput.value = '';
             } else {
                 srCodeGroup.style.display = 'none';
                 srCodeInput.required = false;
                 srCodeInput.value = '';
+                campusGroup.style.display = 'block';
+                campusInput.required = true;
+            }
+        }
+
+        function toggleEditCampusField() {
+            const role = document.getElementById('editRole').value;
+            const campusGroup = document.getElementById('editCampusGroup');
+            const campusInput = document.getElementById('editCampus');
+            
+            if (role === 'director') {
+                campusGroup.style.display = 'none';
+                campusInput.required = false;
+                campusInput.value = '';
+            } else {
+                campusGroup.style.display = 'block';
+                campusInput.required = true;
             }
         }
 

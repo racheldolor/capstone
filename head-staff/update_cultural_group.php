@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'head') {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
 }
@@ -52,12 +52,20 @@ try {
         $pdo->exec("ALTER TABLE student_artists ADD COLUMN cultural_group VARCHAR(100) DEFAULT NULL");
     }
     
-    // Check student status first
-    $statusStmt = $pdo->prepare("SELECT status FROM student_artists WHERE id = ?");
+    // Check student status and existence first
+    $statusStmt = $pdo->prepare("SELECT id, status FROM student_artists WHERE id = ?");
     $statusStmt->execute([$student_id]);
-    $studentStatus = $statusStmt->fetchColumn();
+    $student = $statusStmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($studentStatus === 'suspended') {
+    if (!$student) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Student not found'
+        ]);
+        exit();
+    }
+    
+    if ($student['status'] === 'suspended') {
         echo json_encode([
             'success' => false, 
             'message' => 'Cannot update cultural group assignment - student account is suspended'
@@ -73,17 +81,11 @@ try {
     ");
     $stmt->execute([$cultural_group ?: null, $student_id]);
     
-    if ($stmt->rowCount() > 0) {
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Cultural group assignment updated successfully'
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Student not found or no changes made'
-        ]);
-    }
+    // If student exists and is active, return success regardless of whether rows were affected
+    echo json_encode([
+        'success' => true, 
+        'message' => 'Cultural group assignment updated successfully'
+    ]);
     
 } catch (Exception $e) {
     echo json_encode([

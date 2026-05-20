@@ -10,7 +10,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 try {
     // Check if user is logged in and has proper role
-    if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+    if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'head') {
         throw new Exception('Unauthorized access');
     }
 

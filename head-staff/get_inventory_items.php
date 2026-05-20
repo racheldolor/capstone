@@ -10,7 +10,7 @@ error_reporting(0);
 session_start();
 
 // Check if user is logged in and is admin (head or staff)
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin', 'director'])) {
     ob_clean();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
@@ -36,9 +36,7 @@ $campus_name_map = [
 ];
 $user_campus = $campus_name_map[$user_campus_raw] ?? $user_campus_raw;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 
 // Build campus filter with support for both short and full campus names
 $campusFilter = '';

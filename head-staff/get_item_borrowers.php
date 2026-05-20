@@ -4,7 +4,7 @@ header('Content-Type: application/json');
 
 try {
     // Check if user is logged in
-    if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+    if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin', 'director'])) {
         throw new Exception('Unauthorized access');
     }
 

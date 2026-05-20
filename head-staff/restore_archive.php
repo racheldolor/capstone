@@ -3,8 +3,8 @@ session_start();
 header('Content-Type: application/json');
 require_once '../config/database.php';
 
-// Check authentication - Only heads and staff
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff'])) {
+// Check authentication - Only heads
+if (!isset($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'head') {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit();

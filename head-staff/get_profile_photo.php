@@ -2,7 +2,7 @@
 session_start();
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin'])) {
     http_response_code(401);
     exit('Unauthorized');
 }

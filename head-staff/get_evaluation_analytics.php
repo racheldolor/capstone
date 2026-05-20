@@ -5,7 +5,7 @@ require_once '../config/database.php';
 header('Content-Type: application/json');
 
 // Authentication check
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'staff', 'central', 'admin'])) {
+if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['user_role'], ['head', 'admin', 'director'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
 }
@@ -15,9 +15,7 @@ $user_role = $_SESSION['user_role'];
 $user_email = $_SESSION['user_email'];
 $user_campus = $_SESSION['user_campus'] ?? null;
 
-$centralHeadEmails = ['mark.central@g.batstate-u.edu.ph'];
-$isCentralHead = in_array($user_email, $centralHeadEmails);
-$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && in_array($user_role, ['head', 'staff'])));
+$canViewAll = ($user_role === 'admin' || ($user_campus === 'Pablo Borbon' && $user_role === 'head'));
 
 try {
     $pdo = getDBConnection();
@@ -104,7 +102,7 @@ try {
     echo json_encode(['success' => false, 'message' => 'Error loading evaluation analytics: ' . $e->getMessage()]);
 }
 
-function calculateStatistics($evaluations, $pdo, $eventId = null) {
+function calculateStatistics(array $evaluations, \PDO $pdo, ?int $eventId = null): array {
     $totalEvaluations = count($evaluations);
     
     if ($totalEvaluations === 0) {
@@ -186,7 +184,7 @@ function calculateStatistics($evaluations, $pdo, $eventId = null) {
     ];
 }
 
-function getRatingDistribution($evaluations) {
+function getRatingDistribution(array $evaluations): array {
     $distribution = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
     
     foreach ($evaluations as $evaluation) {
@@ -212,7 +210,7 @@ function getRatingDistribution($evaluations) {
     return $result;
 }
 
-function getQuestionScores($evaluations) {
+function getQuestionScores(array $evaluations): array {
     $questions = [
         'q1' => 'Overall rating of seminar/training',
         'q2' => 'Appropriateness of time and resources',
@@ -253,7 +251,7 @@ function getQuestionScores($evaluations) {
     return $questionScores;
 }
 
-function getTrendsData($evaluations) {
+function getTrendsData(array $evaluations): array {
     if (empty($evaluations)) {
         return [];
     }
@@ -308,7 +306,7 @@ function getTrendsData($evaluations) {
     return $trends;
 }
 
-function generateInsights($evaluations, $statistics) {
+function generateInsights(array $evaluations, array $statistics): ?array {
     // Return null if no evaluations exist
     if (empty($evaluations) || $statistics['total_evaluations'] === 0) {
         return null;
@@ -370,7 +368,7 @@ function generateInsights($evaluations, $statistics) {
     return $insights;
 }
 
-function getCommentsAnalysis($evaluations) {
+function getCommentsAnalysis(array $evaluations): array {
     $positiveComments = [];
     $improvementComments = [];
     $allComments = [];
@@ -474,7 +472,7 @@ function getCommentsAnalysis($evaluations) {
     ];
 }
 
-function calculateCommentRating($evaluation) {
+function calculateCommentRating(array $evaluation): float {
     $ratings = [
         $evaluation['q1_rating'], $evaluation['q2_rating'], $evaluation['q3_rating'],
         $evaluation['q4_rating'], $evaluation['q5_rating'], $evaluation['q6_rating'],
