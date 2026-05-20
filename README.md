@@ -1,6 +1,6 @@
 # Capstone Culture and Arts Management System
 
-A PHP + MySQL web system for managing campus culture and arts operations. It covers student artist applications, events and participation, announcements, inventory and borrowing, and role-based dashboards for administrators, heads, directors, and students.
+A PHP + MySQL web system for managing campus culture and arts operations. It covers student artist applications, events and participation, announcements, inventory and borrowing, and role-based dashboards for administrators, heads, director, and students.
 
 ## Roles and Portals
 - Admin: full system management and user administration.
